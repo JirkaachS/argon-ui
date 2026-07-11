@@ -23,6 +23,12 @@ local Argon = loadstring(game:HttpGet(
 - Orion-style section grouping for large feature sets.
 - WindUI-inspired glass surfaces, spacious controls, search, gradients, and motion.
 - MacLib-inspired compact navigation, pill states, restrained window chrome, and responsive collapse.
+- Code-native Lucide-style navigation icons with no operating-system glyph fallback.
+- Drag-resizable windows with a viewport-aware `560 x 400` minimum size.
+- A `SECTIONS` navigator for direct jumps inside long tabs.
+- Clipped and truncated control content so long keys and webhook URLs stay contained.
+
+![Argon UI logo](argon-ui-logo.svg)
 
 ## Supported API
 
@@ -31,6 +37,7 @@ local Argon = loadstring(game:HttpGet(
 - `CreateInput`, `CreateKeybind`, and `CreateLabel`
 - Element `Set` methods and dropdown `Refresh`
 - `Notify`, `SaveConfiguration`, `LoadConfiguration`, and `Destroy`
+- `Window:SetLogo`, `Window:SetTheme`, and `Window:SetTitle`
 - `Rayfield.Flags` compatibility for live profile resets
 - Runtime themes, modal dialogs, descriptions, tooltips, locked states, and element visibility
 - `CreateColorPicker`, `CreateParagraph`, `CreateDivider`, and `CreateSpace`
@@ -52,6 +59,7 @@ Open `argon-ui-preview.html` in any modern browser to preview the visual system 
 local Window = Argon:CreateWindow({
     Name = "Argon Utility",
     Theme = "Midnight",
+    Logo = "rbxassetid://YOUR_LOGO_ASSET_ID",
 })
 
 local Tab = Window:CreateTab("Settings", "settings")
@@ -86,6 +94,9 @@ Window:Dialog({
         { Title = "Save", Variant = "Primary", Callback = function() end },
     },
 })
+
+-- Replace the logo at runtime with an asset ID or Roblox image URI.
+Window:SetLogo("rbxassetid://YOUR_OTHER_LOGO_ASSET_ID")
 ```
 
 Built-in themes are `Argon`, `Amethyst`, `Midnight`, `Emerald`, and `Rose`. Add custom palettes with `Argon:AddTheme(name, palette)` and apply them using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.

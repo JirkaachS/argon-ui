@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Argon UI logo</title>
+  <desc id="desc">A geometric letter A formed from violet and cyan crystalline strokes.</desc>
+  <defs>
+    <linearGradient id="shell" x1="32" y1="28" x2="224" y2="228" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C8B6FF"/>
+      <stop offset="0.48" stop-color="#956BFF"/>
+      <stop offset="1" stop-color="#39D7FF"/>
+    </linearGradient>
+    <linearGradient id="core" x1="92" y1="89" x2="166" y2="178" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F5F0FF"/>
+      <stop offset="1" stop-color="#8CEBFF"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feColorMatrix in="blur" values="1 0 0 0 0.29 0 1 0 0 0.12 0 0 1 0 0.65 0 0 0 .48 0"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path d="M128 18 229 74v108l-101 56L27 182V74L128 18Z" fill="#0D1018" stroke="url(#shell)" stroke-width="8"/>
+  <path d="m128 53 72 40v70l-72 40-72-40V93l72-40Z" fill="none" stroke="#FFFFFF" stroke-opacity=".08" stroke-width="3"/>
+  <g filter="url(#glow)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m76 177 52-104 52 104" stroke="url(#shell)" stroke-width="22"/>
+    <path d="M98 143h60" stroke="url(#core)" stroke-width="18"/>
+  </g>
+  <circle cx="128" cy="73" r="7" fill="#F6F1FF"/>
+</svg>

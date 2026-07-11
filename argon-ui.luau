@@ -7,7 +7,7 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Argon = {Flags={},Version="1.1.1",_connections={},_windows={},_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon"}
+local Argon = {Flags={},Version="1.2.0",_connections={},_windows={},_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon"}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -29,7 +29,18 @@ for key,value in pairs(C) do Argon.Themes.Argon[key]=value end
 Argon.Themes.Amethyst={}
 for key,value in pairs(C) do Argon.Themes.Amethyst[key]=value end
 
-local ICONS={activity="◈",swords="⚔",zap="ϟ",move="➤",shirt="◇",pickaxe="◆",["radio-tower"]="⌁",eye="◉",["map-pin"]="⌖",settings="⚙"}
+local ICONS={
+    activity={{{3,12},{7,12},{10,4},{14,20},{17,12},{21,12}}},
+    swords={{{4,3},{20,19}},{{14,3},{21,3},{21,10}},{{3,14},{10,21}},{{3,21},{7,17}},{{17,21},{21,17}}},
+    zap={{{13,2},{4,14},{11,14},{10,22},{20,9},{13,9},{13,2}}},
+    move={{{12,3},{12,21}},{{8,7},{12,3},{16,7}},{{8,17},{12,21},{16,17}},{{3,12},{21,12}},{{7,8},{3,12},{7,16}},{{17,8},{21,12},{17,16}}},
+    shirt={{{8,4},{4,6},{2,11},{6,13},{6,22},{18,22},{18,13},{22,11},{20,6},{16,4},{14,7},{10,7},{8,4}}},
+    pickaxe={{{14,4},{20,10}},{{17,3},{21,7}},{{16,8},{5,19}},{{3,21},{7,17}}},
+    ["radio-tower"]={{{12,10},{12,22}},{{8,22},{16,22}},{{9,14},{12,10},{15,14}},{{7,8},{4,11},{4,15},{7,18}},{{17,8},{20,11},{20,15},{17,18}},{{4,5},{1,9},{1,17},{4,21}},{{20,5},{23,9},{23,17},{20,21}}},
+    eye={{{2,12},{5,8},{9,6},{12,6},{15,6},{19,8},{22,12},{19,16},{15,18},{12,18},{9,18},{5,16},{2,12}}},
+    ["map-pin"]={{{12,22},{7,16},{5,12},{5,8},{7,4},{10,2},{14,2},{17,4},{19,8},{19,12},{17,16},{12,22}},{{9,9},{10,7},{12,6},{14,7},{15,9},{14,11},{12,12},{10,11},{9,9}}},
+    settings={{{12,3},{12,6}},{{12,18},{12,21}},{{3,12},{6,12}},{{18,12},{21,12}},{{5.5,5.5},{7.7,7.7}},{{16.3,16.3},{18.5,18.5}},{{18.5,5.5},{16.3,7.7}},{{7.7,16.3},{5.5,18.5}},{{8,12},{9,9},{12,8},{15,9},{16,12},{15,15},{12,16},{9,15},{8,12}}},
+}
 
 local function safeCall(callback,...)
     if type(callback)~="function" then return end
@@ -64,6 +75,45 @@ end
 
 local function gradient(parent,first,second,rotation)
     return create("UIGradient",{Color=ColorSequence.new(first,second),Rotation=rotation or 0,Parent=parent})
+end
+
+local function iconLine(parent,firstPoint,secondPoint,color,thickness)
+    local delta=Vector2.new(secondPoint[1]-firstPoint[1],secondPoint[2]-firstPoint[2])
+    local center=Vector2.new((firstPoint[1]+secondPoint[1])/2,(firstPoint[2]+secondPoint[2])/2)
+    local line=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=color,BorderSizePixel=0,Position=UDim2.fromScale(center.X/24,center.Y/24),Rotation=math.deg(math.atan2(delta.Y,delta.X)),Size=UDim2.new(math.sqrt(delta.X*delta.X+delta.Y*delta.Y)/24,0,0,thickness or 1.7),Parent=parent})
+    corner(line,2)
+    return line
+end
+
+local function drawIcon(parent,name,color)
+    local holder=create("Frame",{Name="LucideIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(18,18),Parent=parent})
+    for _,polyline in ipairs(ICONS[tostring(name)] or ICONS.activity) do
+        for index=1,#polyline-1 do iconLine(holder,polyline[index],polyline[index+1],color,1.65) end
+    end
+    return holder
+end
+
+local function recolorIcon(holder,color)
+    if not holder then return end
+    for _,child in ipairs(holder:GetChildren()) do if child:IsA("Frame") then child.BackgroundColor3=color end end
+end
+
+local function mountLogo(parent,size,logoValue,zIndex)
+    local holder=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.fromOffset(size,size),ZIndex=zIndex or 1,Parent=parent})
+    corner(holder,math.floor(size*.29)) gradient(holder,C.AccentLight,C.AccentDark,135)
+    local image=create("ImageLabel",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(.72,.72),ScaleType=Enum.ScaleType.Fit,Visible=false,ZIndex=(zIndex or 1)+1,Parent=holder})
+    local mark=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(.7,.7),ZIndex=(zIndex or 1)+1,Parent=holder})
+    iconLine(mark,{5,19},{12,3},Color3.new(1,1,1),math.max(2,size*.075))
+    iconLine(mark,{12,3},{19,19},Color3.new(1,1,1),math.max(2,size*.075))
+    iconLine(mark,{8,14},{16,14},Color3.new(1,1,1),math.max(2,size*.075))
+    local function setLogo(value)
+        local source=tostring(value or "")
+        if tonumber(value) then source="rbxassetid://"..tostring(value) end
+        local custom=source:match("^rbxassetid://") or source:match("^rbxthumb://")
+        image.Image=custom and source or "" image.Visible=custom and true or false mark.Visible=not custom
+    end
+    setLogo(logoValue)
+    return holder,setLogo
 end
 
 local function tween(object,duration,props,style,direction)
@@ -243,10 +293,13 @@ function Argon:Notify(options)
     local toast=create("Frame",{BackgroundColor3=C.Window,BackgroundTransparency=.03,BorderSizePixel=0,Size=UDim2.fromOffset(338,0),ClipsDescendants=true,ZIndex=100,Parent=window.Notifications})
     corner(toast,13) stroke(toast,C.Border,.12,1)
     local bar=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Size=UDim2.fromOffset(3,86),ZIndex=101,Parent=toast}) corner(bar,3)
-    local icon=create("TextLabel",{BackgroundColor3=accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.fromOffset(15,16),Size=UDim2.fromOffset(34,34),Text="◈",TextColor3=accent,TextSize=17,Font=Enum.Font.GothamBold,ZIndex=101,Parent=toast}) corner(icon,10)
+    local icon=create("Frame",{BackgroundColor3=accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.fromOffset(15,16),Size=UDim2.fromOffset(34,34),ZIndex=101,Parent=toast}) corner(icon,10)
+    local toastIcon=drawIcon(icon,"activity",accent) toastIcon.Size=UDim2.fromOffset(17,17)
     text(toast,titleValue,13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(60,13),Size=UDim2.new(1,-84,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=101})
     text(toast,body,12,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(60,35),Size=UDim2.new(1,-78,0,39),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101})
-    local close=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Position=UDim2.new(1,-27,0,9),Size=UDim2.fromOffset(18,18),Text="×",TextColor3=C.Dim,TextSize=18,Font=Enum.Font.Gotham,ZIndex=102,Parent=toast})
+    local close=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Position=UDim2.new(1,-27,0,9),Size=UDim2.fromOffset(18,18),Text="",ZIndex=102,Parent=toast})
+    local closeIcon=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(13,13),ZIndex=103,Parent=close})
+    iconLine(closeIcon,{4,4},{20,20},C.Dim,1.7) iconLine(closeIcon,{20,4},{4,20},C.Dim,1.7)
     local progress=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,3,1,-2),Size=UDim2.new(1,-3,0,2),ZIndex=102,Parent=toast})
     local closed=false
     local function dismiss()
@@ -280,8 +333,7 @@ function Argon:CreateWindow(options)
 
     local sidebar=create("Frame",{BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Size=UDim2.new(0,232,1,0),ZIndex=3,Parent=main})
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),Parent=sidebar})
-    local brand=create("TextLabel",{BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(18,17),Size=UDim2.fromOffset(38,38),Text="A",TextColor3=Color3.new(1,1,1),TextSize=17,Font=Enum.Font.GothamBold,Parent=sidebar})
-    corner(brand,11) gradient(brand,C.AccentLight,C.AccentDark,135)
+    local brand,setBrandLogo=mountLogo(sidebar,38,options.Logo,4) brand.Position=UDim2.fromOffset(18,17)
     local brandName=text(sidebar,options.Name or "Argon Utility",15,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
     local brandSub=text(sidebar,"CONTROL CENTER",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,37),Size=UDim2.new(1,-82,0,17)})
 
@@ -304,9 +356,10 @@ function Argon:CreateWindow(options)
     local topbar=create("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,0,0,70),Parent=content})
     local eyebrow=text(topbar,"ARGON / DASHBOARD",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,14),Size=UDim2.new(1,-150,0,17)})
     local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-160,0,29)})
+    local sectionsButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-222,0,19),Size=UDim2.fromOffset(86,28),Text="SECTIONS",TextColor3=C.Muted,TextSize=9,Font=Enum.Font.GothamBold,Parent=topbar}) corner(sectionsButton,14) stroke(sectionsButton,C.BorderSoft,.25,1) hover(sectionsButton,C.Surface,C.Hover)
     local status=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-127,0,19),Size=UDim2.fromOffset(75,28),Parent=topbar}) corner(status,14) stroke(status,C.BorderSoft,.25,1)
     local dot=create("Frame",{BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.fromOffset(10,10),Size=UDim2.fromOffset(7,7),Parent=status}) corner(dot,7)
-    text(status,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,0),Size=UDim2.new(1,-29,1,0)})
+    text(status,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),TextXAlignment=Enum.TextXAlignment.Center})
     local hide=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-43,0,19),Size=UDim2.fromOffset(28,28),Text="–",TextColor3=C.Muted,TextSize=16,Font=Enum.Font.GothamBold,Parent=topbar}) corner(hide,9) stroke(hide,C.BorderSoft,.25,1) hover(hide,C.Surface,C.Hover)
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.25,BorderSizePixel=0,Position=UDim2.new(0,24,1,-1),Size=UDim2.new(1,-48,0,1),Parent=topbar})
     local pageHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-70),ClipsDescendants=true,Parent=content})
@@ -314,7 +367,7 @@ function Argon:CreateWindow(options)
     local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(338,500),ZIndex=100,Parent=gui})
     create("UIListLayout",{HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=notifications})
 
-    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert}
+    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400)}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
@@ -328,12 +381,16 @@ function Argon:CreateWindow(options)
     function window:Toggle() self:ToggleVisibility() end
     function window:SetToggleKey(value) self._toggleKey=typeof(value)=="EnumItem" and value or Enum.KeyCode[keyName(value)] or self._toggleKey end
     function window:SetTitle(value) brandName.Text=tostring(value or "Argon Utility") end
+    function window:SetLogo(value) setBrandLogo(value) self._logo=value end
     function window:SetTheme(value) return Argon:SetTheme(value) end
     function window:GetThemes() return Argon:GetThemes() end
     function window:SetSize(value)
         local width,height
         if typeof(value)=="Vector2" then width,height=value.X,value.Y elseif type(value)=="table" then width,height=value[1] or value.X,value[2] or value.Y end
-        width=math.clamp(tonumber(width) or main.AbsoluteSize.X,360,1200) height=math.clamp(tonumber(height) or main.AbsoluteSize.Y,360,820)
+        local viewport=workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
+        local minWidth=math.min(self._minSize.X,math.max(360,viewport.X-20)) local minHeight=math.min(self._minSize.Y,math.max(340,viewport.Y-20))
+        width=math.clamp(tonumber(width) or main.AbsoluteSize.X,minWidth,math.max(minWidth,math.min(1200,viewport.X-20))) height=math.clamp(tonumber(height) or main.AbsoluteSize.Y,minHeight,math.max(minHeight,math.min(820,viewport.Y-20)))
+        self._userSized=true
         main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
     end
     function window:Dialog(config)
@@ -377,22 +434,24 @@ function Argon:CreateWindow(options)
         if self.ActiveTab then
             self.ActiveTab.Page.Visible=false self.ActiveTab.Accent.Visible=false
             tween(self.ActiveTab.TabButton,.15,{BackgroundTransparency=1,BackgroundColor3=C.Surface})
-            tween(self.ActiveTab.IconBox,.15,{BackgroundColor3=C.Active,TextColor3=C.Muted})
+            tween(self.ActiveTab.IconBox,.15,{BackgroundColor3=C.Active}) recolorIcon(self.ActiveTab.Icon,C.Muted)
             self.ActiveTab.ButtonTitle.TextColor3=C.Muted
         end
         self.ActiveTab=tab tab.Page.Visible=true tab.Accent.Visible=true
         tween(tab.TabButton,.18,{BackgroundTransparency=.05,BackgroundColor3=C.Active})
-        tween(tab.IconBox,.18,{BackgroundColor3=C.Accent,TextColor3=Color3.new(1,1,1)})
+        tween(tab.IconBox,.18,{BackgroundColor3=C.Accent}) recolorIcon(tab.Icon,Color3.new(1,1,1))
         tab.ButtonTitle.TextColor3=C.Text pageTitle.Text=tab.Name eyebrow.Text="ARGON / "..tab.Name:upper()
         search.Text="" tab:_filter("")
+        if self._refreshSectionMenu then self:_refreshSectionMenu() end
     end
 
     function window:CreateTab(name,iconName)
-        local tab={Name=tostring(name or "Tab"),Icon=ICONS[tostring(iconName)] or tostring(name or "?"):sub(1,1):upper(),Window=self,_elements={},_sections={},_controlCount=0}
+        local tab={Name=tostring(name or "Tab"),IconName=tostring(iconName or "activity"),Window=self,_elements={},_sections={},_controlCount=0}
         local button=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.new(1,-4,0,43),Text="",Parent=tabList}) corner(button,10)
         tab.TabButton=button
         tab.Accent=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(0,10),Size=UDim2.fromOffset(2,23),Visible=false,Parent=button}) corner(tab.Accent,2)
-        tab.IconBox=create("TextLabel",{BackgroundColor3=C.Active,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.fromOffset(9,7),Size=UDim2.fromOffset(29,29),Text=tab.Icon,TextColor3=C.Muted,TextSize=13,Font=Enum.Font.GothamBold,Parent=button}) corner(tab.IconBox,9)
+        tab.IconBox=create("Frame",{BackgroundColor3=C.Active,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.fromOffset(9,7),Size=UDim2.fromOffset(29,29),Parent=button}) corner(tab.IconBox,9)
+        tab.Icon=drawIcon(tab.IconBox,tab.IconName,C.Muted)
         tab.ButtonTitle=text(button,tab.Name,12,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(48,0),Size=UDim2.new(1,-78,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
         tab.Count=text(button,"0",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.new(1,-27,0,0),Size=UDim2.fromOffset(20,43),TextXAlignment=Enum.TextXAlignment.Center})
         local page=create("ScrollingFrame",{Active=true,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(18,14),ScrollBarImageColor3=C.Border,ScrollBarThickness=3,Size=UDim2.new(1,-28,1,-20),Visible=false,Parent=pageHost})
@@ -435,12 +494,13 @@ function Argon:CreateWindow(options)
                 section[method]=section[alias]
             end
             self._currentSection=section table.insert(self._sections,section)
+            if window.ActiveTab==self and window._refreshSectionMenu then window:_refreshSectionMenu() end
             return section
         end
 
         local function base(controlName,height,config)
             if not tab._currentSection then tab:CreateSection("General") end
-            local root=create("Frame",{Name="Control",BackgroundColor3=C.Surface,BackgroundTransparency=.08,BorderSizePixel=0,Size=UDim2.new(1,0,0,height or 54),Parent=tab._currentSection.Body}) corner(root,10)
+            local root=create("Frame",{Name="Control",BackgroundColor3=C.Surface,BackgroundTransparency=.08,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.new(1,0,0,height or 54),Parent=tab._currentSection.Body}) corner(root,10)
             local element={Name=tostring(controlName or "Control"),Root=root,Section=tab._currentSection,_stroke=stroke(root,C.BorderSoft,.2,1)}
             function element:SetVisible(value) self.Root.Visible=value~=false return self end
             function element:SetTitle(value) self.Name=tostring(value or "Control") if self._title then self._title.Text=self.Name end return self end
@@ -770,16 +830,42 @@ function Argon:CreateWindow(options)
         return tab
     end
 
-    local dragging=false local dragStart local startPosition
+    local sectionPopover=create("Frame",{BackgroundColor3=C.Window,BorderSizePixel=0,Position=UDim2.new(1,-222,0,52),Size=UDim2.fromOffset(210,0),AutomaticSize=Enum.AutomaticSize.Y,Visible=false,ZIndex=80,Parent=content}) corner(sectionPopover,12) stroke(sectionPopover,C.Border,.08,1) padding(sectionPopover,7,7,7,7)
+    local sectionLayout=create("UIListLayout",{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder,Parent=sectionPopover})
+    function window:_refreshSectionMenu()
+        for _,child in ipairs(sectionPopover:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+        local active=self.ActiveTab
+        if not active then sectionPopover.Visible=false return end
+        for index,section in ipairs(active._sections) do
+            local jump=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.12,BorderSizePixel=0,Size=UDim2.new(1,0,0,31),Text=string.format("%02d  %s",index,section.Name),TextColor3=C.Muted,TextSize=10,Font=Enum.Font.GothamMedium,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=81,Parent=sectionPopover})
+            corner(jump,8) padding(jump,10,8,0,0) hover(jump,C.Surface,C.Hover)
+            connect(jump.MouseButton1Click,function()
+                sectionPopover.Visible=false
+                local offset=section.Root.AbsolutePosition.Y-active.Page.AbsolutePosition.Y+active.Page.CanvasPosition.Y
+                active.Page.CanvasPosition=Vector2.new(0,math.max(0,offset-8))
+            end)
+        end
+    end
+    connect(sectionsButton.MouseButton1Click,function() window:_refreshSectionMenu() sectionPopover.Visible=not sectionPopover.Visible end)
+
+    local resizeGrip=create("TextButton",{Active=true,AutoButtonColor=false,AnchorPoint=Vector2.new(1,1),BackgroundTransparency=1,Position=UDim2.fromScale(1,1),Size=UDim2.fromOffset(30,30),Text="",ZIndex=95,Parent=main})
+    for offset=0,2 do create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Dim,BackgroundTransparency=.15+offset*.16,BorderSizePixel=0,Position=UDim2.new(1,-7-offset*5,1,-7),Rotation=-45,Size=UDim2.fromOffset(2,10+offset*5),ZIndex=96,Parent=resizeGrip}) end
+
+    local dragging=false local dragStart local startPosition local resizing=false local resizeStart local startSize
     connect(topbar.InputBegan,function(input)
         if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=true dragStart=input.Position startPosition=main.Position end
     end)
+    connect(resizeGrip.InputBegan,function(input)
+        if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then resizing=true dragging=false resizeStart=input.Position startSize=main.AbsoluteSize end
+    end)
     connect(UserInputService.InputChanged,function(input)
-        if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+        if resizing and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+            local delta=input.Position-resizeStart window:SetSize(Vector2.new(startSize.X+delta.X,startSize.Y+delta.Y))
+        elseif dragging and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
             local delta=input.Position-dragStart main.Position=UDim2.new(startPosition.X.Scale,startPosition.X.Offset+delta.X,startPosition.Y.Scale,startPosition.Y.Offset+delta.Y) shadow.Position=main.Position
         end
     end)
-    connect(UserInputService.InputEnded,function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false end end)
+    connect(UserInputService.InputEnded,function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then dragging=false resizing=false end end)
     connect(hide.MouseButton1Click,function() window:SetVisibility(false) end)
     connect(search:GetPropertyChangedSignal("Text"),function() if window.ActiveTab then window.ActiveTab:_filter(search.Text) end end)
     connect(UserInputService.InputBegan,function(input,processed)
@@ -790,8 +876,14 @@ function Argon:CreateWindow(options)
 
     local function responsive()
         local camera=workspace.CurrentCamera if not camera then return end
-        local viewport=camera.ViewportSize local width=math.clamp(viewport.X-28,360,980) local height=math.clamp(viewport.Y-42,420,660)
-        main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
+        local viewport=camera.ViewportSize
+        if not window._userSized then
+            local width=math.clamp(viewport.X-28,math.min(560,viewport.X-20),980) local height=math.clamp(viewport.Y-42,math.min(400,viewport.Y-20),660)
+            main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
+        elseif main.AbsoluteSize.X>viewport.X-20 or main.AbsoluteSize.Y>viewport.Y-20 then
+            local previous=window._userSized window:SetSize(main.AbsoluteSize) window._userSized=previous
+        end
+        local width=main.AbsoluteSize.X
         local compact=width<760 local sideWidth=compact and 72 or 232
         sidebar.Size=UDim2.new(0,sideWidth,1,0) content.Position=UDim2.fromOffset(sideWidth,0) content.Size=UDim2.new(1,-sideWidth,1,0)
         brandName.Visible=not compact brandSub.Visible=not compact brand.Position=UDim2.fromOffset(compact and 17 or 18,17)
@@ -800,20 +892,21 @@ function Argon:CreateWindow(options)
         avatar.Position=compact and UDim2.fromOffset(8,5) or UDim2.fromOffset(5,5)
         tabList.Position=UDim2.fromOffset(compact and 11 or 12,compact and 72 or 146) tabList.Size=UDim2.new(1,compact and -18 or -24,1,compact and -132 or -205)
         for _,tab in ipairs(window.Tabs) do tab.ButtonTitle.Visible=not compact tab.Count.Visible=not compact end
-        status.Visible=width>=620
+        status.Visible=width>=620 sectionsButton.Visible=width>=720
+        if not sectionsButton.Visible then sectionPopover.Visible=false end
     end
     connect(workspace:GetPropertyChangedSignal("CurrentCamera"),responsive)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end
     responsive()
 
     local splash=create("Frame",{BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main})
-    local splashMark=create("TextLabel",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromScale(.5,.43),Size=UDim2.fromOffset(58,58),Text="A",TextColor3=Color3.new(1,1,1),TextSize=24,Font=Enum.Font.GothamBold,ZIndex=121,Parent=splash}) corner(splashMark,17) gradient(splashMark,C.AccentLight,C.AccentDark,135)
+    local splashMark=mountLogo(splash,58,options.Logo,121) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.43)
     text(splash,options.LoadingTitle or options.Name or "Argon Utility",17,C.Text,Enum.Font.GothamBold,{AnchorPoint=Vector2.new(.5,0),Position=UDim2.fromScale(.5,.51),Size=UDim2.fromOffset(320,26),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=121})
     text(splash,options.LoadingSubtitle or "Preparing interface...",10,C.Dim,Enum.Font.GothamMedium,{AnchorPoint=Vector2.new(.5,0),Position=UDim2.fromScale(.5,.555),Size=UDim2.fromOffset(320,20),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=121})
     task.delay(.55,function()
         if not splash.Parent then return end
-        tween(splash,.28,{BackgroundTransparency=1}) tween(splashMark,.28,{BackgroundTransparency=1,TextTransparency=1})
-        for _,child in ipairs(splash:GetChildren()) do if child:IsA("TextLabel") and child~=splashMark then tween(child,.22,{TextTransparency=1}) end end
+        tween(splash,.28,{BackgroundTransparency=1}) tween(splashMark,.28,{BackgroundTransparency=1})
+        for _,child in ipairs(splash:GetChildren()) do if child:IsA("TextLabel") then tween(child,.22,{TextTransparency=1}) end end
         task.delay(.3,function() if splash then splash:Destroy() end end)
     end)
     return window
