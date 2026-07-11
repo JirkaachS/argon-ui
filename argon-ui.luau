@@ -7,7 +7,7 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Argon = {Flags={},Version="1.2.0",_connections={},_windows={},_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon"}
+local Argon = {Flags={},Version="1.3.0",_connections={},_windows={},_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon"}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -40,6 +40,11 @@ local ICONS={
     eye={{{2,12},{5,8},{9,6},{12,6},{15,6},{19,8},{22,12},{19,16},{15,18},{12,18},{9,18},{5,16},{2,12}}},
     ["map-pin"]={{{12,22},{7,16},{5,12},{5,8},{7,4},{10,2},{14,2},{17,4},{19,8},{19,12},{17,16},{12,22}},{{9,9},{10,7},{12,6},{14,7},{15,9},{14,11},{12,12},{10,11},{9,9}}},
     settings={{{12,3},{12,6}},{{12,18},{12,21}},{{3,12},{6,12}},{{18,12},{21,12}},{{5.5,5.5},{7.7,7.7}},{{16.3,16.3},{18.5,18.5}},{{18.5,5.5},{16.3,7.7}},{{7.7,16.3},{5.5,18.5}},{{8,12},{9,9},{12,8},{15,9},{16,12},{15,15},{12,16},{9,15},{8,12}}},
+    search={{{11,4},{8,4},{5,6},{4,9},{4,12},{6,15},{9,16},{12,16},{15,14},{16,11},{16,8},{14,5},{11,4}},{{15,15},{21,21}}},
+    ["chevron-down"]={{{6,9},{12,15},{18,9}}},
+    users={{{8,11},{6,9},{6,6},{8,4},{11,4},{13,6},{13,9},{11,11},{8,11}},{{3,20},{3,17},{5,14},{8,13},{11,13},{14,14},{16,17},{16,20}},{{16,11},{18,10},{19,8},{19,6},{18,4},{16,3}},{{17,13},{20,14},{22,17},{22,20}}},
+    keyboard={{{3,6},{21,6},{21,18},{3,18},{3,6}},{{6,10},{7,10}},{{10,10},{11,10}},{{14,10},{15,10}},{{18,10},{19,10}},{{6,14},{8,14}},{{11,14},{17,14}}},
+    loader={{{12,2},{12,5}},{{19.1,4.9},{17,7}},{{22,12},{19,12}},{{19.1,19.1},{17,17}},{{12,22},{12,19}},{{4.9,19.1},{7,17}},{{2,12},{5,12}},{{4.9,4.9},{7,7}}},
 }
 
 local function safeCall(callback,...)
@@ -85,10 +90,14 @@ local function iconLine(parent,firstPoint,secondPoint,color,thickness)
     return line
 end
 
-local function drawIcon(parent,name,color)
-    local holder=create("Frame",{Name="LucideIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(18,18),Parent=parent})
+local function drawIcon(parent,name,color,size)
+    local iconSize=size or 20
+    local holder=create("Frame",{Name="LucideIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(iconSize,iconSize),Parent=parent})
     for _,polyline in ipairs(ICONS[tostring(name)] or ICONS.activity) do
-        for index=1,#polyline-1 do iconLine(holder,polyline[index],polyline[index+1],color,1.65) end
+        for index=1,#polyline-1 do iconLine(holder,polyline[index],polyline[index+1],color,2.05) end
+        for _,point in ipairs(polyline) do
+            local cap=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=color,BorderSizePixel=0,Position=UDim2.fromScale(point[1]/24,point[2]/24),Size=UDim2.fromOffset(2.05,2.05),Parent=holder}) corner(cap,3)
+        end
     end
     return holder
 end
@@ -337,9 +346,10 @@ function Argon:CreateWindow(options)
     local brandName=text(sidebar,options.Name or "Argon Utility",15,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
     local brandSub=text(sidebar,"CONTROL CENTER",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,37),Size=UDim2.new(1,-82,0,17)})
 
-    local searchFrame=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.fromOffset(14,72),Size=UDim2.new(1,-28,0,38),Parent=sidebar})
+    local searchFrame=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,72),Size=UDim2.new(1,-28,0,38),Parent=sidebar})
     corner(searchFrame,10) stroke(searchFrame,C.BorderSoft,.18,1)
-    text(searchFrame,"⌕",17,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(11,0),Size=UDim2.fromOffset(22,38),TextXAlignment=Enum.TextXAlignment.Center})
+    local searchIconHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(10,9),Size=UDim2.fromOffset(20,20),Parent=searchFrame})
+    drawIcon(searchIconHost,"search",C.Dim,18)
     local search=create("TextBox",{BackgroundTransparency=1,ClearTextOnFocus=false,Font=Enum.Font.Gotham,PlaceholderColor3=C.Dim,PlaceholderText="Search this tab",Position=UDim2.fromOffset(37,0),Size=UDim2.new(1,-70,1,0),Text="",TextColor3=C.Text,TextSize=12,TextXAlignment=Enum.TextXAlignment.Left,Parent=searchFrame})
     text(searchFrame,"/",10,C.Dim,Enum.Font.GothamBold,{Position=UDim2.new(1,-27,0,9),Size=UDim2.fromOffset(18,20),TextXAlignment=Enum.TextXAlignment.Center})
     local navCaption=text(sidebar,"NAVIGATION",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(21,122),Size=UDim2.new(1,-42,0,20)})
@@ -358,22 +368,23 @@ function Argon:CreateWindow(options)
     local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-160,0,29)})
     local sectionsButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-222,0,19),Size=UDim2.fromOffset(86,28),Text="SECTIONS",TextColor3=C.Muted,TextSize=9,Font=Enum.Font.GothamBold,Parent=topbar}) corner(sectionsButton,14) stroke(sectionsButton,C.BorderSoft,.25,1) hover(sectionsButton,C.Surface,C.Hover)
     local status=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-127,0,19),Size=UDim2.fromOffset(75,28),Parent=topbar}) corner(status,14) stroke(status,C.BorderSoft,.25,1)
-    local dot=create("Frame",{BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.fromOffset(10,10),Size=UDim2.fromOffset(7,7),Parent=status}) corner(dot,7)
-    text(status,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),TextXAlignment=Enum.TextXAlignment.Center})
+    local statusGroup=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(42,14),Parent=status})
+    local dot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.fromOffset(7,7),Parent=statusGroup}) corner(dot,7)
+    text(statusGroup,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-13,1,0),TextXAlignment=Enum.TextXAlignment.Left})
     local hide=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-43,0,19),Size=UDim2.fromOffset(28,28),Text="–",TextColor3=C.Muted,TextSize=16,Font=Enum.Font.GothamBold,Parent=topbar}) corner(hide,9) stroke(hide,C.BorderSoft,.25,1) hover(hide,C.Surface,C.Hover)
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.25,BorderSizePixel=0,Position=UDim2.new(0,24,1,-1),Size=UDim2.new(1,-48,0,1),Parent=topbar})
     local pageHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-70),ClipsDescendants=true,Parent=content})
 
-    local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,-16,0,16),Size=UDim2.fromOffset(338,500),ZIndex=100,Parent=gui})
+    local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,(options.PlayerList~=false or options.KeybindList~=false) and -304 or -16,0,16),Size=UDim2.fromOffset(338,500),ZIndex=100,Parent=gui})
     create("UIListLayout",{HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=notifications})
 
-    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400)}
+    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
         if not self._visible and self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if not self._visible and self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
-        gui.Enabled=self._visible
+        main.Visible=self._visible shadow.Visible=self._visible notifications.Visible=self._visible
     end
     function window:ToggleVisibility() self:SetVisibility(not self._visible) end
     function window:Open() self:SetVisibility(true) end
@@ -393,6 +404,84 @@ function Argon:CreateWindow(options)
         self._userSized=true
         main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
     end
+
+    local function makeOverlay(titleText,iconName,position,size)
+        local card=create("Frame",{Active=true,AnchorPoint=Vector2.new(1,0),BackgroundColor3=C.Window,BackgroundTransparency=.06,BorderSizePixel=0,Position=position,Size=size,ZIndex=70,Parent=gui})
+        corner(card,14) stroke(card,C.Border,.08,1) gradient(card,C.Surface,C.Window,120)
+        local header=create("Frame",{Active=true,BackgroundTransparency=1,Size=UDim2.new(1,0,0,48),ZIndex=71,Parent=card})
+        local iconBox=create("Frame",{BackgroundColor3=C.Accent,BackgroundTransparency=.82,BorderSizePixel=0,Position=UDim2.fromOffset(11,10),Size=UDim2.fromOffset(28,28),ZIndex=72,Parent=header}) corner(iconBox,9)
+        drawIcon(iconBox,iconName,C.AccentLight,17)
+        text(header,titleText,11,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(48,5),Size=UDim2.new(1,-92,0,24),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=72})
+        local meta=text(header,"0",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(48,25),Size=UDim2.new(1,-92,0,16),ZIndex=72})
+        local collapse=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.12,BorderSizePixel=0,Position=UDim2.new(1,-38,0,10),Size=UDim2.fromOffset(28,28),Text="-",TextColor3=C.Muted,TextSize=14,Font=Enum.Font.GothamBold,ZIndex=72,Parent=header}) corner(collapse,8)
+        create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.3,BorderSizePixel=0,Position=UDim2.fromOffset(10,47),Size=UDim2.new(1,-20,0,1),ZIndex=72,Parent=card})
+        local body=create("ScrollingFrame",{Active=true,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(8,56),ScrollBarImageColor3=C.Border,ScrollBarThickness=2,Size=UDim2.new(1,-16,1,-64),ZIndex=71,Parent=card})
+        local layout=create("UIListLayout",{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder,Parent=body}) bindCanvas(body,layout,6)
+        local expandedSize=size local collapsed=false
+        connect(collapse.MouseButton1Click,function()
+            collapsed=not collapsed body.Visible=not collapsed collapse.Text=collapsed and "+" or "-"
+            tween(card,.22,{Size=collapsed and UDim2.fromOffset(size.X.Offset,48) or expandedSize},Enum.EasingStyle.Quart)
+        end)
+        local draggingOverlay=false local dragStartOverlay local startOverlayPosition
+        connect(header.InputBegan,function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingOverlay=true dragStartOverlay=input.Position startOverlayPosition=card.Position end
+        end)
+        connect(UserInputService.InputChanged,function(input)
+            if draggingOverlay and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+                local delta=input.Position-dragStartOverlay card.Position=UDim2.new(startOverlayPosition.X.Scale,startOverlayPosition.X.Offset+delta.X,startOverlayPosition.Y.Scale,startOverlayPosition.Y.Offset+delta.Y)
+            end
+        end)
+        connect(UserInputService.InputEnded,function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingOverlay=false end end)
+        return {Root=card,Header=header,Body=body,Layout=layout,Meta=meta}
+    end
+
+    local playerOverlay=makeOverlay("PLAYER LIST","users",UDim2.new(1,-18,0,72),UDim2.fromOffset(270,262))
+    local keybindOverlay=makeOverlay("ACTIVE BINDS","keyboard",UDim2.new(1,-18,0,348),UDim2.fromOffset(270,214))
+    playerOverlay.Root.Visible=options.PlayerList~=false keybindOverlay.Root.Visible=options.KeybindList~=false
+    window.PlayerListOverlay=playerOverlay.Root window.KeybindListOverlay=keybindOverlay.Root
+    function window:SetPlayerListVisible(value) playerOverlay.Root.Visible=value~=false return self end
+    function window:SetKeybindListVisible(value) keybindOverlay.Root.Visible=value~=false return self end
+    function window:TogglePlayerList() return self:SetPlayerListVisible(not playerOverlay.Root.Visible) end
+    function window:ToggleKeybindList() return self:SetKeybindListVisible(not keybindOverlay.Root.Visible) end
+
+    local function clearOverlayRows(body)
+        for _,child in ipairs(body:GetChildren()) do if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end end
+    end
+    local function refreshPlayers()
+        clearOverlayRows(playerOverlay.Body)
+        local playerList=Players:GetPlayers()
+        table.sort(playerList,function(a,b) if a==LocalPlayer then return true elseif b==LocalPlayer then return false end return a.DisplayName:lower()<b.DisplayName:lower() end)
+        playerOverlay.Meta.Text=tostring(#playerList).." CONNECTED"
+        for _,player in ipairs(playerList) do
+            local row=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.16,BorderSizePixel=0,Size=UDim2.new(1,-4,0,42),ZIndex=72,Parent=playerOverlay.Body}) corner(row,9)
+            local face=create("ImageLabel",{BackgroundColor3=C.Active,BorderSizePixel=0,Position=UDim2.fromOffset(6,6),Size=UDim2.fromOffset(30,30),Image="",ZIndex=73,Parent=row}) corner(face,8)
+            task.spawn(function() local ok,image=pcall(Players.GetUserThumbnailAsync,Players,player.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) if ok and face.Parent then face.Image=image end end)
+            text(row,player.DisplayName,10,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(44,3),Size=UDim2.new(1,-94,0,20),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=73})
+            text(row,"@"..player.Name,9,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(44,20),Size=UDim2.new(1,-94,0,17),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=73})
+            if player==LocalPlayer then
+                local you=text(row,"YOU",8,C.AccentLight,Enum.Font.GothamBold,{BackgroundColor3=C.Accent,BackgroundTransparency=.82,Position=UDim2.new(1,-45,.5,-10),Size=UDim2.fromOffset(36,20),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=73}) corner(you,10)
+            end
+        end
+    end
+    function window:_refreshKeybindOverlay()
+        clearOverlayRows(keybindOverlay.Body)
+        local shown=0
+        for _,entry in ipairs(self._keybindEntries) do
+            if entry.Element and entry.Element.Root and entry.Element.Root.Parent and entry.Visible~=false then
+                shown+=1
+                local row=create("Frame",{BackgroundColor3=entry.Active and C.Active or C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Size=UDim2.new(1,-4,0,36),ZIndex=72,Parent=keybindOverlay.Body}) corner(row,9)
+                entry.OverlayRow=row
+                local state=create("Frame",{BackgroundColor3=entry.Active and C.Success or C.Dim,BorderSizePixel=0,Position=UDim2.fromOffset(9,14),Size=UDim2.fromOffset(7,7),ZIndex=73,Parent=row}) corner(state,7)
+                text(row,entry.Name,10,entry.Active and C.Text or C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(25,0),Size=UDim2.new(1,-86,1,0),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=73})
+                local key=text(row,entry.Key or "None",8,C.AccentLight,Enum.Font.GothamBold,{BackgroundColor3=C.Accent,BackgroundTransparency=.84,Position=UDim2.new(1,-58,.5,-11),Size=UDim2.fromOffset(49,22),TextXAlignment=Enum.TextXAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=73}) corner(key,7)
+                entry.OverlayState=state entry.OverlayKey=key
+            end
+        end
+        keybindOverlay.Meta.Text=tostring(shown).." REGISTERED"
+        if shown==0 then text(keybindOverlay.Body,"Keybind controls appear here",10,C.Dim,Enum.Font.GothamMedium,{Size=UDim2.new(1,-4,0,44),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=72}) end
+    end
+    connect(Players.PlayerAdded,refreshPlayers) connect(Players.PlayerRemoving,function() task.defer(refreshPlayers) end)
+    refreshPlayers() window:_refreshKeybindOverlay()
     function window:Dialog(config)
         config=config or {}
         local overlay=create("Frame",{Active=true,BackgroundColor3=Color3.new(),BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Visible=false,ZIndex=105,Parent=gui})
@@ -429,18 +518,37 @@ function Argon:CreateWindow(options)
     window.Popup=window.Dialog
     function window:_select(tab)
         if self.ActiveTab==tab then return end
+        self._tabTransitionToken+=1
+        local transitionToken=self._tabTransitionToken
+        local oldTab=self.ActiveTab
+        local oldIndex=oldTab and table.find(self.Tabs,oldTab) or 0
+        local nextIndex=table.find(self.Tabs,tab) or oldIndex
+        local direction=nextIndex>=oldIndex and 1 or -1
         if self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
-        if self.ActiveTab then
-            self.ActiveTab.Page.Visible=false self.ActiveTab.Accent.Visible=false
-            tween(self.ActiveTab.TabButton,.15,{BackgroundTransparency=1,BackgroundColor3=C.Surface})
-            tween(self.ActiveTab.IconBox,.15,{BackgroundColor3=C.Active}) recolorIcon(self.ActiveTab.Icon,C.Muted)
-            self.ActiveTab.ButtonTitle.TextColor3=C.Muted
+        if oldTab then
+            oldTab.Accent.Visible=false
+            tween(oldTab.Page,.17,{Position=UDim2.fromOffset(18-direction*16,14)},Enum.EasingStyle.Quart)
+            tween(oldTab.TabButton,.15,{BackgroundTransparency=1,BackgroundColor3=C.Surface})
+            tween(oldTab.IconBox,.15,{BackgroundColor3=C.Active,Rotation=0}) recolorIcon(oldTab.Icon,C.Muted)
+            oldTab.ButtonTitle.TextColor3=C.Muted
         end
-        self.ActiveTab=tab tab.Page.Visible=true tab.Accent.Visible=true
+        self.ActiveTab=tab tab.Page.Position=UDim2.fromOffset(18+direction*18,14) tab.Page.Visible=true tab.Accent.Visible=true
         tween(tab.TabButton,.18,{BackgroundTransparency=.05,BackgroundColor3=C.Active})
-        tween(tab.IconBox,.18,{BackgroundColor3=C.Accent}) recolorIcon(tab.Icon,Color3.new(1,1,1))
-        tab.ButtonTitle.TextColor3=C.Text pageTitle.Text=tab.Name eyebrow.Text="ARGON / "..tab.Name:upper()
+        tween(tab.IconBox,.2,{BackgroundColor3=C.Accent,Rotation=direction*3},Enum.EasingStyle.Back) recolorIcon(tab.Icon,Color3.new(1,1,1))
+        tween(tab.Page,.21,{Position=UDim2.fromOffset(18,14)},Enum.EasingStyle.Quart)
+        tab.ButtonTitle.TextColor3=C.Text
+        tween(pageTitle,.08,{TextTransparency=1}) tween(eyebrow,.08,{TextTransparency=1})
+        task.delay(.08,function()
+            if transitionToken~=self._tabTransitionToken then return end
+            pageTitle.Text=tab.Name eyebrow.Text="ARGON / "..tab.Name:upper()
+            tween(pageTitle,.16,{TextTransparency=0}) tween(eyebrow,.16,{TextTransparency=0})
+        end)
+        task.delay(.18,function()
+            if transitionToken~=self._tabTransitionToken then return end
+            if oldTab and oldTab~=tab then oldTab.Page.Visible=false oldTab.Page.Position=UDim2.fromOffset(18,14) end
+            tween(tab.IconBox,.12,{Rotation=0})
+        end)
         search.Text="" tab:_filter("")
         if self._refreshSectionMenu then self:_refreshSectionMenu() end
     end
@@ -535,6 +643,7 @@ function Argon:CreateWindow(options)
             end
             element.Tooltip=element.SetTooltip
             function element:Destroy()
+                if self._onDestroy then self:_onDestroy() end
                 if self.Root then self.Root:Destroy() end
                 for index,item in ipairs(self.Section.Elements) do if item==self then table.remove(self.Section.Elements,index) break end end
                 for index,item in ipairs(tab._elements) do if item==self then table.remove(tab._elements,index) break end end
@@ -625,8 +734,9 @@ function Argon:CreateWindow(options)
             config=config or {}
             local root,element=base(config.Name,70,config)
             element._title=text(root,config.Name or "Input",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,0,20)})
-            local input=create("TextBox",{BackgroundColor3=C.Input,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter value...",Position=UDim2.fromOffset(13,28),Size=UDim2.new(1,-26,0,31),Text=tostring(config.CurrentValue or ""),TextColor3=C.Text,TextSize=11,TextXAlignment=Enum.TextXAlignment.Left,Parent=root})
-            corner(input,9) padding(input,11,11,0,0) local inputStroke=stroke(input,C.BorderSoft,.22,1)
+            local inputField=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(13,28),Size=UDim2.new(1,-26,0,31),Parent=root})
+            corner(inputField,9) local inputStroke=stroke(inputField,C.BorderSoft,.22,1)
+            local input=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,MultiLine=false,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter value...",Position=UDim2.fromOffset(11,0),Size=UDim2.new(1,-22,1,0),Text=tostring(config.CurrentValue or ""),TextColor3=C.Text,TextSize=11,TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,Parent=inputField})
             element.Type="Input" element.CurrentValue=tostring(config.CurrentValue or "")
             function element:Set(value)
                 local nextValue=tostring(value or "") local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue input.Text=nextValue
@@ -645,18 +755,33 @@ function Argon:CreateWindow(options)
             local root,element=base(config.Name,54,config) element._title=title(root,config.Name or "Keybind",-105)
             local bind=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.new(1,-91,.5,-14),Size=UDim2.fromOffset(77,28),Text="None",TextColor3=C.AccentLight,TextSize=10,Font=Enum.Font.GothamBold,Parent=root}) corner(bind,8) stroke(bind,C.BorderSoft,.24,1)
             element.Type="Keybind" element.CurrentKeybind=keyName(config.CurrentKeybind) element.CurrentValue=element.CurrentKeybind
+            local overlayEntry={Element=element,Name=tostring(config.Name or "Keybind"),Key=element.CurrentKeybind,Active=config.Active==true,Visible=config.DisplayInKeybindList~=false}
+            table.insert(window._keybindEntries,overlayEntry)
             local listening=false
             local function render() bind.Text=listening and "PRESS KEY" or element.CurrentKeybind bind.TextColor3=listening and C.Warning or C.AccentLight end
             function element:Set(value)
                 local nextValue=keyName(value) local didChange=self.CurrentKeybind~=nextValue self.CurrentKeybind=nextValue self.CurrentValue=nextValue listening=false render()
+                overlayEntry.Key=nextValue window:_refreshKeybindOverlay()
                 if didChange then changed(self) safeCall(config.Callback,nextValue) end
+            end
+            function element:SetActive(value) overlayEntry.Active=value==true window:_refreshKeybindOverlay() return self end
+            function element:SetOverlayVisible(value) overlayEntry.Visible=value~=false window:_refreshKeybindOverlay() return self end
+            function element:_onDestroy()
+                for index,entry in ipairs(window._keybindEntries) do if entry==overlayEntry then table.remove(window._keybindEntries,index) break end end
+                window:_refreshKeybindOverlay()
             end
             connect(bind.MouseButton1Click,function() listening=not listening render() end)
             connect(UserInputService.InputBegan,function(input,processed)
-                if not listening or processed or input.UserInputType~=Enum.UserInputType.Keyboard then return end
-                if input.KeyCode==Enum.KeyCode.Escape or input.KeyCode==Enum.KeyCode.Backspace then element:Set("None") else element:Set(input.KeyCode.Name) end
+                if processed or input.UserInputType~=Enum.UserInputType.Keyboard then return end
+                if listening then
+                    if input.KeyCode==Enum.KeyCode.Escape or input.KeyCode==Enum.KeyCode.Backspace then element:Set("None") else element:Set(input.KeyCode.Name) end
+                elseif element.CurrentKeybind~="None" and input.KeyCode.Name==element.CurrentKeybind then
+                    if config.Toggle==true then element:SetActive(not overlayEntry.Active)
+                    else element:SetActive(true) task.delay(.18,function() if element.Root and element.Root.Parent then element:SetActive(false) end end) end
+                    safeCall(config.OnPressed or config.Pressed,element.CurrentKeybind,overlayEntry.Active)
+                end
             end)
-            hover(root,C.Surface,C.Hover) render() registerFlag(config.Flag,element) return element
+            hover(root,C.Surface,C.Hover) render() window:_refreshKeybindOverlay() registerFlag(config.Flag,element) return element
         end
 
         function tab:CreateDropdown(config)
@@ -664,10 +789,11 @@ function Argon:CreateWindow(options)
             local multiple=config.MultipleOptions==true
             local root,element=base(config.Name,58,config)
             element._title=text(root,config.Name or "Dropdown",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,5),Size=UDim2.new(.45,-18,0,20),TextTruncate=Enum.TextTruncate.AtEnd})
-            local selectButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.new(.45,0,0,10),Size=UDim2.new(.55,-14,0,37),Text="",Parent=root}) corner(selectButton,9)
+            local selectButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(.45,0,0,10),Size=UDim2.new(.55,-14,0,37),Text="",Parent=root}) corner(selectButton,9)
             local selectStroke=stroke(selectButton,C.BorderSoft,.22,1)
-            local selectedText=text(selectButton,"Select...",10,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(10,0),Size=UDim2.new(1,-35,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
-            text(selectButton,"⌄",14,C.Dim,Enum.Font.GothamBold,{Position=UDim2.new(1,-27,0,0),Size=UDim2.fromOffset(22,37),TextXAlignment=Enum.TextXAlignment.Center})
+            local selectedText=text(selectButton,"Select...",10,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(11,0),Size=UDim2.new(1,-45,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
+            local chevronHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.new(1,-31,.5,-10),Size=UDim2.fromOffset(20,20),Parent=selectButton})
+            local chevronIcon=drawIcon(chevronHost,"chevron-down",C.Dim,16)
             element.Type="Dropdown" element.Options=copy(config.Options or {}) element.CurrentOption={}
             local initial=config.CurrentOption
             if type(initial)=="table" then element.CurrentOption=copy(initial) elseif initial~=nil and tostring(initial)~="" then element.CurrentOption={initial} end
@@ -697,6 +823,7 @@ function Argon:CreateWindow(options)
             local function closePopup()
                 if window._dropdownPopup then window._dropdownPopup:Destroy() window._dropdownPopup=nil end
                 tween(selectStroke,.15,{Color=C.BorderSoft,Transparency=.22})
+                tween(chevronIcon,.16,{Rotation=0})
             end
             local function openPopup()
                 closePopup()
@@ -705,7 +832,9 @@ function Argon:CreateWindow(options)
                 local x=math.clamp(absolute.X,8,viewport.X-popupWidth-8)
                 local popup=create("Frame",{BackgroundColor3=C.Window,BorderSizePixel=0,Position=UDim2.fromOffset(x,absolute.Y+selectButton.AbsoluteSize.Y+6),Size=UDim2.fromOffset(popupWidth,0),ZIndex=80,Parent=gui})
                 window._dropdownPopup=popup corner(popup,12) stroke(popup,C.Border,.02,1)
-                local filter=create("TextBox",{BackgroundColor3=C.Input,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,PlaceholderColor3=C.Dim,PlaceholderText="Filter options...",Position=UDim2.fromOffset(9,9),Size=UDim2.new(1,-18,0,32),Text="",TextColor3=C.Text,TextSize=10,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=81,Parent=popup}) corner(filter,8) padding(filter,10,10,0,0)
+                local filterField=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(9,9),Size=UDim2.new(1,-18,0,32),ZIndex=81,Parent=popup}) corner(filterField,8)
+                local filterIconHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(8,7),Size=UDim2.fromOffset(18,18),ZIndex=82,Parent=filterField}) drawIcon(filterIconHost,"search",C.Dim,15)
+                local filter=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,PlaceholderColor3=C.Dim,PlaceholderText="Filter options...",Position=UDim2.fromOffset(32,0),Size=UDim2.new(1,-42,1,0),Text="",TextColor3=C.Text,TextSize=10,TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=82,Parent=filterField})
                 local list=create("ScrollingFrame",{Active=true,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(8,49),ScrollBarImageColor3=C.Border,ScrollBarThickness=2,Size=UDim2.new(1,-16,1,-57),ZIndex=81,Parent=popup})
                 local layout=create("UIListLayout",{Padding=UDim.new(0,4),SortOrder=Enum.SortOrder.LayoutOrder,Parent=list}) bindCanvas(list,layout,5)
                 local records={}
@@ -724,7 +853,7 @@ function Argon:CreateWindow(options)
                 connect(filter:GetPropertyChangedSignal("Text"),function()
                     local query=filter.Text:lower() for _,record in ipairs(records) do record.Button.Visible=query=="" or record.Text:find(query,1,true)~=nil end
                 end)
-                tween(selectStroke,.15,{Color=C.Accent,Transparency=0}) tween(popup,.2,{Size=UDim2.fromOffset(popupWidth,226)},Enum.EasingStyle.Back)
+                tween(selectStroke,.15,{Color=C.Accent,Transparency=0}) tween(chevronIcon,.16,{Rotation=180}) tween(popup,.2,{Size=UDim2.fromOffset(popupWidth,226)},Enum.EasingStyle.Back)
             end
             connect(selectButton.MouseButton1Click,function() if window._dropdownPopup then closePopup() else openPopup() end end)
             render() registerFlag(config.Flag,element) return element
@@ -899,15 +1028,44 @@ function Argon:CreateWindow(options)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end
     responsive()
 
-    local splash=create("Frame",{BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main})
-    local splashMark=mountLogo(splash,58,options.Logo,121) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.43)
-    text(splash,options.LoadingTitle or options.Name or "Argon Utility",17,C.Text,Enum.Font.GothamBold,{AnchorPoint=Vector2.new(.5,0),Position=UDim2.fromScale(.5,.51),Size=UDim2.fromOffset(320,26),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=121})
-    text(splash,options.LoadingSubtitle or "Preparing interface...",10,C.Dim,Enum.Font.GothamMedium,{AnchorPoint=Vector2.new(.5,0),Position=UDim2.fromScale(.5,.555),Size=UDim2.fromOffset(320,20),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=121})
-    task.delay(.55,function()
+    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main})
+    gradient(splash,Color3.fromRGB(18,20,32),Color3.fromRGB(7,9,15),125)
+    local splashGlowA=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.new(.5,160,.5,-120),Size=UDim2.fromOffset(360,360),ZIndex=121,Parent=splash}) corner(splashGlowA,180)
+    local splashGlowB=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.new(.5,-190,.5,130),Size=UDim2.fromOffset(300,300),ZIndex=121,Parent=splash}) corner(splashGlowB,150)
+    local loaderStage=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Surface,BackgroundTransparency=.22,BorderSizePixel=0,Position=UDim2.fromScale(.5,.48),Size=UDim2.fromOffset(380,286),ZIndex=122,Parent=splash}) corner(loaderStage,22) stroke(loaderStage,C.Border,.08,1)
+    local loaderScale=create("UIScale",{Scale=.94,Parent=loaderStage}) tween(loaderScale,.42,{Scale=1},Enum.EasingStyle.Back)
+    local orbit=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.33),Size=UDim2.fromOffset(112,112),Rotation=0,ZIndex=123,Parent=loaderStage})
+    local orbitStroke=stroke(orbit,C.Accent,.42,1) corner(orbit,56)
+    local orbitDot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(9,9),ZIndex=124,Parent=orbit}) corner(orbitDot,9)
+    local orbitDotTwo=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.new(.5,0,1,0),Size=UDim2.fromOffset(6,6),ZIndex=124,Parent=orbit}) corner(orbitDotTwo,6)
+    local splashMark=mountLogo(loaderStage,62,options.Logo,125) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.33)
+    local splashMarkScale=create("UIScale",{Scale=.88,Parent=splashMark})
+    local logoPulse=TweenService:Create(splashMarkScale,TweenInfo.new(.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{Scale=1.04}) logoPulse:Play()
+    local orbitSpin=TweenService:Create(orbit,TweenInfo.new(1.8,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1),{Rotation=360}) orbitSpin:Play()
+    local glowPulse=TweenService:Create(splashGlowA,TweenInfo.new(1.2,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.9,Size=UDim2.fromOffset(420,420)}) glowPulse:Play()
+    text(loaderStage,options.LoadingTitle or options.Name or "Argon Utility",18,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,132),Size=UDim2.new(1,-48,0,28),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=124})
+    local loadingStatus=text(loaderStage,"INITIALIZING",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,162),Size=UDim2.new(1,-48,0,20),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=124})
+    local loadingDetail=text(loaderStage,options.LoadingSubtitle or "Preparing interface systems",10,C.Dim,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(24,183),Size=UDim2.new(1,-48,0,18),TextXAlignment=Enum.TextXAlignment.Center,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    local progressRail=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(34,219),Size=UDim2.new(1,-68,0,7),ZIndex=124,Parent=loaderStage}) corner(progressRail,7)
+    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(0,1),ZIndex=125,Parent=progressRail}) corner(progressFill,7) gradient(progressFill,C.AccentLight,C.AccentDark,0)
+    local percent=text(loaderStage,"0%",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(34,235),Size=UDim2.new(1,-68,0,18),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=124})
+    local stages={{.08,.22,"INITIALIZING","Mounting interface shell"},{.38,.52,"BUILDING CONTROLS","Registering tabs and overlays"},{.72,.8,"SYNCING CONFIG","Applying saved preferences"},{1.12,1,"READY","Interface ready"}}
+    for _,stage in ipairs(stages) do
+        task.delay(stage[1],function()
+            if not splash.Parent then return end
+            loadingStatus.Text=stage[3] loadingDetail.Text=stage[4] percent.Text=tostring(math.floor(stage[2]*100)).."%"
+            tween(progressFill,.34,{Size=UDim2.fromScale(stage[2],1)},Enum.EasingStyle.Quart)
+            loadingStatus.TextTransparency=.45 tween(loadingStatus,.2,{TextTransparency=0})
+        end)
+    end
+    task.delay(1.42,function()
         if not splash.Parent then return end
-        tween(splash,.28,{BackgroundTransparency=1}) tween(splashMark,.28,{BackgroundTransparency=1})
-        for _,child in ipairs(splash:GetChildren()) do if child:IsA("TextLabel") then tween(child,.22,{TextTransparency=1}) end end
-        task.delay(.3,function() if splash then splash:Destroy() end end)
+        orbitSpin:Cancel() logoPulse:Cancel() glowPulse:Cancel()
+        tween(loaderScale,.28,{Scale=1.05},Enum.EasingStyle.Quart) tween(splash,.32,{GroupTransparency=1})
+        sidebar.Position=UDim2.fromOffset(-14,0) content.Position=UDim2.fromOffset(content.Position.X.Offset+14,0)
+        tween(sidebar,.36,{Position=UDim2.fromOffset(0,0)},Enum.EasingStyle.Quart)
+        tween(content,.36,{Position=UDim2.fromOffset(content.Position.X.Offset-14,0)},Enum.EasingStyle.Quart)
+        task.delay(.34,function() if splash then splash:Destroy() end end)
     end)
     return window
 end

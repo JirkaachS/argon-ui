@@ -25,6 +25,16 @@
 @media(max-width:520px){.stage{padding:0}.window{width:100vw;height:100vh;min-height:0;border:0;border-radius:0}.topbar{padding-inline:14px}.page{padding:14px 12px 22px}.field,.select{min-width:130px;max-width:48vw}.control-name{font-size:12px}.toast-stack{right:12px;top:12px}}
 @media(max-width:520px){.preview-dropdown{min-width:130px;max-width:48vw}.dropdown-menu{width:max(100%,190px)}}
 </style>
+<style>
+.search{overflow:hidden}.search-icon{width:18px;height:18px;position:relative;flex:none;font-size:0}.search-icon::before{content:"";position:absolute;left:1px;top:1px;width:10px;height:10px;border:1.8px solid currentColor;border-radius:50%}.search-icon::after{content:"";position:absolute;left:11px;top:12px;width:7px;height:1.8px;border-radius:2px;background:currentColor;transform:rotate(45deg);transform-origin:left center}
+.tab-icon{color:var(--muted);font-size:0}.tab-icon svg{width:17px;height:17px;overflow:visible}.tab:hover .tab-icon{transform:scale(1.04)}.tab.active .tab-icon{transform:scale(1.06) rotate(2deg)}
+.live{width:75px;justify-content:center;padding:0;gap:7px}.live i{flex:none}
+.field{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-dropdown,.dropdown-trigger{min-width:0}.dropdown-trigger{overflow:hidden}.dropdown-trigger span{min-width:0}.dropdown-chevron{width:16px;height:16px;display:grid;place-items:center;flex:none;font-size:0}.dropdown-chevron svg{width:16px;height:16px}.dropdown-option{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.overlay{position:fixed;right:18px;width:270px;z-index:30;overflow:hidden;border:1px solid rgba(76,83,105,.7);border-radius:14px;background:linear-gradient(120deg,rgba(19,23,33,.96),rgba(10,12,20,.97));box-shadow:0 22px 60px rgba(0,0,0,.42);backdrop-filter:blur(22px);animation:overlayIn .45s .18s both cubic-bezier(.2,.8,.2,1)}.player-overlay{top:72px}.bind-overlay{top:348px}.overlay-head{height:48px;display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:center;padding:0 11px;border-bottom:1px solid rgba(49,54,73,.6)}.overlay-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;color:var(--accent-light);background:rgba(153,112,255,.16)}.overlay-icon svg{width:16px}.overlay-title{font-size:11px;font-weight:800}.overlay-meta{margin-top:2px;color:var(--dim);font-size:8px;font-weight:800}.overlay-body{display:grid;gap:5px;max-height:202px;padding:8px;overflow:auto}.overlay-row{min-width:0;height:42px;display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;border-radius:9px;background:rgba(19,23,33,.82)}.overlay-avatar{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--accent-light);font-size:9px;font-weight:800;background:var(--active)}.overlay-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:750}.overlay-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:9px}.overlay-tag,.bind-key{padding:5px 8px;border-radius:7px;color:var(--accent-light);font-size:8px;font-weight:800;background:rgba(153,112,255,.15)}.bind-row{height:36px;grid-template-columns:7px minmax(0,1fr) auto}.bind-state{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 10px rgba(74,222,162,.35)}
+.splash{position:absolute;inset:0;z-index:50;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 68% 22%,rgba(153,112,255,.18),transparent 34%),radial-gradient(circle at 28% 82%,rgba(92,61,184,.15),transparent 35%),linear-gradient(125deg,#121420,#07090f);animation:splashOut .36s 1.5s forwards}.loader-card{width:min(380px,calc(100% - 34px));padding:28px 34px;border:1px solid rgba(76,83,105,.7);border-radius:22px;text-align:center;background:rgba(19,23,33,.74);box-shadow:0 30px 90px rgba(0,0,0,.5);backdrop-filter:blur(22px);animation:loaderIn .55s cubic-bezier(.2,.8,.2,1)}.loader-orbit{width:112px;height:112px;display:grid;place-items:center;position:relative;margin:auto;border:1px solid rgba(153,112,255,.45);border-radius:50%;animation:spin 1.8s linear infinite}.loader-orbit::before,.loader-orbit::after{content:"";position:absolute;left:50%;border-radius:50%;transform:translate(-50%,-50%)}.loader-orbit::before{top:0;width:9px;height:9px;background:var(--accent-light);box-shadow:0 0 16px var(--accent)}.loader-orbit::after{top:100%;width:6px;height:6px;background:var(--success)}.loader-logo{width:62px;height:62px;animation:pulse .7s ease-in-out infinite alternate}.loader-title{margin-top:20px;font-size:18px;font-weight:800}.loader-status{margin-top:5px;color:var(--accent-light);font-size:9px;font-weight:800;letter-spacing:.12em}.loader-detail{margin-top:8px;overflow:hidden;color:var(--dim);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.loader-rail{height:7px;margin-top:22px;overflow:hidden;border-radius:999px;background:var(--input)}.loader-fill{width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent-light),var(--accent-dark));animation:loadFill 1.25s .08s forwards cubic-bezier(.2,.8,.2,1)}.loader-percent{margin-top:8px;color:var(--muted);font-size:9px;font-weight:800;text-align:right}
+@keyframes overlayIn{from{opacity:0;transform:translateX(18px)}}@keyframes loaderIn{from{opacity:0;transform:translateY(12px) scale(.94)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{to{transform:scale(1.05)}}@keyframes loadFill{to{width:100%}}@keyframes splashOut{to{opacity:0;visibility:hidden;transform:scale(1.025)}}
+@media(max-width:1320px){.overlay{display:none}}
+</style>
 </head>
 <body>
 <main class="stage">
@@ -40,13 +50,28 @@
       <header class="topbar"><div><div class="eyebrow" id="eyebrow">ARGON / DASHBOARD</div><div class="page-title" id="pageTitle">Dashboard</div></div><div class="top-actions"><div class="live"><i></i>LIVE</div><button class="icon-btn" id="notifyDemo" title="Preview notification">◈</button><button class="icon-btn" id="hideUi" title="Hide preview">–</button></div></header>
       <div class="pages" id="pages"></div>
     </section>
+    <div class="splash" id="splash"><div class="loader-card"><div class="loader-orbit"><img class="loader-logo" src="argon-ui-logo.svg" alt=""></div><div class="loader-title">Argon Utility</div><div class="loader-status" id="loaderStatus">INITIALIZING</div><div class="loader-detail" id="loaderDetail">Mounting interface shell</div><div class="loader-rail"><div class="loader-fill"></div></div><div class="loader-percent" id="loaderPercent">0%</div></div></div>
   </section>
+  <aside class="overlay player-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="users"></span><div><div class="overlay-title">PLAYER LIST</div><div class="overlay-meta">4 CONNECTED</div></div></div><div class="overlay-body"><div class="overlay-row"><div class="overlay-avatar">AU</div><div><div class="overlay-name">Argon User</div><div class="overlay-sub">@argonuser</div></div><span class="overlay-tag">YOU</span></div><div class="overlay-row"><div class="overlay-avatar">NV</div><div><div class="overlay-name">Nova</div><div class="overlay-sub">@nova</div></div></div><div class="overlay-row"><div class="overlay-avatar">RX</div><div><div class="overlay-name">Rex</div><div class="overlay-sub">@rex</div></div></div><div class="overlay-row"><div class="overlay-avatar">KA</div><div><div class="overlay-name">Kael</div><div class="overlay-sub">@kael</div></div></div></div></aside>
+  <aside class="overlay bind-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="keyboard"></span><div><div class="overlay-title">ACTIVE BINDS</div><div class="overlay-meta">3 REGISTERED</div></div></div><div class="overlay-body"><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Pause combat</div><span class="bind-key">P</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Toggle UI</div><span class="bind-key">INS</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Status overlay</div><span class="bind-key">O</span></div></div></aside>
 </main>
 <div class="toast-stack" id="toasts"></div>
 <script>
+const iconPaths = {
+  activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  swords:'<polyline points="14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/><polyline points="14.5 6.5 18 3h3v3l-11.5 11.5"/>',
+  zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  chevron:'<path d="m6 9 6 6 6-6"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  keyboard:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/>'
+};
+const svgIcon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.activity}</svg>`;
+document.querySelectorAll("[data-icon]").forEach(node => node.innerHTML = svgIcon(node.dataset.icon));
 const tabsData = [
   {
-    id: "dashboard", name: "Dashboard", icon: "D", sections: [
+    id: "dashboard", name: "Dashboard", icon: "activity", sections: [
       { name: "Overview", controls: [
         { type: "info", name: "Argon is ready", desc: "This browser preview mirrors the Roblox library without requiring Studio or an executor." },
         { type: "button", name: "Run quick action", desc: "Demonstrates button feedback and the notification system." },
@@ -59,7 +84,7 @@ const tabsData = [
     ]
   },
   {
-    id: "combat", name: "Combat", icon: "C", sections: [
+    id: "combat", name: "Combat", icon: "swords", sections: [
       { name: "Targeting", controls: [
         { type: "toggle", name: "Smart targeting", desc: "Prioritizes reachable targets with a clear attack window.", value: true },
         { type: "dropdown", name: "Target priority", desc: "Select how nearby targets are ranked.", options: ["Nearest", "Lowest health", "Highest threat"] },
@@ -73,7 +98,7 @@ const tabsData = [
     ]
   },
   {
-    id: "farming", name: "Farming", icon: "F", sections: [
+    id: "farming", name: "Farming", icon: "zap", sections: [
       { name: "Automation", controls: [
         { type: "toggle", name: "Auto farm", desc: "Master state for the farming workflow.", value: false },
         { type: "dropdown", name: "Route", desc: "Select the active farming route.", options: ["Fast clear", "Safe clear", "Resource loop"] },
@@ -86,7 +111,7 @@ const tabsData = [
     ]
   },
   {
-    id: "visuals", name: "Visuals", icon: "V", sections: [
+    id: "visuals", name: "Visuals", icon: "eye", sections: [
       { name: "Display", controls: [
         { type: "toggle", name: "Status overlay", desc: "Show compact runtime information.", value: true },
         { type: "toggle", name: "Target highlights", desc: "Preview highlighted target states.", value: false },
@@ -98,7 +123,7 @@ const tabsData = [
     ]
   },
   {
-    id: "settings", name: "Settings", icon: "S", sections: [
+    id: "settings", name: "Settings", icon: "settings", sections: [
       { name: "Configuration", controls: [
         { type: "input", name: "Configuration name", desc: "Enter a name for a local configuration.", value: "argon-default" },
         { type: "button", name: "Save configuration", desc: "Demonstrates configuration feedback." },
@@ -129,7 +154,7 @@ function controlMarkup(control) {
   const text = `<div class="control-main"><div class="control-name">${control.name}</div><div class="control-desc">${control.desc}</div></div>`;
   if (control.type === "toggle") return `<div class="control ${control.locked ? "locked" : ""}" data-search="${control.name} ${control.desc}">${text}${control.locked ? `<span class="lock-pill">LOCKED</span>` : `<button class="toggle ${control.value ? "on" : ""}" aria-label="Toggle ${control.name}"></button>`}</div>`;
   if (control.type === "slider") return `<div class="control slider-control" data-search="${control.name} ${control.desc}"><div class="slider-top">${text}<span class="value">${control.value}${control.suffix}</span></div><input class="range" type="range" min="${control.min}" max="${control.max}" value="${control.value}" data-suffix="${control.suffix}"></div>`;
-  if (control.type === "dropdown") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<div class="preview-dropdown"><button class="dropdown-trigger" type="button"><span>${control.options[0]}</span><b class="dropdown-chevron">&#8964;</b></button><div class="dropdown-menu hidden"><input class="dropdown-search" placeholder="Filter options..." spellcheck="false"><div class="dropdown-options">${control.options.map((option, index) => `<button class="dropdown-option ${index === 0 ? "active" : ""}" type="button" data-value="${option}">${option}</button>`).join("")}<div class="dropdown-empty hidden">No matching options</div></div></div></div></div>`;
+  if (control.type === "dropdown") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<div class="preview-dropdown"><button class="dropdown-trigger" type="button"><span>${control.options[0]}</span><b class="dropdown-chevron">${svgIcon("chevron")}</b></button><div class="dropdown-menu hidden"><input class="dropdown-search" placeholder="Filter options..." spellcheck="false"><div class="dropdown-options">${control.options.map((option, index) => `<button class="dropdown-option ${index === 0 ? "active" : ""}" type="button" data-value="${option}">${option}</button>`).join("")}<div class="dropdown-empty hidden">No matching options</div></div></div></div></div>`;
   if (control.type === "input") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<input class="field" value="${control.value}" spellcheck="false"></div>`;
   if (control.type === "keybind") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<button class="keybind">${control.value}</button></div>`;
   if (control.type === "color") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<input class="color-field" type="color" value="${control.value}"></div>`;
@@ -138,12 +163,14 @@ function controlMarkup(control) {
 }
 
 function render() {
-  tabs.innerHTML = tabsData.map(tab => `<button class="tab ${tab.id === state.active ? "active" : ""}" data-tab="${tab.id}"><span class="tab-icon">${tab.icon}</span><span class="tab-name">${tab.name}</span><span class="tab-count">${tab.sections.reduce((sum, section) => sum + section.controls.length, 0)}</span></button>`).join("");
+  tabs.innerHTML = tabsData.map(tab => `<button class="tab ${tab.id === state.active ? "active" : ""}" data-tab="${tab.id}"><span class="tab-icon">${svgIcon(tab.icon)}</span><span class="tab-name">${tab.name}</span><span class="tab-count">${tab.sections.reduce((sum, section) => sum + section.controls.length, 0)}</span></button>`).join("");
   pages.innerHTML = tabsData.map(tab => `<article class="page ${tab.id === state.active ? "active" : ""}" data-page="${tab.id}">${tab.sections.map(section => `<section class="section"><div class="section-head">${section.name.toUpperCase()}</div><div class="section-body">${section.controls.map(controlMarkup).join("")}</div></section>`).join("")}<div class="empty hidden">No controls match your search.</div></article>`).join("");
   bindControls();
 }
 
 function activateTab(id) {
+  if (id === state.active) return;
+  document.querySelector(".page.active")?.animate([{opacity:1,transform:"translateX(0)"},{opacity:0,transform:"translateX(-12px)"}],{duration:120,easing:"ease-in"});
   state.active = id;
   search.value = "";
   const tab = tabsData.find(item => item.id === id);
@@ -297,6 +324,17 @@ document.addEventListener("keydown", event => {
 });
 
 render();
+const loaderStages = [
+  [120,"22%","INITIALIZING","Mounting interface shell"],
+  [470,"52%","BUILDING CONTROLS","Registering tabs and overlays"],
+  [820,"80%","SYNCING CONFIG","Applying saved preferences"],
+  [1180,"100%","READY","Interface ready"]
+];
+loaderStages.forEach(([delay,percent,status,detail]) => setTimeout(() => {
+  document.getElementById("loaderPercent").textContent = percent;
+  document.getElementById("loaderStatus").textContent = status;
+  document.getElementById("loaderDetail").textContent = detail;
+}, delay));
 setTimeout(() => notify("Preview ready", "Explore every tab, control, and responsive layout directly in your browser."), 350);
 </script>
 </body>
