@@ -7,6 +7,16 @@
 
 The migration build downloads the latest library from the public `JirkaachS/argon-ui` GitHub repository. A neighboring `argon-ui.luau` remains available as an offline fallback.
 
+## Hosted Usage
+
+```luau
+local Argon = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/JirkaachS/argon-ui/main/argon-ui.luau"
+))()
+```
+
+`menu-argon.luau` already uses this hosted endpoint automatically.
+
 ## Design
 
 - Rayfield-compatible window, tab, control, notification, flag, and configuration APIs.
