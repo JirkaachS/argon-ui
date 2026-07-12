@@ -7,7 +7,7 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Argon = {Flags={},Version="1.4.0",_connections={},_windows={},_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={}}
+local Argon = {Flags={},Version="1.4.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -50,6 +50,63 @@ ICONS.sword=ICONS.swords
 ICONS.server={{{5,4},{19,4},{21,6},{21,10},{19,12},{5,12},{3,10},{3,6},{5,4}},{{5,12},{19,12},{21,14},{21,18},{19,20},{5,20},{3,18},{3,14},{5,12}},{{7,8},{7.1,8}},{{7,16},{7.1,16}},{{16,8},{18,8}},{{16,16},{18,16}}}
 ICONS.gem={{{12,2},{19,5},{22,10},{12,22},{2,10},{5,5},{12,2}},{{2,10},{22,10}},{{5,5},{8,10},{12,2},{16,10},{19,5}},{{8,10},{12,22},{16,10}}}
 
+local ICON_ATLAS_RECTS={
+    ["activity"]=Vector2.new(0,0),
+    ["chevron-down"]=Vector2.new(64,0),
+    ["eye"]=Vector2.new(128,0),
+    ["gem"]=Vector2.new(192,0),
+    ["keyboard"]=Vector2.new(256,0),
+    ["loader"]=Vector2.new(320,0),
+    ["map-pin"]=Vector2.new(0,64),
+    ["move"]=Vector2.new(64,64),
+    ["pickaxe"]=Vector2.new(128,64),
+    ["radio-tower"]=Vector2.new(192,64),
+    ["search"]=Vector2.new(256,64),
+    ["server"]=Vector2.new(320,64),
+    ["settings"]=Vector2.new(0,128),
+    ["shirt"]=Vector2.new(64,128),
+    ["sword"]=Vector2.new(128,128),
+    ["swords"]=Vector2.new(192,128),
+    ["users"]=Vector2.new(256,128),
+    ["zap"]=Vector2.new(320,128),
+}
+local ICON_ATLAS_IMAGE=nil
+local ICON_ATLAS_CELL=Vector2.new(64,64)
+local ICON_ATLAS_BASE64="iVBORw0KGgoAAAANSUhEUgAAAYAAAADACAYAAAAN6LRnAAAzbElEQVR42u19ebhlVXXnb99760FZ1PDeq4kqQEFqRpSImnwqICgQEBTUxAEiJkbtBNGM3aYDmjgk3R2jjQZMK4kGY6LdMTGI7RArGE3EmBYU0QSqCng1UEAN1MhQ771f//HWlsXmTPe+e87Z5971+77zvfvucM4e11p7jYDBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYMgESUfS2UjY/BsMhuHa+G31f8cIwfCtgaTXBoNhsAl/R/0/TnI8YAQtG6nhIP56/o0JGAyDu+FbgcR/NMmfJ7mV5HaSv0Ryofq8rb9vGDy1D8nFMv8TwggGXx1kOi/DsKl5gqP+SpK/TfLf+VRsJfn7JFcF92nbnhlI6f84ko/L3K/zgoLpvAyGAVLzyHvPJ/kxkvsUwT+S8frTJM8K7mHqocFiAAtJPkRy2jP9gZ1f03kZhkTaD9U8ryH5VUXcHxdG8D6Sk6L+2UxyiuT1JP8wYBL/TPJNSeoh2z9RzX+7KPFWtHCU5B6Z59XdMIBQpdgUndeo6Lsm5LWpgwwDdbLNUPPcQ/LdJJ8p3/m6vH8lyQvl9Y/ls2NJ/jrJOwuoh2z/RGbrKZsBNO6U4DkVyZ9WC/oC/ZlhKCTklhIGnHov7X3XoJPtIpIvJvm/SO5X6/wWkpeRPEb95hL57EElCP1Y3nun+t4IyVeSvDlQD32G5LkkF9XFBDLms66rVdc4yN8LlB6/XZYKSNHSk0le0pTN35G//12OulMk/0B/Zhjs4/Esj9YucqY2n+SmQM3zSZIvDr4/Iv35jnzvavXZ5fLevXK/OcFvf4rkR0k+rJ6zSRhIpcQvZsZc8Th4YuxPcA+Q3JBH13o1AqvnbSC5TX53cdSCtOLQc0X14/Gtgbd6G+FvB8fdlSIpj6prhVz6vUXy3dGYGYHakO9U0vmtJI9PsA14IegiJf2PKSYyolQ+Vyqj75N0y+I6+AVlNP5wlQSgwHzWcT1pvVS1TtQJ6Fkkd8p8bCe5PosJ9OIGqtbPWnkG5fTwHL+GopX+pYEvl0bvE653gOQS02MOvsRP8lKSd5M8SHI3yb1y7SF5WK496v3d8t0tJK8gORIbI1Cqq2OlzR57Sa6Rds5J+P6TpH/ZH52EU8A8TRDke3OEUGwNThunVsEEAsK1heQhNZ97arr8ejkkxvRK/ek94RWpfHsCE2jP1ilGPWM5ybvkGdtInhK9EK2kpL+Whl9D8jZ5fb7ZAQYztYEi/N/k7HF7bIxAretPSRv/SSRzkrwl+E47Q/p3eaeA4B5/kfC8jVUxAKW6OMI4sb5qoqjmZr1iAtvy1DpF3OIV8V9J8g659548BtMNXJnc0Tk3TXI5gE0ARgAcC+BDAC4D8AHn3O+S7DjnJo2MNpf4O+eoCT+AXwPwInlrJ4DrAfwNgEkALLAmWwDOBfB2AM+U978P4MMAPuOcezzp2VVteOfcFMkzAPyjvP0CANsAbAEwF8Blzrm/FAI+Ld/5NoDnA7jGOfdeve79a5KXA/gLAPcB2ADgMIC2fFbkeW3n3FSZ8ywuqZsAjAM4H8C9Ml/TFS89J2tpAYB/ADAfwDrn3F2e9lSp6ZA5Wg/gqwBWAngAwLMA7AKApHXqCX/WZwAWA7hN7nkAwEXOuW9ETzeV9PI24Vz/N9CZ3jJodoCyj5+xuc4GXjCvDiT+HSSvJrl0FvdfQPIqUSGFJ4JFNRj+fqLTJ/n/pD2fUp//nnLbXJgn/ScYlJNOAXO6eF5pBuEU98UTIliDc0UN1LU/fUn0br1K8bGk1z2rTodL5UTxAMkzG+M8o44v/yKT8/PSoRfI//sHyQ4QbOjWoEdSB14wd2cRfh/F2uXVyWEEdysvmFbFx/23Sxt2ix3AM4anqTb+ser7U3T/GQRE2wIWynvv6OJ57QoZwFo/Vz3M72yvtvwd7zWgqsT1MU5ybLZ7NRjzxY1RmauBOFXcPneSXKA49sQg2QHURI0po067BGbal4XVZ4nnD5UBNInwuz5mz/SMYIc889NVSUSB4ddLnO9QUvocef1KZaB9OsmzldfGYkW8knzZ2ySPUnEBv0zyGGVoznreo2UahIsEMIV9ypBq+/F5a7YRtWUHg/Vjj5YtWFZFHD4i/4/I389JAMT7mh4PoBbkEjn2bc1zBeuRma4geZ8cB5fUqQ5SbbpAGPwkyXPLym+fwAieowKu3lrFGlJ9/qQ89zsZ3/28fOcrYrAlyXd18azXym9+KHuFJP+1wPM21sUA0gh2FjHsx+exMYAyVLWNypqgCOLRcowlyZ+Wz44KjtC3NN0OEDCAncoLYNZMQBGdY5UXwL46GYDyfz5O9fcaFexUtg3Er6Er5NmHSJ5WsvrDz8MZIrg8RvJisX0sVj7p4/L3+dIuj10knyknxLEcv/Yx0fveFbh7viLneZ4hvr6MschhAG0V3XqsXAtD4tXnz0fVqTsqBoAh9wrxvv8XKKNdS7sKknzuINkB1HF0nYrS2z4bJqDGarki/gfEG6QuQ5dT6ouN0qYvV13VSp0wPyFtuFNUJX03ggbGuJ3CAI4IUd+b4pv+oHxnSjGMXV34tvsYiWk5XU3LPdOet0tUQFOinlpahhSawQC8ALRNYjgOhifVkj4fl3l/2BhAb+jMYjG4NJc+cRe7XP79tLiDdgB4F7U7AWwFcDyA5wL4MmZcyaZ6eZ7/rGqXQNXfaXHB+7GoQr4GYAWAr5F8mXPuR924bSlXw+Vyr1Mw4wJ2sXPun8p098uBd0l8P4CXANgO4AqZn+kKx39KGOTbAZwO4NkArnfOXS7rrAz3OMrl3VQXAWh3sc/Ge3ieU89YkjUe0iZX0NW2LEwDmCev95T8+d6abH1JdKhS+lNrO4pIFcKtD4hU8vRASm53YwfoRoqJyDC6PiUysNOj5L/f54evy14S6P29ZHpOXUb8IDdKaA9ol3TCWyOSOEn+LclnyFyvDq518t3/I2P1TUngtTbhu0m/XUXysyol9JqU364neQLJ60T6f0SpW+tQAS1QbVuQoMLp5+cLq1QBFaR7LoZ8R6W1I9DFrUjIBeL1k78uE3JTgmW8U9QOUDD3yCJpy8KmM4GIib8ngCeKP7LW+3ciGGtvD3hE2QNaJTGcs4X5TZL8xZzfeP//h3Vuo4LP26TjATK+d66yN1xuRuBS5j6L7lVGf2ptR4Iu7nBCLhD/+jGZkNeGREIRk0w7QFBHYHNK7hGfC+RwDN4xs2ECERN/Pe/effdvvGdORGN9rTLAl7IOlOvlW+RZUyR/Fk8YwEMf9QUk75fvvkXeH8nwbZ8jf89XDO2kBF97347T5KRNku/VbazRDbSVxRD6+HklbqA5dK8y+lN7O1IIQRY2CVdySZxcvIRS4wFS6ghkYSIWBtAtE4iV+CfMu/e/vyEW911FDN8t6padJW9EP68fVP79qzPW76ekXTcXSPnr7329/GZjwgm6pebDB4F9tmxDfJcMIDNPfw/1BFoJhXdcDQxgoi76E0U7EnRxqxL0kqtEZ7kw4+iWawdQm+EDImn9udKRhs97ks4QiC4eIpUJxEz8E05tp4oHBkm+LQLmFOZknyZ5dtkRsWpev6C8kBYFAUreG+4VyoNrRQF151yJ9yDJq4J1pFNReC+s78hvWhWpHwqrgPodxZ4iSFapAkqie5XRnyja0Q+jbJ4dICWW4HlNLFaRxwRiJ/4Z+vbS/e9nEY/QrujZ80l+X559c+AmqzerVwO9OalofMDMztXqn2Bf+NPOx5W664QqXB+7iAPwuumn6KQL2BBHi9r4qmQAZgTO0cWlXK6ARJloB8iIJWgr/Wrh50XMBE6WBfzDmIl/Hf73sccjBOX5vGH82pQ0zrlqoDz1j/r8t+RZh0n+TFUMuIs4AK+bTtRJ59gQ0/L9J93HVZ0KIofuVb3+W02jgyhqB1Ab56/ks98cgJQRSUxgs5IgD8RM/APCO1eYMkneWHWb1Vi+X0nCy6uujhR4Bvnyfr8aZPHMVQOlqX+UMOT7+wpRh2qPn04N1cDSGMBEnk66Cxti3n1cjLmADN1vntAOMKLUIomxBAPGBBpB/Av634+ULYGo9RFLPEIn8Aw6QvK84LNMNVCO+serfZ4taUBK9/jpQxzAqiSddEEb4uoiNj5jAAOQMiLFDjAnqCNw0yBNqur3BpH2HmgK8c+xBzw3VM+UUGPYq0NOStD7xxCPkOQZNJKnBspQ/3Tq8PgxI7Alg6vSsyTNDuDrCLwmzXA2AKefsUbl+U4mejeooiR9L92YUmpys8+2WQcx7NIzqJ2lBsrx/hmpw+OnT3EAhf35C161uIHWXbejkemgZ2EHuEDe+ylVR2D+IBaPD327m9h+uRapqNXMGr4p/t1p/uB5NYY316H379EzyKWpgdLUP4qoVu7x0wUDWBN6PlV4+fEei6ggTKukgjCl1BmJ0Q7wh/L/HwV1BDrAwBZTb3IWVL1A35FSunFkls+4NKHU5DXq5OQiXM9JnkEuSQ2UpP5RhKQWj58uGMBJEYz5/BgYgJrHvtTtKLvOSKx2gI3iPTER1BEYHK43gEysYA3fFQm58FfIFebDX0HyVXk1hiON+0jyDPIqnVcnqIFcoP75dXn/VXV5/BTIQ/OQMKvTg7oEVV5+LT1D3EWnSK6qgwEEdTt+ULRuR5HPyqgzErMdYCvJN8nrHzTGr9WYgCtQw/egyluic94fVj7f/jpYoMZwE+I+tGfQS0W42eXVQEFCN/+9Y8VLbH9dHj85DOA4aadPcren5muvMCMq4liHK/B6kv9etG5HEVtBgToj7UGyA2wXLr5VOvqfB1n9M2SM4J4e/L63N43w53gG+YLu13n7gPru9T6YLSj0/tlY+q0k0sXKCB8TNslJxFVYmKiV4Na9S3n1tXPo3rjS7bsCDCYpncysmF0MSdN88ZPPA7hE3n4cwBrn3L0kW865aSOvjWPsbV8Ah+QiAEtVkZMihVAecs7tVcR0qq6CP7MdA5JfAHAxgFsBXAvgRgCPAlgF4CEA9wA4DsCvAHgpgEsBfBfAmQAeq7PYUdgnKfa0EMDyGgvPhOulBWCnc26fb2NFxJ8A1mCmaNNxmCmQdL5z7odpBaAUoR8HcJvc4zRIAZyktvt7CdH3xaa2AXgZgP+Y+VlDaaSSlN4hR7kpkl+ygI7BOxH0Wl60ySpO5RnkdcPfUpLca5T682Hl7rm9To+fpuXbqqNtim5dqk54GwrU/NCqNG8jWtdFptgNSh10aeO1JOqI8wJ1nHvtoPn+GyOYnd/3AKzvk8V4SlUv469Jfjh479G6PX5Kms+yL1ejWuwiks8qMmcpxvRCxutgLV0yUK6QYtGfkGvRQEa/GYY97ck5csL1hd4PibF3WkmDv2C2r+bH9swmoG62z2iyMTjXKGIwNFzV+Vbl8cPg9fti8Pgx9J6mpGwGoFSL7UH2JzfibxhkJvDHsvEfV5L//x4Eu4ehp3iKVWbzHNSkRwZDcs6gL6oTwL/VlePHUGs8RWEjsMFgGBA9scphMyEeHccbARguIVfiKbbKGhg34ddgGD4pUNu8jPgP9/wb8TcYhjSHkm1+m3+DwWA2L4PNv8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAyGJsPVUAXHAWBGe+ico02NwWAwYHCKYXfx3baNmMFgMAzACYBkxzk3SXIUwNMAHEp4NgHMA3DYObeXZAfA1CCfBnw5ODvx2DgZDAMp9fvNS/I5JO8ieZDkbpJ7Se6Ra6+8d5DkJpJnDPppICgK3bLVYuNkMAxSseOOev1bQtyLYprkH5Cc608Qg1Q82RMykuMkx03tlVwkWwkPYzZOjZ3Plp9XdbUGbD+n9bOsK97xCzbwqSS/rgj7p+UksJbkGpKr1bWW5AaS/1N9/3vBacANwGJpy9+VJCdIbiO53jM6k/SfODnKtYTkdpJbbZwGy+Yngl27yfu6zrZHdyJWEtuiQOrfSvK1XdznXJJ3ym+n5DQw1nQmoIj/cpI/VIxuxzATtxRJv6MYwE4Zp6iYZXhiGbbnZxF2+Tsqgs4ieT0qr1f4edZ7o2nMQJ3kk/pZ1rVInjUa1YlYSWwLRY/vcSPJY9Ukt3Iuv3gWBKeBTdL5Rh4fA+J/h2JuU/J6+zAygRxJf0T+rhPiH804Jamqhun5Pdr8vN3vkMzjn5A8n+S8WKTqHk/ym0geSLBt9vvyttIDJLeQ3BANvVCE+xLZqHtIvi78vIgEo7manAYm5J5XNZFAphD/R0k+RnJSNsRQMoGAASRJ+p4JrJfxqX2cFJEbr+NkmnJicg22+W1WzGBR7ExA7edj1X6uA/HQCyXB3yqNu1ren1OAyD/l6CcLyW/+y+Se95KcF+vRtwvi/zDJV5C8n+QReb1liJlAK0fSPzoWJqCMcMeIYLJDmFclazJgmDtI3ieqgVYdOuEebH5rZJ5fT/JzJHcFRG2TMLZWjF5faq3q/byf5MXSt7WBbbOf1xq5zkzZJ+26idxF0qgHZRLbehJl4bYDCWo8jRF4yYLkiLIJXNkU4phC/A+QfJG8v0/eW0byZNnQw8oE2jlEPgomoCTdP1BrvU4GQJKfrmOt9MPmJ2v/9SQ/K4SUJP8sxrWv+nu8suHtJ3lWDW3ZoPbBDqUOatUp/X8nkP47aXo9URXdKxLMFV7aT5Aq/Ia7vEmngAxJ4SXy/lJRk1FN3ikpxG0oXB/VXPfKBNoVMakLxHYzSfLsqudIra1TFdF8a8WM0DOiRT3a/NrhmIkKaFLuc2FMa1/1d7HQIH+SP0tpOloVXXMUE9gqbZkQgbpaupgh/TvFMbWk8GqS30zQZ90ujGBR8Bt/5G7MKSAwEN0RSgrSn1HFAFarTR0St3VDzAR2JNgEkpjANjVOrTINnCSPU7aKa5Lmpt+bMOl+apyukLYcInlaVWtFrfHz1PMvy7L5ZdkPlLr3I3K/+5TTRysi6f84sd9NkXy5J/5JasIS4gu0kd3P/2nKhriu8lOAamCi9J/hHXQ/yXeRvDJ4/ynePk06BaiNMaoImCb+c9TnP2EAeKrB0+v4HojO5as6JrBaCEEWE/DjtLMsVYxWXZLcKM/7clKQYr+9c7IiodU4fULadKfYJkr3lFPPvk6I4UY1Hq1ZjPEx4j1EkjfEsu4VLVqo7BZPDxlUv+Y/67cBQ5gnnkHTJFdVygAUsbs4Q/oPvYP2kbya5FJ1nwUkrxKm8BRvn6acAoII35PFu+FBkmeGxCKFAbQCCXirGIdPHqZIWDWO80n+DMl7ctRBW+WzshiAn5P3K2a0PJT0gvkf6xcRSIuEVkRzrpygSfLGsveFatdcxaCvkrZ0+kBPzlbu0VGoglL27dpg3rWm44Q+MZsVcj8fP7EwYa09hY5UrRO7TzjQf03Q/fsTwq362KwIov5uqoSfcArYXovOK3/xrhB93GaSzyS5JPg8kwEE3/WMZMuwRMIG47id5I9IPl/pXbcnuIiW5o4Z6P2nRUd9TpInm2r3fcIkemZIRSOh1XM3JNgD2mXNkbTtXHneIyRP6gfxUfv8WmVQHo8h6C5HcNPzNSEu3md2Ow/BfbaRPCwS/m55/ZN1lUdHqtaJeV22SyBk3j6wS6SZTrB5WmJEmUPyx/LdXw1PAfJ3ifI2WBdDSHSKX/B+RZQ6RRdSiirpgRgjYSsax8MkjyK5KsXwO4KSAojUOj5JzcE1GURYt3tfHgMo8lmRSOgEe8Bhks8ta28E6h+S/Md+PUsR02Ux7fOaGMBEgq10IjYGoHViSQOyVBbuNMnfzggK85vo5+W7O+W3LjgJjNam8+rO1fOMpL52M3Hq3utiCYKqYxzVmG1IG4eS9P7+hOtjNL6UoMrLm/9Wr5G8BeIjkpjAx5URdbwMg7T8XawYU9/UsYEaJaZ9nrRv15SsAlogQvUquVaTXBA8c6xuBpDHEZeKMXSa5NsKMAB/1N7t7QQJDKD6DhcnWtrg2+523Hrwj+8MKPF/0jimuIiW5v0TnHAfkzW5IWhv1/OfEEk8nsMECs2/2nNLy5Scg3E5HLgxt/oc5RzFPs8QeE+q2QjshElUzygL6rI7QSTvhOj2OwkBYnPk77/Kd383RQUUBQMosPk7vY5bD/7xnQEm/p2UcSjV+ydlw6/ScS+9zn8QSTyRF8lbYP7bVUnOeeNSBV2JwA30ERnfF6IaN1B9hSfPE+XEWa2qrCADyPLeaakMgEW8iaJZGClZPQ+oIK+RvFzegYSzJnA1TLrmqGCxgYgY7oWJJnhJbS+ZASQd+TtZEaFZc6F++9+UXvczXfxufUoEaLsKybnsfZjAyKJhAEoluE0JtBuC7LVVXB1lc/q+sq9WZyzvwpjpG/tG5f//pMhf+fxS5elxTa/G04ojfH+oEt+9qMv7zFf9OKnL365WY7WjiRHDvZ6gErykyvL+yVNxpkWEFmn3hfK7I3IxSz2asJcSI0Cr2B8VMgCtylobibNHS42/FsI21NAW7XBwUAeZ1qkTW5PAAHQg2OYg8vcNIvV/S72/RRZ0K6U6VG1GYLUAViriv09iHI4WSTQvn/eY/D1R0ruS5Ony3niBXOCLST6N5AtV3MSOWDyiyib+SUFRZUg8WYSuaERoRiTxQ0H1O+9KmRvJmxUBWjEDSHT+6OPa0C6mJ8SytgObjGYCz5O9PVZiLQB//zUpxL9rAbAfaoP5AI6R15PhZnTOkaRzzu0j+TwAlwO4EsCzAXxaffV+AB8DcJ1zbrf8hiltPkqKyncq1gFS/Pr/FcAKAFMAjgZwHWaK3U91cUsHYKG8/nqXv20DeFTGfgrAsQA2kjwVwK6MsYuC+DvnpkguB/A1AKcAOADgYufcLSQ7zrnJ3MFzbrrmYvEHABwEMA7gDiFOUxlrxwEggBsBLAZwK4CTZQ5vBXAmgM/IHjmcMYdT8qy7ZA3MBTBZQ//1vmcfmbC/zyUyXt92zk2QbDnnputev7J2O865HwnhvQnAagDfAnBIzXMpj5d7Hy3zvhPApc65bxfdN2XpxLaKJPOrWbn/EyJ/t4p/dRgZ7DIkn1cqO0FludAD/9wHpQ2TIgFO15QP/IiKmNyvgs7coEr+Mfh950WEFogkvlcC/HbK/K1TgZI3FnQiGC/QrlJOAMG+J8mP92P+0iKMI1wb2t5ye431AO4jeeJsxqczC05I4Tq7SL5LJJvfJvnJJAnGnwQAtJ1z+wFcS/IvAbSccw+pTkylSD7TspD/i/z/ETkpVML5pP0t59xDEuDxdZG8HwbwiwC+B2BeAWnMc/GFAP4BwAIA5wG4F0ALwHQB6f8xAMcD+IycRA4BeLm0LQpJqSzJP1JM5/R7kuQFAN4lp4QrAGyWU2MLwH4AlwG4HcBlJL/lnPtTP2bdPrOCfdCWff9GWcNvJvl3zrmbc9qchxZJAngxgBPkhPPFOvubpMpT6/jrANbLSfANAP5D9vd0iScAAFgue/8EAP9C8hw5kcxm7GflptRVjh5tyS4SyFMk42jNOsC7ezDkzlVeDid0+dtFyl12VjpAk/z7cgJIC+TzNqNnqKCpdyM9HfgvJmT2bPW7XX2e075l7yR5lIownlYJ5loR1wM4MNT1AGaTqbMoAS9SbyCClMX3kzwFT7iBZuVBbwVH+LU+EVyBHOArFLM9EDMRbSrx74HQZjk/LFGqkq9kpAP3z7tBbeqnuLdmBUpVzACysneOdFPgPaGWsGeWvxbLGrF6AH0+BfSz3kCkxUv6GQjWVCLayHYXZAC5EaGKAdwvEvKynPlvy30nshhAWgRo1W7SCdk7p0lelJA4rl3Ap93XEvYJ7e4RgtaOJNmj1QPo4RQw67zkefUGIq9g1Y9UEC0j/lEygEIRoQnpnFtZDAA58Q1ZEaB1xMmoPfBReeZuVeB9XsF7hLWEfaH4NTGdAKweQMWnALW4Lo5J+i/IBNalVYvqIRncSiP+0WV/TI0IzUr6ViSHVkYZ1XZWBGhNDMApldamBCJ+nTCDFQk+7StI/mZQS/g/qftEE+lu9QCKE8JfUIm6xnptkFpY81VBkKsjLRbdKVrJq8d00DuM+EfFADopEaHr05hANylNUkpAJo3rUxwA6oiUD046b5AC77sCZnBIAh/1dTCoJbwS2bWxO1YPIJJ6ABkEe4EyknxJ57jp8n5zgnJ3W2WBtWL0cy9ayasgAcitLBY58T++ycS/YLrzdkQ2oHbdkfIJDGsZydcLM3gow5f9XpKvU78biTHxodUD6C5VwlpVQOPabidOEdPfUgUufib2fDdFKnkVWEiFKotF3PeV6sTWSOKfYvSbljl1qq/R2ICUh8h4XYVUlLAXqj2XqLz2q4PXixI8gaLLfmv1AHrzDHg8qO41pwvi/woV5Xp5g3THeZW8sorCzylaWczUPpW6/XlJ7FM5Kapz6xR0aQNqFbUBqXZ8QLWhtlKKacwga/3EnALd6gH0pr55i0pZcF4X2RKfLUnWSPK9RZlHhAQxrZJXlh94ocpiDajkddYA1CpoqfV4MKi321Odgi5sQKEuOIv462JKU3K9NJYTY0pe+1aeOjcmJmD1AHrXiX9QGvdQ6O6W4u65RCJrSfKzZZX8qzhieHuYOjaIBF2v1D6FK0uZzr/SdXxFQpRuu9s6BT0wAF9S9YEkG1CQZXRnkE69PUDjXysTsHoAvQ2Yb+gXpJF3in7MJSz2tgziRvnudyRdQqtpxL/A4vWRvz7oZaUsrDsb6O0zEDr/gvP4CbWOj0lw2yzix9+NCkh/d3GSR5kKsvL75stNFZoawASsHkCPQVzzFae6OfQMUiqjjyv95QlNyW/fw+KdIPnTEiE6Kbn9/81cPaO2B7RFILk9K2tnXp2CHozALuneKVlGt8mcuKbvm4iZQDvF5nN6xfUAftAITYEasJOTPIOa6vHTh8W7W9QJR9S4NCG3T2tQdf4F1/EGdXJ7a1qwX0aR917cQLPiAi4QffQkyXMGad/0I/K+wnYckfncK3/LuPy9H2nUvsvyDEKDPX76sGimVb+bRPxXDoPk36U9oFUgl0u3NaFbKaeIpCyj1wzZHBTyuqqgHRvEVbvqmiDb+rHvXJUTJ3nR3wLgTzGTN/8cADswk0t/PoD3OeeuJjnHOXdkEBevjMF6zOTEXyEfHQRwUcx58RUhWgzgNgArMTj5/HuZwxswUwfifsxUt9ulq5PlVWUjOR/AfQBGATzTObcla+z1fdU8fA/AcQC+6pw7L6eexqDuo6/KWnwAwLPCeaioxsVCzOTon66AphIzNSQedM7trbwGQJ89g7YPgsfPLCSHCfGOOrMJ2TGLeKUMAQPw7nipWTtTcrmk1YSeTqkJHeZ+cXlZRgdN799l5H2i11VVp+I6T+ToQ4WZKqVIXyHpJgAvl4/+DcAZmKl0xSGQYLzkMCYV0XY1gZN7SVRyHLWb0u4Sx2Fc1use9V54UhoD8IhIbXpdtzBTDc5hpiLYVLAvpzFT93UPgNO0ZKueNTbzVmYN7WHYR0+ZhxroWtVCazPpZKADvVe49/GD4PHTK/duUr+zvFKGjQkgI+NnRi6XbjGRFU+AiGtA17CPhnYcGnECSJGgIBJMlLVsqyAiTePkTW13VeOg1vcCzOiGmbLXnNLrJul6HYCdzrn9SZKtzYONw8BJUAbDoK3vmO5lMNR+AjDObRgiJuCGUtdrMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMBgNqKBxkVd8MBoPBSuPCSkIahrIYtyqhyB7WceWlE4e9/0YfZt8/5xxJjks/d/v3jPMZmjR/rRgKn1e5joa9/xWPb3vQaISofVokjyE5Idd41eqgjnG+eCWYWCUgNX9jM81zu0m2nXNTs7zfQgDzABzu4nRK/xvn3N4q1tGw978PJ5rME4saj1EALefcbs8IAEwPCJ1oO+cmSf4ugOPlvWWyllo9nAKboQJS3G0cwG3S0dMA7Bmk454mCL1sSv2bmBa+mr/FAG4HMA3gPOfcj0h2nHOTs7jfbQDGADwCoMgmcPL8owHsBPD8stfRsPe/l/Wb8Z2Wc246Yzy+D2ASwNUA/so593iv+ylG2kDyQgA3AZiS+V7nnLsraVwGTiomeRzJxzmDdf06SscwuaqP4/6U082xLun3sRyF/RGV5BKSO2X+tpFcL593ZnG/Cc4O68teR8Pe/4J9asnfUZIrSS6S16PyeqVI9164SRqPpcF43E7yCpKLmqzuErWPE/r3UDB/a6qeP1e1uiM47m6Sk8Aa59zdRThfxGqRJ6kASF4C4EPy708BeFjaPV3w2DwPwB3y+ppAAqr1RODnSRj31wCsBLADwMt6kYTVmlgAYLlIvq6I4RPAAgD/AGB+VRLUsPe/oHS7EsA3ACwD8LhIuJATywiAhwBc5Jy7MxwvNR6LALwRwJUATpaPNwM4HcD+phm+ZW+3ZAw2AjgLwK0ATgKwVOhg804A3RjElHQ7SnKPcL7V3fw2FglAOHkowVxK8psBZ//zotKh/w7J3wvu4SWgkRhOBL7fJNeT3C5t3D4bSbjHdswlububdWT9L31MjiV5R4ETS+p4BXt9AcmrSN4vv7uqlzGOgF74vf1+6ce9JE9W/VrdOE2IIuhjSt3R7jcDUMfKcTG+RXUMTCD820n+qVJzXVhgbPwGOo3kY/K7T5D8cQ4jcDUv6L4RQTkiF7na8ne8W0HC+l+q2me5Iv77SV5Mcg3JtfJ3DckzRW0WjleSOqij/r9cEc55TQqgUnv7ApLTJCdJniV9ONBIBhDoL7eT3Jq3+BUDWCg6sGmSq7I6rjbaCpL3yeJZUtcCUH1YRPLVAeHfQfJqksvkOx+R9++T77e95B5cLZIdub4rv/l7ucd8ku8geXdsOtF+E8Ee5mC0TgI47P0P2nI8yR8q4n9Wxm82qPHaQXJDWttlb8yR6075zZVNOQUEen9vN3q3fLY0BgZemUGsWyOw4pxasthXFwNQfR4luSmB8C/VxEH8fO+S79xQ4P7XyHd3ibGsnXAU1oxgkzAWN0xMIDICOLT9V/thsUjmJPmwJ/5CtMPTyxzFBLbKbzL94NUYX67Gdzz2U4BXE8vfjdL2LyvGMNpYBhAc/dZ1cazzC2a7/CZxIhXxX6s4/wGSZ9R41PWT+UK12JMIv1PtP5vklJx2XiMEe1x5RvjXZ5B8RO77xuB5nQRGsEO++6q6paGqiWBMDGCY+x8IdI/KOn+5J/4Fxus0kocKCIL+OUtIHmyK92CC3n+bCLNRrd+yDWKtFI64QC7niWYCY9H33KMki3bNff2oEPQPh4Q/ZQH8ifRhkuReufbI5f/3ev+b0gxj+hmiFiLJL0bi/lcZEYxxAw1j/wOV7i5px9O9tF/A3jFPjNiZquCgv7uLqI4j1fufE6yV5jOAjMU/Icc8r8MLCdpCr8MOJGx/bNygfIG3kTy1Tkk3YRFOkXy2tLmTs9AXibpmOsczYouofloZNhFvR1guJ6LHY9kMVRHBWCWoYet/SjvWFnDq0LEuue1vGgNI0ftfEwqKwbitCQTkvKsVlfpLLX6t2/ud4Dsjour4H7IxHhDp+HyS84Lv/o7cY6syEsWg5vgladc3unR9XSiTvIrk6uBaJZ8tLGLUVdLFX0hbfj8Wo1gVRDDmI/Qw9T+NkHXBAMa6ZADRq4By9P4dre4Oxu2kxueAUoRpDcnfFBXPIpIvIflHJH+UIf1uFmbws/Kb+XKPNTEQN6WW+hdp7+Vd+Pe7fk6oWmBnKte4ubEYxcomgrHrUIel/ykqoJMKqoC8GriICsiP5yvlGQ/2EmVft95f0ZAkb8jTA5tg3rUyysjoQOc/P/CW8S5iN5F8E8nXkfycWjzau2W0nxkX+8TYTpf27ZTIzcKDX9DPu5t7eUnj+9KmV8bkGlcmEWyCEW0Y+h8YgR8RQvZC5BuB/X46UfnBJ0r0ss7nyN9b5btXx+gGmqP3b6eM2xHlULKnwPWwMM1D4l6+JDpvKK/zF9UORU/9RZJvJnlCwveXCzP4rPIKeIvcZySiifXG3A9FpJLyxuCbYzsSl0UEe4knsf6X7ga6Tdv+QpWHujoqYvj7yu15PFCPeAHH772LlfQ/FhvRy9P7Z4zb5i5zPk2q13tiZQB+kq8TY+ktCYPV0ROsPrtRfnNzJNK/9v33YffPqdMbKVBJHUvycEzG4LKJYJOSCg56/9U63KBck7d7JpDyG50u4qDy7mtlRNrfm0VUY9f7F7ANrs651pN8hridHxEaeU7ldEhboJOs0qpjc+WIQvFbb5E8Os3IQ/IoGcRXKJ//FQF3bVVtDVcb+E3Sri+pU07d2TlHFKMlyfdEejQuI22Cl6C21lVQw/qf6Qq+TVSmY8G1huQPwohhdQ9NGF8VRNpvkX62IpP+c/X+/TDgCgPwuYPeVQvx72IwzpWGPuIt3AU9AxaoI9SbyzC09hjtfL9w3o9o/WYdSdkSTk3vkrY95IPSIjaO9TWBWq9pt63/lfTvSBDrskcFOx5QxL+Tkw56h0TJL44wD1ghvf8sbINtOUU8TTHOv8s6XVRh8V+RkOd7hXzmAn35LUWPpgnujV8M4gZSn1vGwggW5H11ZucsmH00TqNQyUSwKTniB73/gSv4lpxMoGeFfU7IL/aAEP5lMc5zN3r/Pozpp+T+dwvda1Wm7gsmZpvonHcrzr5b3tumCLQvePC2LqR4r0e7UH57iOQyuWfec0shfIHHxTsDo00t2TkTCP9Oku8ZVkm4SQVCBr3/KtfPPFFZnCiuoSfJ62eQPEbFBbmM/bZEvX9UpRJvCXr/WayVtyl6+Ly69P5FKhdtVQzAG0zfGOazKXACOFt++5j4uy5UwWVJmChT8k3JTx5m53xTGX65QfbR16RkH11aFQPqxxjXlUXT+l8qIQw9XRYIHThKbH9Hy+tRf2JPiG5PMpYu1us77/s16v23i3G7lRPN2yoa6yN/X6DUZm+rbX0EOvrVQUSrf71Afe+TohP7UhcqID+oH5MObyz63LKJX0ZStjA7Z9+McQHj3Vwg+6iLpfjPIBLBYe9/nt0tiPTfKoTrYcngu09ePyLrNy0DgCaUy2RMdmZ9v2a9PyUR3pn9sqcq/f+4oi835MVXxGYEfmWSN08BBvMk76Gina5qISQwgvkkf6NIVsM+uPtNkvxA1YS/l+I/g0YEh73/OSfTswpE+udlADhfnaBbKl/+1gLfdzW4vT5DbBTTwvCeJoJaVvRuWBPZZdEXkl+QPn/Pe1DWrgLLsVq7NG8eORYdldHpESFmL0vyHsp7bk3jMEe1zyeIW1UCA1iobCrL0/SnMRX/GSQiOOz9z6ABCzIi/X9ZjMHax32NpI5/fUYGgDFt4BSi+XoJEs39foXrwLtjTgkjeDjI8htee1UE7xZRbbmMDMJXy/33NrFYTFtZrn8S1JWgw0vSHV4vv9nYgHzf2h+77yH5KSH/6/L8i2Mo/jNIRHDY+5/R3vcoFcjfp0X6Z9xnmSLu++Vef5aRXj3z+xWuA++mOiVXL3hmQuocTzdfpiJ+f65xNZBFOp1D8hJlvb6e5HneAyDh+y+WY6Q3Hv+aLIKRBhyDRytkAKtrjvhMK/4z6ExgqPufUrv6UWnnL6VE+mf5tocuzecrondh4BVY+PsV20KLRPCulqJWq8V7b1rWz9zgfi2l7vVCxgebSPzDZHCbE3R415F8KckXkfxggu5wIvD9bRkDiKLyVV7xn85sDOC9EMEq3SCt/094/Kja1V8I8n+1urWnqYj2sIZ2K6GgVOHv12kLTfndedLe7wYnCj2u31AOMK2YXF97TQc9SvKyFB1eqDv8e0kCt1Tq6ep00G1jAPFXvurDJilMBOsIhBrm/qu2hbWrZ6WSVATwKTW0k/Z9t9+vwRYaXiPy9ypp6+cDeunH9YPKy++4qlW9/SL+WQVhtA5vrySCStQdxlYQxhhAISK1Rtq6uGwiqI7M4yTHImECA9t/9bzTVfnSN/aL6CbU0M5U7XT7/UhsJn8UZhNWn71OZft8aaxCb14HV2eUhAx1eONazaN0hyMJJSFjdw0cKgaQQKR2qKP4feIhsaxMdYh8tkKet63qFBjD1P/A2cHvyb8todax7/O1SvhLjavp9vsRCMefk3a+U/4/Ck/YlfYGSd6aofdXksFykj9O8JBopfi4zlch4UWKwmsm0DYGEFXlq9Uk/0Op8+4X9d+sXHQziODJMiY+pfC+OnIgDUv/g3iUR8WQeUpSfqo+5dZZVqT0Y7ffrztynOS3pY2X4gm7ydGSSaCeJG99Iv4r1WJ8mOQpBQohbBdGMZ7iD5uWYnZdRARw2BlAWwVH3a4I4D39KuWZImlvCfLJn1GTZ9RQ9D+l9GPfa08EwWVFSkV29f2aacRR6vT0fEU760vy1ucEcWF+785sC1kEi3+bSnwWRcbLIVcBtdXJ705p2+6gKEi/XSRDSXsHyRfXcSocpv73Wvx9ltHW3RSLH4u4NKhTQvKjQvdOlPd+pc4kb/0aIE+EHwRwkXPuFpId59xkxm8OANgHgABSv+ecm5R7/QjAuQC2AZiCoXbJ3zk3JVHJXwOwHsBBABcCeBGA+wGsAPA1kuv9PM7mkfJ3F4BHgs9uk00zbf2vdhlEdG9GvF08fVwO4CgAewFMCMH/Y/nsN5xz3xVaN9UkQqAlg8V5HKxXiVZJW5V7fNgJIFPyvSM8+eEJT7B+lT9Mk7S3iwS8vKZYgKHpf1U1iLt9ThNqQ6vTm69p/M/S3niSvFWVIXE2BC00JpsRuJZAsFYW8Qvc2mZtwE953gEJIByrukLUsPa/qhrEPaiIo68NrdbD26V9n5G653EleasiR/psOXaE7l2JutGgWMRsLu/lMBZRKoiVacQvx3ulKwN+3vNqCAAb2v5XVYO42+c0oTa0WgsfUqc3P5fNSvLWFEmiZgZwUgnPmV8nA+jR4N+zAb/I82pIgTC0/a+yBnG3z4m9NrQSBD+v6iRHkeStUyPRfBTAA2K8eVDei9mQk4dpzBinCWCM5F7MGNmn+2BAIoCF8nq65nHSBv+fc859I83grw34JM8F8JUeHA8KP8/6X3LHnSNJ55zb7fexc451P6eqds2GNkgbV8je7QD4kHPuczWvZbi6GIAMyLhM4O4IJ63bvhwH4B6Z3H0leGQ4xQQ2CFFpOeema+jrKIC2c26X94Yp6DEzDoDOuT1F5rvX51n/qzkJlL1fu31OVe3qVm3onJuW2sZ3yx7+BoCzRRiYaiLd67fh2DXd9iE6yM0sH5vq1HH2WhKxVwN+P0swWv8NNcdKbRV13nGxzKcbBkmiQslwIWZ8fcvoD0Vi2Omc21fnianXeav6d9Z/Q2T0YWxmGpur8TDUXI+46Scmg2HY6UNM+9cISf8nuewxpUkOBkNzmYDtX4PBYDAYDAaDwWAwGAwGg8FgMBgMBoPBYDAYDAaDwWAwGAwGg8FgMBgMveD/A7wEZRXQrgo2AAAAAElFTkSuQmCC"
+
+local function decodeBase64(data)
+    local alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    local output={}
+    for index=1,#data,4 do
+        local a=alphabet:find(data:sub(index,index),1,true) or 1
+        local b=alphabet:find(data:sub(index+1,index+1),1,true) or 1
+        local cChar=data:sub(index+2,index+2)
+        local dChar=data:sub(index+3,index+3)
+        local c=cChar=="=" and 1 or (alphabet:find(cChar,1,true) or 1)
+        local d=dChar=="=" and 1 or (alphabet:find(dChar,1,true) or 1)
+        local packed=(a-1)*262144+(b-1)*4096+(c-1)*64+(d-1)
+        output[#output+1]=string.char(math.floor(packed/65536)%256)
+        if cChar~="=" then output[#output+1]=string.char(math.floor(packed/256)%256) end
+        if dChar~="=" then output[#output+1]=string.char(packed%256) end
+    end
+    return table.concat(output)
+end
+
+local function prepareIconAtlas()
+    local assetLoader=getcustomasset or getsynasset
+    if not assetLoader or not writefile then return end
+    local folder="ArgonUtility"
+    local path=folder.."/argon-ui-icons-v2.png"
+    pcall(function() if makefolder and (not isfolder or not isfolder(folder)) then makefolder(folder) end end)
+    local exists=false
+    pcall(function() exists=isfile and isfile(path) end)
+    if not exists then
+        local ok=pcall(writefile,path,decodeBase64(ICON_ATLAS_BASE64))
+        if not ok then return end
+    end
+    pcall(function() ICON_ATLAS_IMAGE=assetLoader(path) end)
+end
+prepareIconAtlas()
 local function safeCall(callback,...)
     if type(callback)~="function" then return end
     local ok,err=pcall(callback,...)
@@ -62,9 +119,38 @@ local function connect(signal,callback)
     return connection
 end
 
+local function themeKeyForColor(value)
+    if typeof(value)~="Color3" then return nil end
+    for key,color in pairs(C) do if value==color then return key end end
+    return nil
+end
+
+local function registerThemeBinding(object,property,value)
+    local colorKey=themeKeyForColor(value)
+    if colorKey then
+        table.insert(Argon._themeBindings,{Object=object,Property=property,Key=colorKey})
+        return
+    end
+    if typeof(value)=="ColorSequence" then
+        local points={}
+        local themed=false
+        for _,point in ipairs(value.Keypoints) do
+            local key=themeKeyForColor(point.Value)
+            points[#points+1]={Time=point.Time,Key=key,Color=point.Value}
+            themed=themed or key~=nil
+        end
+        if themed then table.insert(Argon._themeBindings,{Object=object,Property=property,Points=points}) end
+    end
+end
+
 local function create(className,props)
     local object=Instance.new(className)
-    for property,value in pairs(props or {}) do if property~="Parent" then object[property]=value end end
+    for property,value in pairs(props or {}) do
+        if property~="Parent" then
+            object[property]=value
+            registerThemeBinding(object,property,value)
+        end
+    end
     if props and props.Parent then object.Parent=props.Parent end
     return object
 end
@@ -88,21 +174,28 @@ end
 local function iconLine(parent,firstPoint,secondPoint,color,thickness)
     local delta=Vector2.new(secondPoint[1]-firstPoint[1],secondPoint[2]-firstPoint[2])
     local center=Vector2.new((firstPoint[1]+secondPoint[1])/2,(firstPoint[2]+secondPoint[2])/2)
-    local line=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=color,BorderSizePixel=0,Position=UDim2.fromOffset(math.round(center.X),math.round(center.Y)),Rotation=math.deg(math.atan2(delta.Y,delta.X)),Size=UDim2.fromOffset(math.max(1,math.round(delta.Magnitude)),math.max(2,math.round(thickness or 2))),Parent=parent})
-    corner(line,2)
+    local lineThickness=math.max(1,thickness or 1.5)
+    local line=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=color,BorderSizePixel=0,Position=UDim2.fromOffset(center.X,center.Y),Rotation=math.deg(math.atan2(delta.Y,delta.X)),Size=UDim2.fromOffset(math.max(1,delta.Magnitude),lineThickness),Parent=parent})
+    corner(line,lineThickness)
     return line
 end
 
 local function drawIcon(parent,name,color,size)
-    local iconSize=math.max(16,math.round(size or 20))
+    local iconSize=math.max(16,size or 20)
     local holder=create("Frame",{Name="LucideIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(iconSize,iconSize),Parent=parent})
+    local rect=ICON_ATLAS_RECTS[tostring(name)] or ICON_ATLAS_RECTS.activity
+    if ICON_ATLAS_IMAGE and rect then
+        create("ImageLabel",{Name="VectorAtlasIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Image=ICON_ATLAS_IMAGE,ImageColor3=color,ImageRectOffset=rect,ImageRectSize=ICON_ATLAS_CELL,Position=UDim2.fromScale(.5,.5),ResampleMode=Enum.ResamplerMode.Default,Size=UDim2.fromScale(1,1),Parent=holder})
+        return holder
+    end
     local scale=iconSize/24
     for _,polyline in ipairs(ICONS[tostring(name)] or ICONS.activity) do
         local points={}
-        for index,point in ipairs(polyline) do points[index]={math.round(point[1]*scale),math.round(point[2]*scale)} end
-        for index=1,#points-1 do iconLine(holder,points[index],points[index+1],color,math.max(2,math.round(iconSize/10))) end
+        for index,point in ipairs(polyline) do points[index]={point[1]*scale,point[2]*scale} end
+        local lineThickness=math.clamp(iconSize/14,1.15,1.65)
+        for index=1,#points-1 do iconLine(holder,points[index],points[index+1],color,lineThickness) end
         for _,point in ipairs(points) do
-            local capSize=math.max(2,math.round(iconSize/10))
+            local capSize=lineThickness
             local cap=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=color,BorderSizePixel=0,Position=UDim2.fromOffset(point[1],point[2]),Size=UDim2.fromOffset(capSize,capSize),Parent=holder}) corner(cap,capSize)
         end
     end
@@ -111,7 +204,9 @@ end
 
 local function recolorIcon(holder,color)
     if not holder then return end
-    for _,child in ipairs(holder:GetChildren()) do if child:IsA("Frame") then child.BackgroundColor3=color end end
+    for _,child in ipairs(holder:GetChildren()) do
+        if child:IsA("Frame") then child.BackgroundColor3=color elseif child:IsA("ImageLabel") then child.ImageColor3=color end
+    end
 end
 
 local function mountLogo(parent,size,logoValue,zIndex)
@@ -190,23 +285,32 @@ function Argon:SetTheme(name)
     local nextTheme=type(name)=="table" and name or self.Themes[tostring(name)]
     if not nextTheme then return false,"Unknown theme: "..tostring(name) end
     local oldTheme=copy(C)
-    for _,window in ipairs(self._windows) do
-        if window.ScreenGui and window.ScreenGui.Parent then
-            for _,object in ipairs(window.ScreenGui:GetDescendants()) do
-                if object:IsA("UIGradient") then
-                    local points={}
-                    for _,point in ipairs(object.Color.Keypoints) do table.insert(points,ColorSequenceKeypoint.new(point.Time,remapColor(point.Value,oldTheme,nextTheme))) end
-                    object.Color=ColorSequence.new(points)
-                else
-                    for _,property in ipairs({"BackgroundColor3","BorderColor3","TextColor3","ImageColor3","ScrollBarImageColor3","Color"}) do
-                        pcall(function() object[property]=remapColor(object[property],oldTheme,nextTheme) end)
-                    end
-                end
-            end
-        end
-    end
     for key,value in pairs(nextTheme) do if typeof(value)=="Color3" then C[key]=value end end
     self.CurrentTheme=type(name)=="string" and name or "Custom"
+    self._themeToken+=1
+    local token=self._themeToken
+    task.spawn(function()
+        local writeIndex=1
+        for readIndex,binding in ipairs(self._themeBindings) do
+            if token~=self._themeToken then return end
+            local object=binding.Object
+            if object and object.Parent then
+                self._themeBindings[writeIndex]=binding
+                writeIndex+=1
+                if binding.Points then
+                    local points={}
+                    for _,point in ipairs(binding.Points) do points[#points+1]=ColorSequenceKeypoint.new(point.Time,point.Key and nextTheme[point.Key] or point.Color) end
+                    pcall(function() object[binding.Property]=ColorSequence.new(points) end)
+                elseif binding.Key and oldTheme[binding.Key] then
+                    pcall(function()
+                        if object[binding.Property]==oldTheme[binding.Key] then object[binding.Property]=nextTheme[binding.Key] end
+                    end)
+                end
+            end
+            if readIndex%350==0 then task.wait() end
+        end
+        for index=writeIndex,#self._themeBindings do self._themeBindings[index]=nil end
+    end)
     return true
 end
 
