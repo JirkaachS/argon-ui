@@ -1,4 +1,8 @@
--- Argon UI: Rayfield-compatible controls with Orion grouping and WindUI/MacLib styling.
+-- Argon UI: a standalone Roblox UI library.
+-- No host script is required. Load it, call CreateWindow, and build tabs/controls.
+-- The control, flag, and configuration APIs stay source-compatible with Rayfield-style
+-- scripts so existing menus can migrate without rewrites, but nothing here depends on
+-- any particular script, folder, or global.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -10,7 +14,10 @@ local LocalPlayer = Players.LocalPlayer
 -- _pendingFlags holds configuration values whose element does not exist yet (or no
 -- longer exists). They are re-applied when a matching flag registers later and are
 -- preserved on save, so conditionally-built controls no longer lose their settings.
-local Argon = {Flags={},Version="1.7.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={}}
+-- Standalone defaults. Hosts may override the configuration folder per window via
+-- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
+local ASSET_FOLDER = "ArgonUI"
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.8.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -108,7 +115,7 @@ end
 local function prepareIconAtlas()
     local assetLoader=getcustomasset or getsynasset
     if not assetLoader or not writefile then return end
-    local folder="ArgonUtility"
+    local folder=ASSET_FOLDER
     local path=folder.."/argon-ui-icons-v2.png"
     pcall(function() if makefolder and (not isfolder or not isfolder(folder)) then makefolder(folder) end end)
     local exists=false
@@ -122,7 +129,7 @@ end
 local function prepareBrandLogo()
     local assetLoader=getcustomasset or getsynasset
     if not assetLoader or not writefile then return end
-    local folder="ArgonUtility"
+    local folder=ASSET_FOLDER
     local path=folder.."/argon-ui-logo-v1.png"
     pcall(function() if makefolder and (not isfolder or not isfolder(folder)) then makefolder(folder) end end)
     local exists=false
@@ -402,9 +409,11 @@ end
 local function configPath()
     local config=Argon._configuration
     if not config or not config.Enabled then return nil end
-    local folder=config.FolderName or "ArgonUtility"
+    local folder=config.FolderName or Argon.DefaultFolder
     local file=config.FileName or "Argon"
-    if not file:match("%.rfld$") then file=file..".rfld" end
+    -- Respect any extension the host already chose (.json, .cfg, ...) and only fall
+    -- back to .rfld so existing Rayfield-style paths keep working unchanged.
+    if not file:match("%.[%w_%-]+$") then file=file..(config.FileExtension or ".rfld") end
     return folder.."/"..file,folder
 end
 
@@ -446,7 +455,19 @@ local function registerFlag(flag,element)
     end
 end
 
+local function notifyFlagListeners(element)
+    if not element or not element.Flag then return end
+    local value=element.CurrentValue
+    if element.Type=="Dropdown" then value=copy(element.CurrentOption)
+    elseif element.Type=="Keybind" then value=element.CurrentKeybind end
+    for _,listener in ipairs(Argon._flagListeners) do
+        local ok,err=pcall(listener,element.Flag,value,element)
+        if not ok then warn("[Argon UI] Flag listener error for "..tostring(element.Flag)..": "..tostring(err)) end
+    end
+end
+
 local function changed(element)
+    notifyFlagListeners(element)
     if element and element._stroke then
         tween(element._stroke,.12,{Color=C.Accent,Transparency=.12})
         task.delay(.25,function() if element._stroke and element._stroke.Parent then tween(element._stroke,.3,{Color=C.BorderSoft,Transparency=.2}) end end)
@@ -500,6 +521,7 @@ function applyFlagValue(element,value)
         local callOk,callError=pcall(callback,payload)
         if not callOk then return false,callError end
     end
+    notifyFlagListeners(element)
     return true
 end
 
@@ -509,6 +531,74 @@ function Argon:GetFlagValue(flag)
     if element.Type=="Dropdown" then return copy(element.CurrentOption) end
     if element.Type=="Keybind" then return element.CurrentKeybind end
     return element.CurrentValue
+end
+
+-- Writes a value into a control (running its callback) or parks it for a control that
+-- has not been created yet, mirroring how restored configurations are applied.
+function Argon:SetFlagValue(flag,value)
+    local element=self.Flags[flag]
+    if not element then
+        self._pendingFlags[flag]=copy(value)
+        scheduleSave()
+        return false,"flag is not registered yet; value stored"
+    end
+    local ok,err=applyFlagValue(element,value)
+    if ok then scheduleSave() end
+    return ok,err
+end
+
+function Argon:GetFlags()
+    local values={}
+    for flag in pairs(self.Flags) do values[flag]=self:GetFlagValue(flag) end
+    for flag,value in pairs(self._pendingFlags) do if values[flag]==nil then values[flag]=copy(value) end end
+    return values
+end
+
+-- Diagnostics for hosts that want to surface persistence health in their own UI.
+function Argon:GetConfigurationStats()
+    local path=configPath()
+    local pending=0
+    for _ in pairs(self._pendingFlags) do pending+=1 end
+    local registered=0
+    for _ in pairs(self.Flags) do registered+=1 end
+    return {
+        Path=path,Enabled=path~=nil,Ready=self._persistenceReady==true,Loading=self._loadingConfig==true,
+        RegisteredFlags=registered,PendingFlags=pending,LastError=self._lastConfigError,LastAutosaveError=self._lastAutosaveError,
+        LastSaveAt=self._lastSaveAt,LastLoadAt=self._lastLoadAt,LastLoad=self._lastConfigStats,
+    }
+end
+
+function Argon:DeleteConfiguration()
+    local path=configPath()
+    if not path then return false,"configuration saving is disabled" end
+    local remove=fsFunction("delfile")
+    if not remove then return false,"delfile is unavailable" end
+    if not fileExists(path) then return true,path end
+    local ok,err=pcall(remove,path)
+    if not ok then return false,tostring(err) end
+    return true,path
+end
+
+-- Clears stored values and removes the file. Autosave is suspended for the caller so a
+-- queued write cannot immediately recreate the deleted configuration.
+function Argon:ResetConfiguration()
+    self._loadingConfig=true
+    self._saveToken+=1
+    table.clear(self._pendingFlags)
+    local ok,err=self:DeleteConfiguration()
+    self._loadingConfig=false
+    self._lastConfigStats=nil
+    return ok,err
+end
+
+-- Fires (flag, value, element) whenever a control value changes, including restores.
+function Argon:OnFlagChanged(callback)
+    assert(type(callback)=="function","OnFlagChanged expects a function")
+    table.insert(self._flagListeners,callback)
+    local index=#self._flagListeners
+    return function()
+        if self._flagListeners[index]==callback then table.remove(self._flagListeners,index) end
+    end
 end
 
 function Argon:SetPersistenceReady(value,saveImmediately)
@@ -643,6 +733,8 @@ function Argon:Destroy()
     for _,connection in ipairs(self._connections) do pcall(function() connection:Disconnect() end) end
     for _,window in ipairs(self._windows) do pcall(function() window.ScreenGui:Destroy() end) end
     table.clear(self._connections) table.clear(self._windows) table.clear(self.Flags)
+    table.clear(self._pendingFlags) table.clear(self._flagListeners)
+    self._librarySettingsCreated=nil
 end
 
 function Argon:Notify(options)
@@ -695,9 +787,13 @@ function Argon:CreateWindow(options)
     self._configuration=options.ConfigurationSaving or {Enabled=false}
     if options.Theme then self:SetTheme(options.Theme) end
     local guiParent=resolveParent()
-    local existing=guiParent:FindFirstChild("Rayfield")
-    if existing then pcall(function() existing:Destroy() end) end
-    local gui=create("ScreenGui",{Name="Rayfield",DisplayOrder=100,IgnoreGuiInset=false,ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling})
+    -- Standalone: the ScreenGui name is configurable and only a previous instance of
+    -- this same window is replaced, so unrelated interfaces are never destroyed.
+    local guiName=tostring(options.GuiName or options.ScreenGuiName or "ArgonUI")
+    local existing=guiParent:FindFirstChild(guiName)
+    if existing and existing:GetAttribute("ArgonUI") then pcall(function() existing:Destroy() end) end
+    local gui=create("ScreenGui",{Name=guiName,DisplayOrder=100,IgnoreGuiInset=false,ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling})
+    pcall(function() gui:SetAttribute("ArgonUI",true) end)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
     gui.Parent=guiParent
 
@@ -710,7 +806,7 @@ function Argon:CreateWindow(options)
     local sidebar=create("Frame",{BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Size=UDim2.new(0,232,1,0),ZIndex=3,Parent=main})
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),Parent=sidebar})
     local brand,setBrandLogo=mountLogo(sidebar,38,options.Logo,4) brand.Position=UDim2.fromOffset(18,17)
-    local brandName=text(sidebar,options.Name or "Argon Utility",15,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
+    local brandName=text(sidebar,options.Name or "Argon UI",15,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
     local brandSub=text(sidebar,"CONTROL CENTER",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,37),Size=UDim2.new(1,-82,0,17)})
 
     local searchFrame=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,72),Size=UDim2.new(1,-28,0,38),Parent=sidebar})
@@ -761,7 +857,7 @@ function Argon:CreateWindow(options)
     function window:Close() self:SetVisibility(false) end
     function window:Toggle() self:ToggleVisibility() end
     function window:SetToggleKey(value) self._toggleKey=typeof(value)=="EnumItem" and value or Enum.KeyCode[keyName(value)] or self._toggleKey end
-    function window:SetTitle(value) brandName.Text=tostring(value or "Argon Utility") end
+    function window:SetTitle(value) brandName.Text=tostring(value or "Argon UI") end
     function window:SetLogo(value) self._logo=tostring(value or "") setBrandLogo(self._logo) scheduleSave() return self end
     function window:SetTheme(value) local ok,err=Argon:SetTheme(value) if ok then scheduleSave() end return ok,err end
     function window:GetThemes() return Argon:GetThemes() end
@@ -1005,7 +1101,7 @@ function Argon:CreateWindow(options)
                 if not result[1] then error(result[2],2) end
                 return table.unpack(result,2,result.n)
             end
-            for alias,method in pairs({Button="CreateButton",Toggle="CreateToggle",Slider="CreateSlider",Dropdown="CreateDropdown",Input="CreateInput",Keybind="CreateKeybind",Colorpicker="CreateColorPicker",ColorPicker="CreateColorPicker",Paragraph="CreateParagraph",Divider="CreateDivider",Space="CreateSpace"}) do
+            for alias,method in pairs({Button="CreateButton",Toggle="CreateToggle",Slider="CreateSlider",Dropdown="CreateDropdown",Input="CreateInput",Keybind="CreateKeybind",Colorpicker="CreateColorPicker",ColorPicker="CreateColorPicker",Paragraph="CreateParagraph",Divider="CreateDivider",Space="CreateSpace",Label="CreateLabel",TelemetryCard="CreateTelemetryCard",ProgressBar="CreateProgressBar",Stepper="CreateStepper",Segmented="CreateSegmented",TextArea="CreateTextArea",List="CreateList"}) do
                 local methodName=method
                 section[alias]=function(self,...) return self:_build(methodName,...) end
                 section[method]=section[alias]
@@ -1230,7 +1326,7 @@ function Argon:CreateWindow(options)
                 local before=HttpService:JSONEncode(self.CurrentOption) self.CurrentOption=nextSelection self.CurrentValue=nextSelection render()
                 if before~=HttpService:JSONEncode(nextSelection) and not silent then changed(self) safeCall(config.Callback,copy(nextSelection)) end
             end
-            function element:Refresh(newOptions,keepCurrent)
+                function element:Refresh(newOptions,keepCurrent)
                 self.Options=copy(newOptions or {}) local retained={}
                 if keepCurrent~=false then
                     for _,selected in ipairs(self.CurrentOption) do if contains(self.Options,selected) then table.insert(retained,selected) end end
@@ -1249,6 +1345,8 @@ function Argon:CreateWindow(options)
                 self.CurrentOption=retained self.CurrentValue=retained render()
                 return self
             end
+            function element:SetOptions(newOptions,keepCurrent) return self:Refresh(newOptions,keepCurrent) end
+            function element:GetSelected() return copy(self.CurrentOption) end
             local function closePopup()
                 if window._dropdownPopup then window._dropdownPopup:Destroy() window._dropdownPopup=nil end
                 tween(selectStroke,.15,{Color=C.BorderSoft,Transparency=.22})
@@ -1344,6 +1442,205 @@ function Argon:CreateWindow(options)
             root.BackgroundTransparency=1 element._stroke.Transparency=1 element.Type="Space" return element
         end
 
+        function tab:CreateProgressBar(config)
+            config=config or {}
+            local root,element=base(config.Name,64,config)
+            element._title=text(root,config.Name or "Progress",12,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,7),Size=UDim2.new(1,-96,0,20),TextTruncate=Enum.TextTruncate.AtEnd})
+            local readout=text(root,"0%",10,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.new(1,-80,0,7),Size=UDim2.fromOffset(66,20),TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd})
+            local rail=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,38),Size=UDim2.new(1,-28,0,8),Parent=root}) corner(rail,4)
+            local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(0,1),Parent=rail}) corner(fill,4)
+            element.Type="ProgressBar" element.Minimum=tonumber(config.Minimum) or 0 element.Maximum=tonumber(config.Maximum) or 100
+            element.CurrentValue=tonumber(config.CurrentValue) or element.Minimum
+            local function render(animated)
+                local span=element.Maximum-element.Minimum
+                local ratio=span<=0 and 0 or math.clamp((element.CurrentValue-element.Minimum)/span,0,1)
+                tween(fill,animated and .2 or 0,{Size=UDim2.fromScale(ratio,1)})
+                if type(config.Format)=="function" then
+                    local ok,label=pcall(config.Format,element.CurrentValue,element.Maximum,ratio)
+                    readout.Text=ok and tostring(label) or "-"
+                elseif config.ShowValue then readout.Text=tostring(element.CurrentValue)..(config.Suffix or "")
+                else readout.Text=string.format("%d%%",math.floor(ratio*100+.5)) end
+            end
+            function element:Set(value,silent)
+                local parsed=tonumber(value) if not parsed then return self end
+                local nextValue=math.clamp(parsed,self.Minimum,self.Maximum)
+                local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue render(true)
+                if didChange and not silent then safeCall(config.Callback,nextValue) end
+                return self
+            end
+            function element:SetRange(minimum,maximum)
+                self.Minimum=tonumber(minimum) or self.Minimum self.Maximum=tonumber(maximum) or self.Maximum
+                return self:Set(self.CurrentValue,true)
+            end
+            function element:SetColor(color) if typeof(color)=="Color3" then tween(fill,.18,{BackgroundColor3=color}) end return self end
+            function element:Increment(amount) return self:Set(self.CurrentValue+(tonumber(amount) or 1)) end
+            render(false) return element
+        end
+
+        function tab:CreateStepper(config)
+            config=config or {}
+            local range=config.Range or {0,100}
+            local minimum=tonumber(range[1]) or 0
+            local maximum=tonumber(range[2]) or 100
+            local increment=tonumber(config.Increment) or 1
+            local root,element=base(config.Name,54,config) element._title=title(root,config.Name or "Stepper",-136)
+            local group=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.new(1,-126,.5,-15),Size=UDim2.fromOffset(112,30),Parent=root}) corner(group,9) stroke(group,C.BorderSoft,.24,1)
+            local minus=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.35,BorderSizePixel=0,Position=UDim2.fromOffset(3,3),Size=UDim2.fromOffset(26,24),Text="-",TextColor3=C.AccentLight,TextSize=15,Font=Enum.Font.GothamBold,Parent=group}) corner(minus,7)
+            local plus=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.35,BorderSizePixel=0,Position=UDim2.new(1,-29,0,3),Size=UDim2.fromOffset(26,24),Text="+",TextColor3=C.AccentLight,TextSize=15,Font=Enum.Font.GothamBold,Parent=group}) corner(plus,7)
+            local valueBox=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.GothamBold,Position=UDim2.fromOffset(31,3),Size=UDim2.fromOffset(50,24),Text="0",TextColor3=C.Text,TextSize=11,Parent=group})
+            element.Type="Stepper" element.CurrentValue=tonumber(config.CurrentValue) or minimum
+            local function round(value)
+                value=math.clamp(value,minimum,maximum)
+                value=math.floor((value-minimum)/increment+.5)*increment+minimum
+                local decimals=tostring(increment):match("%.(%d+)")
+                if decimals then local power=10^#decimals value=math.floor(value*power+.5)/power end
+                return math.clamp(value,minimum,maximum)
+            end
+            local function render()
+                valueBox.Text=tostring(element.CurrentValue)..(config.Suffix or "")
+                minus.TextTransparency=element.CurrentValue<=minimum and .55 or 0
+                plus.TextTransparency=element.CurrentValue>=maximum and .55 or 0
+            end
+            function element:Set(value,silent)
+                local parsed=tonumber(value) or tonumber(tostring(value):match("[-%d%.]+")) if not parsed then render() return self end
+                local nextValue=round(parsed) local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue render()
+                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
+                return self
+            end
+            connect(minus.MouseButton1Click,function() element:Set(element.CurrentValue-increment) end)
+            connect(plus.MouseButton1Click,function() element:Set(element.CurrentValue+increment) end)
+            connect(valueBox.FocusLost,function() element:Set(valueBox.Text) end)
+            hover(minus,C.Surface,C.Hover) hover(plus,C.Surface,C.Hover) hover(root,C.Surface,C.Hover)
+            element.CurrentValue=round(element.CurrentValue) render() registerFlag(config.Flag,element) return element
+        end
+
+        function tab:CreateSegmented(config)
+            config=config or {}
+            local options={}
+            for _,option in ipairs(config.Options or {}) do options[#options+1]=tostring(option) end
+            if #options==0 then options={"None"} end
+            local hasTitle=config.Name~=nil and tostring(config.Name)~=""
+            local root,element=base(config.Name or "Segmented",hasTitle and 76 or 48,config)
+            if hasTitle then element._title=text(root,tostring(config.Name),12,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,7),Size=UDim2.new(1,-28,0,20),TextTruncate=Enum.TextTruncate.AtEnd}) end
+            local strip=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.fromOffset(13,hasTitle and 33 or 9),Size=UDim2.new(1,-26,0,32),Parent=root}) corner(strip,9)
+            padding(strip,3,3,3,3)
+            create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,3),SortOrder=Enum.SortOrder.LayoutOrder,Parent=strip})
+            element.Type="Segmented" element.Options=copy(options)
+            element.CurrentValue=config.CurrentOption or config.CurrentValue or options[1]
+            if type(element.CurrentValue)=="table" then element.CurrentValue=element.CurrentValue[1] end
+            local buttons={}
+            local function render()
+                for _,entry in ipairs(buttons) do
+                    local active=tostring(element.CurrentValue)==entry.Value
+                    tween(entry.Button,.15,{BackgroundColor3=active and C.Accent or C.Surface,BackgroundTransparency=active and .08 or .5})
+                    entry.Button.TextColor3=active and Color3.new(1,1,1) or C.Muted
+                end
+            end
+            function element:Set(value,silent)
+                local wanted=type(value)=="table" and value[1] or value
+                if wanted==nil then return self end
+                wanted=tostring(wanted)
+                if not contains(self.Options,wanted) then
+                    if self.Flag then Argon._pendingFlags[self.Flag]=wanted end
+                    return self
+                end
+                local didChange=tostring(self.CurrentValue)~=wanted self.CurrentValue=wanted render()
+                if didChange and not silent then changed(self) safeCall(config.Callback,wanted) end
+                return self
+            end
+            function element:Refresh(newOptions,keepCurrent)
+                local rebuilt={}
+                for _,option in ipairs(newOptions or {}) do rebuilt[#rebuilt+1]=tostring(option) end
+                if #rebuilt==0 then rebuilt={"None"} end
+                self.Options=rebuilt
+                for _,entry in ipairs(buttons) do entry.Button:Destroy() end
+                table.clear(buttons)
+                for _,value in ipairs(rebuilt) do
+                    local button=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.5,BorderSizePixel=0,Size=UDim2.new(1/#rebuilt,-3,1,0),Text=value,TextColor3=C.Muted,TextSize=10,Font=Enum.Font.GothamBold,TextTruncate=Enum.TextTruncate.AtEnd,Parent=strip}) corner(button,7)
+                    table.insert(buttons,{Button=button,Value=value})
+                    connect(button.MouseButton1Click,function() element:Set(value) end)
+                end
+                if keepCurrent==false or not contains(rebuilt,tostring(self.CurrentValue)) then self.CurrentValue=rebuilt[1] end
+                render() return self
+            end
+            element:Refresh(options,true)
+            element:Set(element.CurrentValue,true)
+            registerFlag(config.Flag,element) return element
+        end
+
+        function tab:CreateTextArea(config)
+            config=config or {}
+            local height=math.clamp(tonumber(config.Height) or 104,72,320)
+            local root,element=base(config.Name,height,config)
+            element._title=text(root,config.Name or "Notes",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,5),Size=UDim2.new(1,-28,0,20)})
+            local field=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(13,28),Size=UDim2.new(1,-26,1,-40),Parent=root})
+            corner(field,9) local fieldStroke=stroke(field,C.BorderSoft,.22,1)
+            local box=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,MultiLine=true,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter text...",Position=UDim2.fromOffset(10,7),Size=UDim2.new(1,-20,1,-14),Text=tostring(config.CurrentValue or ""),TextColor3=C.Text,TextSize=11,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,Parent=field})
+            element.Type="TextArea" element.CurrentValue=tostring(config.CurrentValue or "")
+            function element:Set(value,silent)
+                local nextValue=tostring(value or "") local didChange=self.CurrentValue~=nextValue
+                self.CurrentValue=nextValue box.Text=nextValue
+                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
+                return self
+            end
+            function element:GetLines()
+                local lines={}
+                for line in (self.CurrentValue.."\n"):gmatch("(.-)\n") do if line~="" then lines[#lines+1]=line end end
+                return lines
+            end
+            connect(box.Focused,function() tween(fieldStroke,.15,{Color=C.Accent,Transparency=0}) end)
+            connect(box.FocusLost,function()
+                tween(fieldStroke,.18,{Color=C.BorderSoft,Transparency=.22}) element:Set(box.Text)
+            end)
+            registerFlag(config.Flag,element) return element
+        end
+
+        function tab:CreateList(config)
+            config=config or {}
+            local height=math.clamp(tonumber(config.Height) or 156,80,420)
+            local root,element=base(config.Name,height,config)
+            element._title=text(root,config.Name or "List",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-100,0,18),TextTruncate=Enum.TextTruncate.AtEnd})
+            local counter=text(root,"0",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.new(1,-46,0,6),Size=UDim2.fromOffset(32,18),TextXAlignment=Enum.TextXAlignment.Right})
+            local list=create("ScrollingFrame",{Active=true,BackgroundColor3=C.Background,BackgroundTransparency=.45,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(13,28),ScrollBarImageColor3=C.Border,ScrollBarThickness=3,Size=UDim2.new(1,-26,1,-40),Parent=root})
+            corner(list,10) padding(list,6,6,6,6)
+            local layout=create("UIListLayout",{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder,Parent=list}) bindCanvas(list,layout,8)
+            local emptyLabel=text(list,config.EmptyText or "No items",10,C.Dim,Enum.Font.Gotham,{Size=UDim2.new(1,0,0,26),TextXAlignment=Enum.TextXAlignment.Center})
+            element.Type="List" element.Items={}
+            function element:SetItems(items)
+                for _,child in ipairs(list:GetChildren()) do if child:IsA("Frame") then child:Destroy() end end
+                self.Items={}
+                for _,item in ipairs(items or {}) do
+                    local record=type(item)=="table" and item or {Title=tostring(item)}
+                    table.insert(self.Items,record)
+                    local hasDescription=record.Description~=nil and tostring(record.Description)~=""
+                    local row=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.18,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.new(1,0,0,hasDescription and 44 or 30),Parent=list}) corner(row,8)
+                    local reserved=record.Action and -96 or -18
+                    text(row,tostring(record.Title or record.Name or "Item"),11,record.Color or C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(10,hasDescription and 5 or 0),Size=UDim2.new(1,reserved,0,hasDescription and 18 or 30),TextTruncate=Enum.TextTruncate.AtEnd})
+                    if hasDescription then
+                        text(row,tostring(record.Description),9,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(10,23),Size=UDim2.new(1,reserved,0,16),TextTruncate=Enum.TextTruncate.AtEnd})
+                    end
+                    if record.Action then
+                        local action=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Accent,BackgroundTransparency=.78,BorderSizePixel=0,Position=UDim2.new(1,-86,.5,-11),Size=UDim2.fromOffset(78,22),Text=tostring(record.Action),TextColor3=C.AccentLight,TextSize=9,Font=Enum.Font.GothamBold,Parent=row}) corner(action,7)
+                        connect(action.MouseButton1Click,function() safeCall(record.Callback or config.Callback,record,item) end)
+                    elseif config.Callback then
+                        local click=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Text="",Parent=row})
+                        connect(click.MouseButton1Click,function() safeCall(config.Callback,record,item) end)
+                        hover(row,C.Surface,C.Hover)
+                    end
+                end
+                emptyLabel.Visible=#self.Items==0
+                emptyLabel.LayoutOrder=-1
+                counter.Text=tostring(#self.Items)
+                return self
+            end
+            function element:AddItem(item)
+                local items=copy(self.Items) table.insert(items,item) return self:SetItems(items)
+            end
+            function element:Clear() return self:SetItems({}) end
+            element:SetItems(config.Items) return element
+        end
+
+
         function tab:CreateColorPicker(config)
             config=config or {}
             local root,element=base(config.Name,58,config)
@@ -1407,6 +1704,13 @@ function Argon:CreateWindow(options)
         tab.Divider=tab.CreateDivider
         tab.Space=tab.CreateSpace
         tab.Section=tab.CreateSection
+        tab.Label=tab.CreateLabel
+        tab.TelemetryCard=tab.CreateTelemetryCard
+        tab.ProgressBar=tab.CreateProgressBar
+        tab.Stepper=tab.CreateStepper
+        tab.Segmented=tab.CreateSegmented
+        tab.TextArea=tab.CreateTextArea
+        tab.List=tab.CreateList
 
         local compactNow=sidebar.AbsoluteSize.X<100
         tab.ButtonTitle.Visible=not compactNow tab.Count.Visible=not compactNow
@@ -1431,6 +1735,31 @@ function Argon:CreateWindow(options)
         tab:CreateSlider({Flag="ArgonUIOverlayScale",Name="Overlay Scale",Range={75,140},Increment=1,CurrentValue=math.round(self._overlayScale*100),Callback=function(value) self:SetOverlayScale(value/100) end})
         tab:CreateInput({Flag="ArgonUICustomLogo",Name="Custom Logo Asset",PlaceholderText="rbxassetid://... or asset ID",CurrentValue=self._logo or "",Callback=function(value) self:SetLogo(value) end})
         tab:CreateButton({Name="Reset Overlay Positions",Callback=function() self:ResetOverlayPositions() end})
+        tab:CreateSection("Configuration")
+        local statusCard=tab:CreateTelemetryCard({Title="Persistence",Icon="settings",Status="IDLE",Content="Checking configuration state..."})
+        local function refreshStatus()
+            local stats=Argon:GetConfigurationStats()
+            if not stats.Enabled then
+                statusCard:SetStatus("OFF",C.Dim)
+                statusCard:Set("Configuration saving is disabled for this window.")
+                return
+            end
+            local problem=stats.LastError or stats.LastAutosaveError
+            statusCard:SetStatus(problem and "ERROR" or (stats.Ready and "READY" or "WAITING"),problem and C.Danger or (stats.Ready and C.Success or C.Warning))
+            statusCard:Set(("%s\n%d flag(s) registered, %d pending.%s"):format(tostring(stats.Path),stats.RegisteredFlags,stats.PendingFlags,problem and ("\n"..tostring(problem)) or ""))
+        end
+        refreshStatus()
+        tab:CreateButton({Name="Save Configuration Now",Callback=function()
+            local ok,info=Argon:SaveConfiguration()
+            refreshStatus()
+            Argon:Notify({Title=ok and "Configuration Saved" or "Save Failed",Content=tostring(info),Duration=ok and 3 or 7})
+        end})
+        tab:CreateButton({Name="Reload Configuration",Callback=function()
+            local ok,info=Argon:LoadConfiguration()
+            refreshStatus()
+            Argon:Notify({Title=ok and "Configuration Loaded" or "Load Failed",Content=info and tostring(info) or "Restored saved values.",Duration=ok and 3 or 7})
+        end})
+        tab:CreateButton({Name="Refresh Persistence Status",Callback=refreshStatus})
         return tab
     end
 
@@ -1510,7 +1839,7 @@ function Argon:CreateWindow(options)
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
     main.Size=UDim2.fromOffset(286,58)
     local splashMark=mountLogo(splash,36,window._logo,125) splashMark.AnchorPoint=Vector2.new(0,.5) splashMark.Position=UDim2.new(0,11,.5,0)
-    local splashTitle=text(splash,options.LoadingTitle or options.Name or "Argon Utility",13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,8),Size=UDim2.new(1,-72,0,22),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    local splashTitle=text(splash,options.LoadingTitle or options.Name or "Argon UI",13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,8),Size=UDim2.new(1,-72,0,22),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,28),Size=UDim2.new(1,-72,0,17),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,58,1,-7),Size=UDim2.new(1,-72,0,3),ZIndex=124,Parent=splash}) corner(progressRail,3)
     local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.08,1),ZIndex=125,Parent=progressRail}) corner(progressFill,3) gradient(progressFill,C.AccentLight,C.AccentDark,0)

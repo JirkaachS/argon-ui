@@ -40,7 +40,7 @@
 <main class="stage">
   <section class="window" id="window">
     <aside class="sidebar">
-      <div class="brand"><img class="brand-mark" src="argon-ui-logo.svg" alt="Argon UI"><div class="brand-copy"><div class="brand-name">Argon Utility</div><div class="brand-sub">CONTROL CENTER</div></div></div>
+      <div class="brand"><img class="brand-mark" src="argon-ui-logo.svg" alt="Argon UI"><div class="brand-copy"><div class="brand-name">Argon UI</div><div class="brand-sub">CONTROL CENTER</div></div></div>
       <label class="search"><span class="search-icon">⌕</span><input id="search" placeholder="Search this tab"><span class="key-hint">/</span></label>
       <div class="nav-title">NAVIGATION</div>
       <nav class="tabs" id="tabs"></nav>
@@ -50,7 +50,7 @@
       <header class="topbar"><div><div class="eyebrow" id="eyebrow">ARGON / DASHBOARD</div><div class="page-title" id="pageTitle">Dashboard</div></div><div class="top-actions"><div class="live"><i></i>LIVE</div><button class="icon-btn" id="notifyDemo" title="Preview notification">◈</button><button class="icon-btn" id="hideUi" title="Hide preview">–</button></div></header>
       <div class="pages" id="pages"></div>
     </section>
-    <div class="splash" id="splash"><div class="loader-card"><div class="loader-orbit"><img class="loader-logo" src="argon-ui-logo.svg" alt=""></div><div class="loader-title">Argon Utility</div><div class="loader-status" id="loaderStatus">INITIALIZING</div><div class="loader-detail" id="loaderDetail">Mounting interface shell</div><div class="loader-rail"><div class="loader-fill"></div></div><div class="loader-percent" id="loaderPercent">0%</div></div></div>
+    <div class="splash" id="splash"><div class="loader-card"><div class="loader-orbit"><img class="loader-logo" src="argon-ui-logo.svg" alt=""></div><div class="loader-title">Argon UI</div><div class="loader-status" id="loaderStatus">INITIALIZING</div><div class="loader-detail" id="loaderDetail">Mounting interface shell</div><div class="loader-rail"><div class="loader-fill"></div></div><div class="loader-percent" id="loaderPercent">0%</div></div></div>
   </section>
   <aside class="overlay player-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="users"></span><div><div class="overlay-title">PLAYER LIST</div><div class="overlay-meta">4 CONNECTED</div></div></div><div class="overlay-body"><div class="overlay-row"><div class="overlay-avatar">AU</div><div><div class="overlay-name">Argon User</div><div class="overlay-sub">@argonuser</div></div><span class="overlay-tag">YOU</span></div><div class="overlay-row"><div class="overlay-avatar">NV</div><div><div class="overlay-name">Nova</div><div class="overlay-sub">@nova</div></div></div><div class="overlay-row"><div class="overlay-avatar">RX</div><div><div class="overlay-name">Rex</div><div class="overlay-sub">@rex</div></div></div><div class="overlay-row"><div class="overlay-avatar">KA</div><div><div class="overlay-name">Kael</div><div class="overlay-sub">@kael</div></div></div></div></aside>
   <aside class="overlay bind-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="keyboard"></span><div><div class="overlay-title">ACTIVE BINDS</div><div class="overlay-meta">3 REGISTERED</div></div></div><div class="overlay-body"><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Pause combat</div><span class="bind-key">P</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Toggle UI</div><span class="bind-key">INS</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Status overlay</div><span class="bind-key">O</span></div></div></aside>
@@ -78,7 +78,7 @@ const tabsData = [
         { type: "toggle", name: "Performance mode", desc: "Reduce visual overhead during intensive sessions.", value: true }
       ]},
       { name: "Session", controls: [
-        { type: "slider", name: "Interface scale", desc: "Preview a Rayfield-compatible slider control.", min: 75, max: 125, value: 100, suffix: "%" },
+        { type: "slider", name: "Interface scale", desc: "Drag or type an exact value.", min: 75, max: 125, value: 100, suffix: "%" },
         { type: "dropdown", name: "Active profile", desc: "Choose a saved configuration profile.", options: ["Default", "Farming", "Combat", "Minimal"] }
       ]}
     ]

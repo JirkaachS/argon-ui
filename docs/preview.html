@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Argon UI Preview</title>
+<style>
+:root{--bg:#080a10;--window:#0d1018;--sidebar:#0a0d14;--surface:#131721;--hover:#181d29;--active:#1e2230;--input:#0e121b;--border:#2c3141;--soft:#1f2431;--text:#f1f3f9;--muted:#969db1;--dim:#626a80;--accent:#9970ff;--accent-light:#c3aaff;--accent-dark:#5c3db8;--success:#4adea2;--warning:#f7be4f;--danger:#ff657c}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);background:var(--bg)}button,input,select{font:inherit}.stage{min-height:100vh;display:grid;place-items:center;padding:20px;overflow:hidden;background:radial-gradient(circle at 82% 12%,rgba(153,112,255,.14),transparent 30%),radial-gradient(circle at 25% 100%,rgba(92,61,184,.1),transparent 35%),linear-gradient(145deg,#090b12,#05070b)}
+.window{width:min(980px,calc(100vw - 32px));height:min(660px,calc(100vh - 40px));min-width:min(560px,calc(100vw - 32px));min-height:min(400px,calc(100vh - 40px));display:grid;grid-template-columns:232px 1fr;position:relative;overflow:hidden;resize:both;border:1px solid rgba(76,83,105,.7);border-radius:18px;background:linear-gradient(115deg,rgba(17,20,31,.98),rgba(10,12,20,.98));box-shadow:0 32px 100px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.02) inset;animation:arrive .5s cubic-bezier(.2,.8,.2,1)}
+.window::before,.window::after{content:"";position:absolute;border-radius:999px;pointer-events:none;filter:blur(2px)}.window::before{width:310px;height:310px;right:-105px;top:-125px;background:rgba(153,112,255,.09)}.window::after{width:360px;height:360px;left:20%;bottom:-290px;background:rgba(92,61,184,.08)}@keyframes arrive{from{opacity:0;transform:translateY(14px) scale(.98)}}
+.sidebar{z-index:2;display:flex;flex-direction:column;min-width:0;padding:17px 12px 12px;background:rgba(10,13,20,.82);border-right:1px solid rgba(49,54,73,.75);backdrop-filter:blur(24px)}.brand{display:flex;align-items:center;gap:11px;padding:0 6px}.brand-mark{width:38px;height:38px;display:block;flex:none;border-radius:11px;filter:drop-shadow(0 8px 14px rgba(153,112,255,.25))}.brand-copy{min-width:0}.brand-name{font-size:15px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brand-sub{margin-top:2px;font-size:9px;letter-spacing:.13em;color:var(--dim);font-weight:800}
+.search{height:38px;margin:17px 2px 0;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid rgba(49,54,73,.8);border-radius:10px;background:var(--input);transition:.18s}.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(153,112,255,.08)}.search-icon{color:var(--dim);font-size:18px}.search input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--text);font-size:12px}.search input::placeholder{color:var(--dim)}.key-hint{width:20px;height:20px;display:grid;place-items:center;flex:none;border-radius:6px;color:var(--dim);font-size:10px;font-weight:800;background:rgba(255,255,255,.03)}
+.nav-title{padding:12px 9px 8px;color:var(--dim);font-size:9px;letter-spacing:.13em;font-weight:800}.tabs{display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto;padding-right:3px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.tab{height:43px;width:100%;display:grid;grid-template-columns:29px minmax(0,1fr) 22px;align-items:center;gap:10px;position:relative;padding:0 8px;border:0;border-radius:10px;color:var(--muted);background:transparent;cursor:pointer;text-align:left;transition:.17s}.tab:hover{background:rgba(24,29,41,.7);color:var(--text)}.tab.active{background:rgba(30,34,48,.9);color:var(--text)}.tab.active::before{content:"";position:absolute;left:0;top:10px;width:2px;height:23px;border-radius:2px;background:var(--accent);box-shadow:0 0 12px rgba(153,112,255,.8)}.tab-icon{width:29px;height:29px;display:grid;place-items:center;border-radius:9px;background:rgba(30,34,48,.85);font-size:13px;font-weight:800;transition:.17s}.tab.active .tab-icon{color:#fff;background:var(--accent);box-shadow:0 6px 18px rgba(153,112,255,.23)}.tab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:650}.tab-count{color:var(--dim);font-size:9px;font-weight:800;text-align:center}
+.profile{height:38px;display:grid;grid-template-columns:27px minmax(0,1fr);gap:8px;align-items:center;margin:12px 2px 0;padding:5px;border-radius:10px;background:rgba(19,23,33,.82)}.avatar{width:27px;height:27px;display:grid;place-items:center;border-radius:8px;font-size:11px;font-weight:800;background:linear-gradient(135deg,#30364b,#171b28)}.profile-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:650}.profile-state{margin-top:1px;color:var(--success);font-size:8px;font-weight:800;letter-spacing:.08em}
+.content{z-index:1;min-width:0;display:grid;grid-template-rows:70px 1fr}.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid rgba(49,54,73,.55)}.eyebrow{color:var(--accent-light);font-size:9px;font-weight:800;letter-spacing:.1em}.page-title{margin-top:3px;font-size:21px;font-weight:780;letter-spacing:-.025em}.top-actions{display:flex;align-items:center;gap:8px}.live{height:28px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid rgba(49,54,73,.8);border-radius:999px;background:rgba(19,23,33,.74);color:var(--muted);font-size:9px;font-weight:800}.live i{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 12px rgba(74,222,162,.6)}.icon-btn{width:30px;height:30px;border:1px solid rgba(49,54,73,.8);border-radius:9px;color:var(--muted);background:rgba(19,23,33,.75);cursor:pointer;transition:.15s}.icon-btn:hover{color:#fff;background:var(--hover)}
+.pages{position:relative;min-height:0}.page{position:absolute;inset:0;display:none;overflow:auto;padding:18px 24px 28px;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.page.active{display:block;animation:pageIn .22s ease-out}@keyframes pageIn{from{opacity:0;transform:translateY(5px)}}.section{margin-bottom:14px}.section-head{height:31px;display:flex;align-items:center;gap:9px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.08em}.section-head::before{content:"";width:3px;height:10px;border-radius:3px;background:var(--accent)}.section-body{display:grid;gap:7px;padding:8px;border:1px solid rgba(49,54,73,.65);border-radius:13px;background:rgba(8,10,16,.44)}
+.control{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 14px;border:1px solid rgba(31,36,49,.95);border-radius:10px;background:rgba(19,23,33,.92);transition:.16s}.control:hover{border-color:rgba(74,80,103,.9);background:var(--hover);transform:translateY(-1px)}.control-main{min-width:0}.control-name{font-size:13px;font-weight:650}.control-desc{margin-top:3px;color:var(--dim);font-size:10px;line-height:1.4}.action{width:32px;height:32px;flex:none;border:0;border-radius:9px;color:var(--accent-light);background:rgba(153,112,255,.15);cursor:pointer;transition:.15s}.action:hover{color:#fff;background:var(--accent);transform:translateX(2px)}
+.toggle{width:44px;height:24px;flex:none;position:relative;border:0;border-radius:999px;background:var(--input);cursor:pointer;transition:.2s}.toggle::after{content:"";position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--muted);transition:.2s}.toggle.on{background:var(--accent);box-shadow:0 0 18px rgba(153,112,255,.18)}.toggle.on::after{left:23px;background:#fff}.slider-control{display:block;padding-top:11px;padding-bottom:14px}.slider-top{display:flex;align-items:center;justify-content:space-between}.value{min-width:58px;padding:6px 8px;border:1px solid var(--soft);border-radius:8px;color:var(--accent-light);background:var(--input);font-size:10px;font-weight:800;text-align:center}.range{width:100%;height:5px;margin-top:14px;accent-color:var(--accent);cursor:pointer}.field,.select{height:34px;min-width:220px;padding:0 11px;border:1px solid var(--soft);border-radius:9px;outline:0;color:var(--text);background:var(--input);font-size:11px}.field:focus,.select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(153,112,255,.08)}.keybind{min-width:76px;height:29px;border:1px solid var(--soft);border-radius:8px;color:var(--accent-light);background:var(--input);font-size:10px;font-weight:800;cursor:pointer}.keybind.listening{color:var(--warning);border-color:rgba(247,190,79,.5)}.info{justify-content:flex-start;color:var(--muted);font-size:11px;line-height:1.55}.info-badge{width:24px;height:24px;display:grid;place-items:center;flex:none;border-radius:8px;color:var(--accent-light);background:rgba(153,112,255,.15);font-weight:800}
+.preview-dropdown{position:relative;min-width:220px}.dropdown-trigger{width:100%;height:36px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 11px;border:1px solid var(--soft);border-radius:9px;color:var(--text);background:var(--input);font-size:11px;cursor:pointer;transition:.16s}.dropdown-trigger:hover,.preview-dropdown.open .dropdown-trigger{border-color:var(--accent);background:var(--hover);box-shadow:0 0 0 3px rgba(153,112,255,.08)}.dropdown-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dropdown-chevron{color:var(--dim);font-size:14px;transition:.18s}.preview-dropdown.open .dropdown-chevron{color:var(--accent-light);transform:rotate(180deg)}.dropdown-menu{position:absolute;right:0;top:43px;z-index:18;width:max(100%,230px);padding:8px;border:1px solid var(--border);border-radius:12px;background:rgba(13,16,24,.99);box-shadow:0 20px 55px rgba(0,0,0,.48);animation:pageIn .16s ease-out}.dropdown-search{width:100%;height:31px;padding:0 10px;border:1px solid var(--soft);border-radius:8px;outline:0;color:var(--text);background:var(--input);font-size:10px}.dropdown-search:focus{border-color:var(--accent)}.dropdown-options{display:grid;gap:4px;max-height:164px;margin-top:7px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.dropdown-option{min-height:32px;padding:0 10px;border:0;border-radius:8px;color:var(--muted);background:transparent;font-size:10px;text-align:left;cursor:pointer;transition:.14s}.dropdown-option:hover{color:var(--text);background:var(--hover)}.dropdown-option.active{color:var(--accent-light);background:var(--active)}.dropdown-empty{padding:12px;color:var(--dim);font-size:10px;text-align:center}
+.toast-stack{position:fixed;right:22px;top:22px;z-index:20;display:grid;gap:8px}.toast{width:min(338px,calc(100vw - 32px));display:grid;grid-template-columns:36px 1fr 18px;gap:10px;position:relative;overflow:hidden;padding:14px;border:1px solid var(--border);border-radius:13px;background:rgba(13,16,24,.97);box-shadow:0 20px 55px rgba(0,0,0,.45);animation:toastIn .25s cubic-bezier(.2,.8,.2,1)}@keyframes toastIn{from{opacity:0;transform:translateX(15px) scale(.98)}}.toast-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;color:var(--accent-light);background:rgba(153,112,255,.15)}.toast-title{font-size:13px;font-weight:800}.toast-body{margin-top:3px;color:var(--muted);font-size:11px;line-height:1.45}.toast-close{border:0;color:var(--dim);background:transparent;cursor:pointer}.toast-progress{position:absolute;left:0;bottom:0;height:2px;background:var(--accent);animation:drain 4s linear forwards}@keyframes drain{from{width:100%}to{width:0}}
+.empty{padding:30px;border:1px dashed var(--border);border-radius:13px;color:var(--dim);font-size:12px;text-align:center}.hidden{display:none!important}
+.color-field{width:74px;height:32px;padding:3px;border:1px solid var(--soft);border-radius:9px;background:var(--input);cursor:pointer}.lock-pill{padding:6px 9px;border:1px solid rgba(247,190,79,.3);border-radius:8px;color:var(--warning);background:rgba(247,190,79,.08);font-size:9px;font-weight:800}.control.locked{opacity:.7}.modal-overlay{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(5px);animation:toastIn .2s ease-out}.modal-card{width:min(410px,calc(100vw - 32px));padding:20px;border:1px solid var(--border);border-radius:15px;background:var(--window);box-shadow:0 28px 80px rgba(0,0,0,.55)}.modal-title{font-size:17px;font-weight:800}.modal-copy{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.6}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.modal-button{height:34px;padding:0 15px;border:1px solid var(--soft);border-radius:9px;color:var(--muted);background:var(--surface);cursor:pointer}.modal-button.primary{border-color:var(--accent);color:#fff;background:var(--accent)}
+@media(max-width:760px){.window{grid-template-columns:72px 1fr}.sidebar{padding-inline:11px}.brand{padding:0 6px}.brand-copy,.search,.nav-title,.profile-copy,.tab-name,.tab-count{display:none}.tabs{margin-top:17px}.tab{grid-template-columns:29px;justify-content:center;padding:0 8px}.profile{grid-template-columns:27px;width:42px;margin-inline:4px;padding-left:8px}.topbar{padding-inline:18px}.page{padding-inline:18px}.live{display:none}}
+@media(max-width:520px){.stage{padding:0}.window{width:100vw;height:100vh;min-height:0;border:0;border-radius:0}.topbar{padding-inline:14px}.page{padding:14px 12px 22px}.field,.select{min-width:130px;max-width:48vw}.control-name{font-size:12px}.toast-stack{right:12px;top:12px}}
+@media(max-width:520px){.preview-dropdown{min-width:130px;max-width:48vw}.dropdown-menu{width:max(100%,190px)}}
+</style>
+<style>
+.search{overflow:hidden}.search-icon{width:18px;height:18px;position:relative;flex:none;font-size:0}.search-icon::before{content:"";position:absolute;left:1px;top:1px;width:10px;height:10px;border:1.8px solid currentColor;border-radius:50%}.search-icon::after{content:"";position:absolute;left:11px;top:12px;width:7px;height:1.8px;border-radius:2px;background:currentColor;transform:rotate(45deg);transform-origin:left center}
+.tab-icon{color:var(--muted);font-size:0}.tab-icon svg{width:17px;height:17px;overflow:visible}.tab:hover .tab-icon{transform:scale(1.04)}.tab.active .tab-icon{transform:scale(1.06) rotate(2deg)}
+.live{width:75px;justify-content:center;padding:0;gap:7px}.live i{flex:none}
+.field{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-dropdown,.dropdown-trigger{min-width:0}.dropdown-trigger{overflow:hidden}.dropdown-trigger span{min-width:0}.dropdown-chevron{width:16px;height:16px;display:grid;place-items:center;flex:none;font-size:0}.dropdown-chevron svg{width:16px;height:16px}.dropdown-option{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.overlay{position:fixed;right:18px;width:270px;z-index:30;overflow:hidden;border:1px solid rgba(76,83,105,.7);border-radius:14px;background:linear-gradient(120deg,rgba(19,23,33,.96),rgba(10,12,20,.97));box-shadow:0 22px 60px rgba(0,0,0,.42);backdrop-filter:blur(22px);animation:overlayIn .45s .18s both cubic-bezier(.2,.8,.2,1)}.player-overlay{top:72px}.bind-overlay{top:348px}.overlay-head{height:48px;display:grid;grid-template-columns:28px 1fr;gap:9px;align-items:center;padding:0 11px;border-bottom:1px solid rgba(49,54,73,.6)}.overlay-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;color:var(--accent-light);background:rgba(153,112,255,.16)}.overlay-icon svg{width:16px}.overlay-title{font-size:11px;font-weight:800}.overlay-meta{margin-top:2px;color:var(--dim);font-size:8px;font-weight:800}.overlay-body{display:grid;gap:5px;max-height:202px;padding:8px;overflow:auto}.overlay-row{min-width:0;height:42px;display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px;border-radius:9px;background:rgba(19,23,33,.82)}.overlay-avatar{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;color:var(--accent-light);font-size:9px;font-weight:800;background:var(--active)}.overlay-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:750}.overlay-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim);font-size:9px}.overlay-tag,.bind-key{padding:5px 8px;border-radius:7px;color:var(--accent-light);font-size:8px;font-weight:800;background:rgba(153,112,255,.15)}.bind-row{height:36px;grid-template-columns:7px minmax(0,1fr) auto}.bind-state{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 10px rgba(74,222,162,.35)}
+.splash{position:absolute;inset:0;z-index:50;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 68% 22%,rgba(153,112,255,.18),transparent 34%),radial-gradient(circle at 28% 82%,rgba(92,61,184,.15),transparent 35%),linear-gradient(125deg,#121420,#07090f);animation:splashOut .36s 1.5s forwards}.loader-card{width:min(380px,calc(100% - 34px));padding:28px 34px;border:1px solid rgba(76,83,105,.7);border-radius:22px;text-align:center;background:rgba(19,23,33,.74);box-shadow:0 30px 90px rgba(0,0,0,.5);backdrop-filter:blur(22px);animation:loaderIn .55s cubic-bezier(.2,.8,.2,1)}.loader-orbit{width:112px;height:112px;display:grid;place-items:center;position:relative;margin:auto;border:1px solid rgba(153,112,255,.45);border-radius:50%;animation:spin 1.8s linear infinite}.loader-orbit::before,.loader-orbit::after{content:"";position:absolute;left:50%;border-radius:50%;transform:translate(-50%,-50%)}.loader-orbit::before{top:0;width:9px;height:9px;background:var(--accent-light);box-shadow:0 0 16px var(--accent)}.loader-orbit::after{top:100%;width:6px;height:6px;background:var(--success)}.loader-logo{width:62px;height:62px;animation:pulse .7s ease-in-out infinite alternate}.loader-title{margin-top:20px;font-size:18px;font-weight:800}.loader-status{margin-top:5px;color:var(--accent-light);font-size:9px;font-weight:800;letter-spacing:.12em}.loader-detail{margin-top:8px;overflow:hidden;color:var(--dim);font-size:10px;text-overflow:ellipsis;white-space:nowrap}.loader-rail{height:7px;margin-top:22px;overflow:hidden;border-radius:999px;background:var(--input)}.loader-fill{width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--accent-light),var(--accent-dark));animation:loadFill 1.25s .08s forwards cubic-bezier(.2,.8,.2,1)}.loader-percent{margin-top:8px;color:var(--muted);font-size:9px;font-weight:800;text-align:right}
+@keyframes overlayIn{from{opacity:0;transform:translateX(18px)}}@keyframes loaderIn{from{opacity:0;transform:translateY(12px) scale(.94)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes pulse{to{transform:scale(1.05)}}@keyframes loadFill{to{width:100%}}@keyframes splashOut{to{opacity:0;visibility:hidden;transform:scale(1.025)}}
+@media(max-width:1320px){.overlay{display:none}}
+</style>
+</head>
+<body>
+<main class="stage">
+  <section class="window" id="window">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-mark" src="argon-ui-logo.svg" alt="Argon UI"><div class="brand-copy"><div class="brand-name">Argon UI</div><div class="brand-sub">CONTROL CENTER</div></div></div>
+      <label class="search"><span class="search-icon">⌕</span><input id="search" placeholder="Search this tab"><span class="key-hint">/</span></label>
+      <div class="nav-title">NAVIGATION</div>
+      <nav class="tabs" id="tabs"></nav>
+      <div class="profile"><div class="avatar">AU</div><div class="profile-copy"><div class="profile-name">Argon User</div><div class="profile-state">ARGON ONLINE</div></div></div>
+    </aside>
+    <section class="content">
+      <header class="topbar"><div><div class="eyebrow" id="eyebrow">ARGON / DASHBOARD</div><div class="page-title" id="pageTitle">Dashboard</div></div><div class="top-actions"><div class="live"><i></i>LIVE</div><button class="icon-btn" id="notifyDemo" title="Preview notification">◈</button><button class="icon-btn" id="hideUi" title="Hide preview">–</button></div></header>
+      <div class="pages" id="pages"></div>
+    </section>
+    <div class="splash" id="splash"><div class="loader-card"><div class="loader-orbit"><img class="loader-logo" src="argon-ui-logo.svg" alt=""></div><div class="loader-title">Argon UI</div><div class="loader-status" id="loaderStatus">INITIALIZING</div><div class="loader-detail" id="loaderDetail">Mounting interface shell</div><div class="loader-rail"><div class="loader-fill"></div></div><div class="loader-percent" id="loaderPercent">0%</div></div></div>
+  </section>
+  <aside class="overlay player-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="users"></span><div><div class="overlay-title">PLAYER LIST</div><div class="overlay-meta">4 CONNECTED</div></div></div><div class="overlay-body"><div class="overlay-row"><div class="overlay-avatar">AU</div><div><div class="overlay-name">Argon User</div><div class="overlay-sub">@argonuser</div></div><span class="overlay-tag">YOU</span></div><div class="overlay-row"><div class="overlay-avatar">NV</div><div><div class="overlay-name">Nova</div><div class="overlay-sub">@nova</div></div></div><div class="overlay-row"><div class="overlay-avatar">RX</div><div><div class="overlay-name">Rex</div><div class="overlay-sub">@rex</div></div></div><div class="overlay-row"><div class="overlay-avatar">KA</div><div><div class="overlay-name">Kael</div><div class="overlay-sub">@kael</div></div></div></div></aside>
+  <aside class="overlay bind-overlay"><div class="overlay-head"><span class="overlay-icon" data-icon="keyboard"></span><div><div class="overlay-title">ACTIVE BINDS</div><div class="overlay-meta">3 REGISTERED</div></div></div><div class="overlay-body"><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Pause combat</div><span class="bind-key">P</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Toggle UI</div><span class="bind-key">INS</span></div><div class="overlay-row bind-row"><i class="bind-state"></i><div class="overlay-name">Status overlay</div><span class="bind-key">O</span></div></div></aside>
+</main>
+<div class="toast-stack" id="toasts"></div>
+<script>
+const iconPaths = {
+  activity:'<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+  swords:'<polyline points="14.5 17.5 3 6V3h3l11.5 11.5"/><path d="m13 19 6-6"/><path d="m16 16 4 4"/><path d="m19 21 2-2"/><polyline points="14.5 6.5 18 3h3v3l-11.5 11.5"/>',
+  zap:'<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  chevron:'<path d="m6 9 6 6 6-6"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  keyboard:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/>'
+};
+const svgIcon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.activity}</svg>`;
+document.querySelectorAll("[data-icon]").forEach(node => node.innerHTML = svgIcon(node.dataset.icon));
+const tabsData = [
+  {
+    id: "dashboard", name: "Dashboard", icon: "activity", sections: [
+      { name: "Overview", controls: [
+        { type: "info", name: "Argon is ready", desc: "This browser preview mirrors the Roblox library without requiring Studio or an executor." },
+        { type: "button", name: "Run quick action", desc: "Demonstrates button feedback and the notification system." },
+        { type: "toggle", name: "Performance mode", desc: "Reduce visual overhead during intensive sessions.", value: true }
+      ]},
+      { name: "Session", controls: [
+        { type: "slider", name: "Interface scale", desc: "Drag or type an exact value.", min: 75, max: 125, value: 100, suffix: "%" },
+        { type: "dropdown", name: "Active profile", desc: "Choose a saved configuration profile.", options: ["Default", "Farming", "Combat", "Minimal"] }
+      ]}
+    ]
+  },
+  {
+    id: "combat", name: "Combat", icon: "swords", sections: [
+      { name: "Targeting", controls: [
+        { type: "toggle", name: "Smart targeting", desc: "Prioritizes reachable targets with a clear attack window.", value: true },
+        { type: "dropdown", name: "Target priority", desc: "Select how nearby targets are ranked.", options: ["Nearest", "Lowest health", "Highest threat"] },
+        { type: "slider", name: "Engage range", desc: "Maximum distance used by the targeting preview.", min: 8, max: 50, value: 24, suffix: " studs" }
+      ]},
+      { name: "Timing", controls: [
+        { type: "toggle", name: "Adaptive charge", desc: "Adjusts timing to the currently equipped weapon.", value: true },
+        { type: "slider", name: "Release buffer", desc: "Small timing offset before an attack releases.", min: 0, max: 250, value: 45, suffix: " ms" },
+        { type: "keybind", name: "Pause combat", desc: "Click the key to capture a new binding.", value: "P" }
+      ]}
+    ]
+  },
+  {
+    id: "farming", name: "Farming", icon: "zap", sections: [
+      { name: "Automation", controls: [
+        { type: "toggle", name: "Auto farm", desc: "Master state for the farming workflow.", value: false },
+        { type: "dropdown", name: "Route", desc: "Select the active farming route.", options: ["Fast clear", "Safe clear", "Resource loop"] },
+        { type: "slider", name: "Target delay", desc: "Delay before moving to the next target.", min: 0, max: 500, value: 80, suffix: " ms" }
+      ]},
+      { name: "Recovery", controls: [
+        { type: "toggle", name: "Auto recover", desc: "Waits for a safe state before continuing.", value: true },
+        { type: "button", name: "Reset route", desc: "Clears the current route state and starts fresh." }
+      ]}
+    ]
+  },
+  {
+    id: "visuals", name: "Visuals", icon: "eye", sections: [
+      { name: "Display", controls: [
+        { type: "toggle", name: "Status overlay", desc: "Show compact runtime information.", value: true },
+        { type: "toggle", name: "Target highlights", desc: "Preview highlighted target states.", value: false },
+        { type: "slider", name: "Overlay opacity", desc: "Adjust the strength of overlay surfaces.", min: 20, max: 100, value: 85, suffix: "%" }
+      ]},
+      { name: "Theme", controls: [
+        { type: "dropdown", name: "Accent preset", desc: "Change the visual accent used by controls.", options: ["Argon Violet", "Ocean Blue", "Emerald", "Crimson"] }
+      ]}
+    ]
+  },
+  {
+    id: "settings", name: "Settings", icon: "settings", sections: [
+      { name: "Configuration", controls: [
+        { type: "input", name: "Configuration name", desc: "Enter a name for a local configuration.", value: "argon-default" },
+        { type: "button", name: "Save configuration", desc: "Demonstrates configuration feedback." },
+        { type: "button", name: "Load configuration", desc: "Demonstrates restored-state feedback." }
+      ]},
+      { name: "Interface", controls: [
+        { type: "keybind", name: "Toggle interface", desc: "The real library defaults to RightShift.", value: "RightShift" },
+        { type: "info", name: "Browser shortcuts", desc: "Press / to search. Press Insert to hide or restore this preview." }
+      ]},
+      { name: "WindUI Features", controls: [
+        { type: "dropdown", name: "Runtime theme", desc: "Live-switch the complete palette without rebuilding the window.", options: ["Argon", "Midnight", "Emerald", "Rose"] },
+        { type: "color", name: "Custom accent", desc: "Preview the new HSV/hex-compatible color picker.", value: "#9970ff" },
+        { type: "button", name: "Open dialog", desc: "Show a WindUI-style modal with configurable actions." },
+        { type: "toggle", name: "Restricted option", desc: "Elements now support Lock, Unlock, tooltips, visibility, and destruction.", value: false, locked: true },
+        { type: "info", name: "Section builders", desc: "Controls can now be created through Tab:Section(), section:Toggle(), section:Colorpicker(), and related aliases." }
+      ]}
+    ]
+  }
+];
+
+const state = { active: "dashboard", hidden: false };
+const tabs = document.getElementById("tabs");
+const pages = document.getElementById("pages");
+const search = document.getElementById("search");
+const windowElement = document.getElementById("window");
+
+function controlMarkup(control) {
+  const text = `<div class="control-main"><div class="control-name">${control.name}</div><div class="control-desc">${control.desc}</div></div>`;
+  if (control.type === "toggle") return `<div class="control ${control.locked ? "locked" : ""}" data-search="${control.name} ${control.desc}">${text}${control.locked ? `<span class="lock-pill">LOCKED</span>` : `<button class="toggle ${control.value ? "on" : ""}" aria-label="Toggle ${control.name}"></button>`}</div>`;
+  if (control.type === "slider") return `<div class="control slider-control" data-search="${control.name} ${control.desc}"><div class="slider-top">${text}<span class="value">${control.value}${control.suffix}</span></div><input class="range" type="range" min="${control.min}" max="${control.max}" value="${control.value}" data-suffix="${control.suffix}"></div>`;
+  if (control.type === "dropdown") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<div class="preview-dropdown"><button class="dropdown-trigger" type="button"><span>${control.options[0]}</span><b class="dropdown-chevron">${svgIcon("chevron")}</b></button><div class="dropdown-menu hidden"><input class="dropdown-search" placeholder="Filter options..." spellcheck="false"><div class="dropdown-options">${control.options.map((option, index) => `<button class="dropdown-option ${index === 0 ? "active" : ""}" type="button" data-value="${option}">${option}</button>`).join("")}<div class="dropdown-empty hidden">No matching options</div></div></div></div></div>`;
+  if (control.type === "input") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<input class="field" value="${control.value}" spellcheck="false"></div>`;
+  if (control.type === "keybind") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<button class="keybind">${control.value}</button></div>`;
+  if (control.type === "color") return `<div class="control" data-search="${control.name} ${control.desc}">${text}<input class="color-field" type="color" value="${control.value}"></div>`;
+  if (control.type === "info") return `<div class="control info" data-search="${control.name} ${control.desc}"><span class="info-badge">i</span>${text}</div>`;
+  return `<div class="control" data-search="${control.name} ${control.desc}">${text}<button class="action" aria-label="Run ${control.name}">&#8594;</button></div>`;
+}
+
+function render() {
+  tabs.innerHTML = tabsData.map(tab => `<button class="tab ${tab.id === state.active ? "active" : ""}" data-tab="${tab.id}"><span class="tab-icon">${svgIcon(tab.icon)}</span><span class="tab-name">${tab.name}</span><span class="tab-count">${tab.sections.reduce((sum, section) => sum + section.controls.length, 0)}</span></button>`).join("");
+  pages.innerHTML = tabsData.map(tab => `<article class="page ${tab.id === state.active ? "active" : ""}" data-page="${tab.id}">${tab.sections.map(section => `<section class="section"><div class="section-head">${section.name.toUpperCase()}</div><div class="section-body">${section.controls.map(controlMarkup).join("")}</div></section>`).join("")}<div class="empty hidden">No controls match your search.</div></article>`).join("");
+  bindControls();
+}
+
+function activateTab(id) {
+  if (id === state.active) return;
+  document.querySelector(".page.active")?.animate([{opacity:1,transform:"translateX(0)"},{opacity:0,transform:"translateX(-12px)"}],{duration:120,easing:"ease-in"});
+  state.active = id;
+  search.value = "";
+  const tab = tabsData.find(item => item.id === id);
+  document.getElementById("pageTitle").textContent = tab.name;
+  document.getElementById("eyebrow").textContent = `ARGON / ${tab.name.toUpperCase()}`;
+  render();
+}
+
+function notify(title, body) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.innerHTML = `<div class="toast-icon">A</div><div><div class="toast-title">${title}</div><div class="toast-body">${body}</div></div><button class="toast-close">&times;</button><div class="toast-progress"></div>`;
+  document.getElementById("toasts").appendChild(toast);
+  const close = () => { toast.style.opacity = "0"; toast.style.transform = "translateX(12px)"; setTimeout(() => toast.remove(), 180); };
+  toast.querySelector(".toast-close").addEventListener("click", close);
+  setTimeout(close, 4000);
+}
+
+const previewThemes = {
+  Argon: { bg: "#080a10", window: "#0d1018", sidebar: "#0a0d14", surface: "#131721", hover: "#181d29", active: "#1e2230", input: "#0e121b", border: "#2c3141", soft: "#1f2431", text: "#f1f3f9", muted: "#969db1", dim: "#626a80", accent: "#9970ff", accentLight: "#c3aaff", accentDark: "#5c3db8" },
+  Midnight: { bg: "#06090f", window: "#0a0e17", sidebar: "#070b12", surface: "#101622", hover: "#151d2c", active: "#1b2436", input: "#0a0f19", border: "#2a3548", soft: "#1c2534", text: "#eef4ff", muted: "#929fb5", dim: "#57657e", accent: "#58a6ff", accentLight: "#9bcdff", accentDark: "#235bb4" },
+  Emerald: { bg: "#060c0b", window: "#0a1211", sidebar: "#070f0e", surface: "#101b19", hover: "#152320", active: "#1b2c28", input: "#0a1412", border: "#2a423c", soft: "#1c2e2a", text: "#eef9f6", muted: "#91aba4", dim: "#57776f", accent: "#34d399", accentLight: "#97f6d3", accentDark: "#0f7658" },
+  Rose: { bg: "#0d070b", window: "#150b12", sidebar: "#11080e", surface: "#1f111b", hover: "#2a1623", active: "#361c2d", input: "#180c14", border: "#492a3d", soft: "#321d2b", text: "#ffeff8", muted: "#bc94ab", dim: "#845b73", accent: "#f472b6", accentLight: "#fbb6dc", accentDark: "#be185d" }
+};
+
+function applyTheme(name) {
+  const theme = previewThemes[name];
+  if (!theme) return;
+  const root = document.documentElement.style;
+  Object.entries(theme).forEach(([key, value]) => root.setProperty(`--${key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)}`, value));
+  notify("Theme changed", `${name} is now active across the interface.`);
+}
+
+function showDialog() {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `<div class="modal-card"><div class="modal-title">WindUI-style dialog</div><div class="modal-copy">Dialogs support configurable titles, descriptions, primary and secondary actions, callbacks, manual closing, and reusable Show/Close methods.</div><div class="modal-actions"><button class="modal-button" data-close>Cancel</button><button class="modal-button primary" data-confirm>Confirm</button></div></div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector("[data-close]").addEventListener("click", close);
+  overlay.querySelector("[data-confirm]").addEventListener("click", () => { close(); notify("Dialog confirmed", "The primary dialog callback completed successfully."); });
+  overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+}
+
+function closeDropdowns(except) {
+  document.querySelectorAll(".preview-dropdown.open").forEach(dropdown => {
+    if (dropdown === except) return;
+    dropdown.classList.remove("open");
+    dropdown.querySelector(".dropdown-menu").classList.add("hidden");
+    dropdown.querySelector(".dropdown-search").value = "";
+    dropdown.querySelectorAll(".dropdown-option").forEach(option => option.classList.remove("hidden"));
+    dropdown.querySelector(".dropdown-empty").classList.add("hidden");
+  });
+}
+
+function bindControls() {
+  document.querySelectorAll(".toggle").forEach(button => button.addEventListener("click", () => button.classList.toggle("on")));
+  document.querySelectorAll(".range").forEach(range => range.addEventListener("input", () => { range.closest(".control").querySelector(".value").textContent = range.value + range.dataset.suffix; }));
+  document.querySelectorAll(".action").forEach(button => button.addEventListener("click", () => {
+    const name = button.closest(".control").querySelector(".control-name").textContent;
+    if (name === "Open dialog") showDialog(); else notify("Action completed", `${name} ran successfully.`);
+  }));
+  document.querySelectorAll(".preview-dropdown").forEach(dropdown => {
+    const trigger = dropdown.querySelector(".dropdown-trigger");
+    const menu = dropdown.querySelector(".dropdown-menu");
+    const filter = dropdown.querySelector(".dropdown-search");
+    const options = [...dropdown.querySelectorAll(".dropdown-option")];
+    const empty = dropdown.querySelector(".dropdown-empty");
+    const open = () => {
+      const willOpen = !dropdown.classList.contains("open");
+      closeDropdowns(dropdown);
+      dropdown.classList.toggle("open", willOpen);
+      menu.classList.toggle("hidden", !willOpen);
+      if (willOpen) setTimeout(() => filter.focus(), 0);
+    };
+    trigger.addEventListener("click", event => { event.stopPropagation(); open(); });
+    trigger.addEventListener("keydown", event => {
+      if (["Enter", " ", "ArrowDown"].includes(event.key)) { event.preventDefault(); open(); }
+    });
+    menu.addEventListener("click", event => event.stopPropagation());
+    filter.addEventListener("input", () => {
+      const query = filter.value.trim().toLowerCase();
+      let visible = 0;
+      options.forEach(option => { const match = option.dataset.value.toLowerCase().includes(query); option.classList.toggle("hidden", !match); if (match) visible++; });
+      empty.classList.toggle("hidden", visible !== 0);
+    });
+    filter.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); closeDropdowns(); trigger.focus(); }
+      if (event.key === "ArrowDown") { event.preventDefault(); const first = options.find(option => !option.classList.contains("hidden")); if (first) first.focus(); }
+    });
+    options.forEach((option, index) => {
+      option.addEventListener("keydown", event => {
+        if (event.key === "Escape") { event.preventDefault(); closeDropdowns(); trigger.focus(); }
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          const visible = options.filter(item => !item.classList.contains("hidden"));
+          const current = visible.indexOf(option);
+          visible[(current + (event.key === "ArrowDown" ? 1 : -1) + visible.length) % visible.length]?.focus();
+        }
+      });
+      option.addEventListener("click", () => {
+        options.forEach(item => item.classList.remove("active"));
+        option.classList.add("active");
+        trigger.querySelector("span").textContent = option.dataset.value;
+        const name = dropdown.closest(".control").querySelector(".control-name").textContent;
+        if (name === "Runtime theme") applyTheme(option.dataset.value); else notify("Option updated", `Selected ${option.dataset.value}.`);
+        closeDropdowns();
+        trigger.focus();
+      });
+    });
+  });
+  document.querySelectorAll(".color-field").forEach(input => input.addEventListener("input", () => { document.documentElement.style.setProperty("--accent", input.value); document.documentElement.style.setProperty("--accent-light", input.value); }));
+  document.querySelectorAll(".keybind").forEach(button => button.addEventListener("click", () => {
+    button.textContent = "Press a key";
+    button.classList.add("listening");
+    const capture = event => { event.preventDefault(); button.textContent = event.key === " " ? "Space" : event.key; button.classList.remove("listening"); document.removeEventListener("keydown", capture, true); };
+    document.addEventListener("keydown", capture, true);
+  }));
+}
+
+tabs.addEventListener("click", event => {
+  const tab = event.target.closest(".tab");
+  if (tab) activateTab(tab.dataset.tab);
+});
+document.addEventListener("click", () => closeDropdowns());
+
+search.addEventListener("input", () => {
+  const page = document.querySelector(".page.active");
+  const query = search.value.trim().toLowerCase();
+  let visible = 0;
+  page.querySelectorAll(".control").forEach(control => {
+    const matches = control.dataset.search.toLowerCase().includes(query);
+    control.classList.toggle("hidden", !matches);
+    if (matches) visible++;
+  });
+  page.querySelectorAll(".section").forEach(section => section.classList.toggle("hidden", !section.querySelector(".control:not(.hidden)")));
+  page.querySelector(".empty").classList.toggle("hidden", visible !== 0);
+});
+
+function togglePreview() {
+  state.hidden = !state.hidden;
+  windowElement.style.visibility = state.hidden ? "hidden" : "visible";
+  windowElement.style.opacity = state.hidden ? "0" : "1";
+}
+
+document.getElementById("notifyDemo").addEventListener("click", () => notify("Argon UI", "Notifications support titles, descriptions, timing, and animated progress."));
+document.getElementById("hideUi").addEventListener("click", togglePreview);
+document.addEventListener("keydown", event => {
+  if (event.key === "/" && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) { event.preventDefault(); search.focus(); }
+  if (event.key === "Insert") togglePreview();
+});
+
+render();
+const loaderStages = [
+  [120,"22%","INITIALIZING","Mounting interface shell"],
+  [470,"52%","BUILDING CONTROLS","Registering tabs and overlays"],
+  [820,"80%","SYNCING CONFIG","Applying saved preferences"],
+  [1180,"100%","READY","Interface ready"]
+];
+loaderStages.forEach(([delay,percent,status,detail]) => setTimeout(() => {
+  document.getElementById("loaderPercent").textContent = percent;
+  document.getElementById("loaderStatus").textContent = status;
+  document.getElementById("loaderDetail").textContent = detail;
+}, delay));
+setTimeout(() => notify("Preview ready", "Explore every tab, control, and responsive layout directly in your browser."), 350);
+</script>
+</body>
+</html>

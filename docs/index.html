@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark">
+<title>Argon UI — Documentation</title>
+<meta name="description" content="Argon UI is a standalone Roblox UI library with tabs, sections, 18 controls, themes, overlays, dialogs, and verified configuration persistence.">
+<link rel="icon" href="argon-ui-logo.svg">
+<style>
+:root{--bg:#07090e;--panel:#0e131b;--panel2:#141b25;--line:#26303e;--text:#eef4fa;--muted:#98a8b8;--dim:#6d7d8e;--accent:#9970ff;--accent2:#c0a6ff;--cyan:#5de1eb;--green:#63dfa0;--amber:#ffc568;--red:#ff7785;--radius:14px;--sidebar:270px;--mono:"Cascadia Code",ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:80px}
+body{margin:0;background:radial-gradient(1000px 560px at 88% -12%,#1d1836 0,transparent 68%),var(--bg);color:var(--text);font:15px/1.62 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--accent2);text-decoration:none}a:hover{text-decoration:underline}
+button,input{font:inherit}button{cursor:pointer}
+code{font-family:var(--mono);font-size:.88em}
+:not(pre)>code{padding:2px 6px;border-radius:6px;background:#0a1219;color:#cbe7ee;border:1px solid #1d2937}
+.skip{position:fixed;left:12px;top:-60px;z-index:99;padding:10px 14px;background:#fff;color:#000;border-radius:9px}.skip:focus{top:12px}
+header.top{position:sticky;top:0;z-index:40;border-bottom:1px solid var(--line);background:#070a0fe8;backdrop-filter:blur(16px)}
+.top-in{display:flex;align-items:center;gap:14px;padding:11px 20px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.02em}
+.brand img{width:31px;height:31px}
+.badge{padding:3px 8px;border:1px solid #4a3d7a;border-radius:999px;background:#171432;color:var(--accent2);font-size:11px;font-weight:800}
+.top-links{display:flex;gap:6px;margin-left:auto}
+.top-links a{padding:7px 11px;border-radius:9px;color:var(--muted);font-size:13px}
+.top-links a:hover{color:var(--text);background:#141c26;text-decoration:none}
+.menu-btn{display:none;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#131b24;color:var(--text)}
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:34px;max-width:1400px;margin:auto;padding:0 20px}
+nav.side{position:sticky;top:56px;align-self:start;height:calc(100vh - 66px);padding:22px 6px 40px;overflow:auto}
+nav.side input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#080c12;color:var(--text);outline:0}
+nav.side input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #9970ff22}
+.nav-group{margin-top:18px}
+.nav-group h4{margin:0 0 6px;padding-left:10px;color:var(--dim);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
+nav.side a{display:block;padding:6px 10px;border-left:2px solid transparent;border-radius:0 7px 7px 0;color:var(--muted);font-size:13.5px}
+nav.side a:hover{color:var(--text);background:#111823;text-decoration:none}
+nav.side a.active{color:var(--text);background:#151d2a;border-left-color:var(--accent)}
+main{padding:34px 0 90px;min-width:0}
+.hero{padding:26px 0 10px}
+.hero h1{margin:6px 0 12px;font-size:clamp(38px,6vw,66px);line-height:1;letter-spacing:-.05em}
+.hero p.lede{max-width:760px;color:#b3c1cd;font-size:18px}
+.pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.pill{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#0f151d;color:var(--muted);font-size:12.5px}
+h2{margin:52px 0 6px;padding-top:6px;font-size:29px;letter-spacing:-.03em;scroll-margin-top:78px}
+h3{margin:30px 0 6px;font-size:19px;scroll-margin-top:78px}
+h4{margin:22px 0 6px;font-size:15px;color:var(--accent2)}
+p{color:#c2ced9}
+.note{margin:16px 0;padding:13px 16px;border-left:3px solid var(--cyan);border-radius:0 11px 11px 0;background:#0d151c;color:#c6d3dd}
+.note.warn{border-color:var(--amber);background:#191408}
+.note strong{color:var(--text)}
+pre{position:relative;margin:14px 0;padding:16px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:#080c11;color:#d9e6ef;line-height:1.55}
+pre code{color:inherit}
+.copy{position:absolute;right:9px;top:9px;padding:4px 9px;border:1px solid #33404f;border-radius:7px;background:#121a24;color:var(--muted);font:11px/1.2 system-ui}
+.copy:hover{color:var(--text);border-color:var(--accent)}
+table{width:100%;margin:14px 0;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:14px}
+th,td{padding:10px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:#141c26;color:var(--muted);font-size:11px;letter-spacing:.07em;text-transform:uppercase}
+tr:last-child td{border-bottom:0}
+td code{white-space:nowrap}
+.tw{overflow-x:auto;border-radius:var(--radius)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:12px;margin:16px 0}
+.card{padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+.card h4{margin:0 0 5px;color:var(--text)}
+.card p{margin:0;color:var(--muted);font-size:13.5px}
+.card .tag{display:inline-block;margin-bottom:8px;padding:2px 7px;border-radius:999px;background:#1b1636;color:var(--accent2);font-size:10px;font-weight:800;letter-spacing:.06em}
+.card .tag.new{background:#12271d;color:var(--green)}
+.api{margin:16px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.api-head{padding:12px 15px;border-bottom:1px solid var(--line);background:#131a24;font-family:var(--mono);font-size:13.5px;color:var(--cyan)}
+.api-body{padding:14px 15px}
+.api-body p:first-child{margin-top:0}
+.api-body p:last-child{margin-bottom:0}
+footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+[hidden]{display:none!important}
+#noresults{display:none;padding:12px;color:var(--muted);font-size:13px}
+@media(max-width:1000px){
+ .shell{grid-template-columns:1fr;gap:0}
+ nav.side{position:fixed;inset:52px 0 auto 0;z-index:35;height:auto;max-height:72vh;padding:16px;border-bottom:1px solid var(--line);background:#080c12f5;backdrop-filter:blur(16px);display:none}
+ nav.side.open{display:block}
+ .menu-btn{display:block}
+ .top-links{display:none}
+}
+@media(max-width:560px){.hero h1{font-size:37px}h2{font-size:24px}.top-in{padding:10px 14px}.shell{padding:0 14px}}
+@media print{header.top,nav.side,.copy{display:none}.shell{display:block}body{background:#fff;color:#111}pre,table,.card,.api{background:#fff;border-color:#bbb}p,td,.card p{color:#333}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top"><div class="top-in">
+  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
+  <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
+  <span class="badge" id="verBadge">v1.8.0</span>
+  <span class="top-links">
+    <a href="#getting-started">Start</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
+    <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
+  </span>
+</div></header>
+
+<div class="shell">
+<nav class="side" id="side" aria-label="Documentation">
+  <input id="navSearch" type="search" placeholder="Filter docs…" aria-label="Filter documentation">
+  <div id="noresults">No matching section.</div>
+  <div class="nav-group"><h4>Overview</h4>
+    <a href="#getting-started">Getting started</a><a href="#installation">Installation</a><a href="#window">Windows</a><a href="#tabs">Tabs &amp; sections</a>
+  </div>
+  <div class="nav-group"><h4>Components</h4>
+    <a href="#components">All components</a><a href="#input-controls">Input controls</a><a href="#choice-controls">Choice controls</a><a href="#numeric-controls">Numeric controls</a><a href="#display-controls">Display &amp; data</a><a href="#layout-controls">Layout</a>
+  </div>
+  <div class="nav-group"><h4>Behavior</h4>
+    <a href="#element-api">Element methods</a><a href="#persistence">Configuration</a><a href="#themes">Themes</a><a href="#overlays">Overlays &amp; dialogs</a><a href="#notifications">Notifications</a>
+  </div>
+  <div class="nav-group"><h4>Reference</h4>
+    <a href="#api">Library API</a><a href="#window-api">Window API</a><a href="#icons">Icons</a><a href="#recipes">Recipes</a><a href="#migration">Rayfield migration</a><a href="#changelog">Changelog</a>
+  </div>
+  <div class="nav-group"><h4>Links</h4>
+    <a href="preview.html">Browser preview</a><a href="https://github.com/JirkaachS/argon-ui">Source on GitHub</a>
+  </div>
+</nav>
+
+<main id="content">
+<section class="hero">
+  <span class="badge">Standalone Roblox UI library</span>
+  <h1>Argon UI</h1>
+  <p class="lede">Build a complete interface in a few lines: tabbed navigation, 18 controls, themes, draggable overlays, modal dialogs, and configuration persistence that actually reapplies your settings on load.</p>
+  <div class="pillrow">
+    <span class="pill">No dependencies</span><span class="pill">Single file</span><span class="pill">18 controls</span>
+    <span class="pill">5 themes</span><span class="pill">Verified saves</span><span class="pill">Rayfield-style API</span>
+  </div>
+</section>
+
+<h2 id="getting-started">Getting started</h2>
+<p>Argon UI is one self-contained Luau file. It needs no host script, no folder layout, and no globals of your own. Load it, create a window, add a tab, and add controls.</p>
+<pre><button class="copy">Copy</button><code>local Argon = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/JirkaachS/argon-ui/main/argon-ui.luau"
+))()
+
+local Window = Argon:CreateWindow({
+    Name = "My Hub",
+    Theme = "Argon",
+    ConfigurationSaving = { Enabled = true, FolderName = "MyHub", FileName = "config" },
+})
+
+local Tab = Window:CreateTab("Main", "zap")
+Tab:CreateSection("Farming")
+
+Tab:CreateToggle({
+    Flag = "AutoFarm",
+    Name = "Auto farm",
+    CurrentValue = false,
+    Callback = function(enabled)
+        print("auto farm:", enabled)
+    end,
+})
+
+Argon:LoadConfiguration()</code></pre>
+<div class="note"><strong>That last line matters.</strong> <code>LoadConfiguration</code> restores saved values, reapplies each control's callback, and switches autosave on. Call it once after all controls are built.</div>
+
+<h2 id="installation">Installation</h2>
+<h3>Remote (recommended)</h3>
+<pre><button class="copy">Copy</button><code>local Argon = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/JirkaachS/argon-ui/main/argon-ui.luau"
+))()</code></pre>
+<h3>Local file with remote fallback</h3>
+<p>Useful when you ship the library beside your script and still want automatic updates.</p>
+<pre><button class="copy">Copy</button><code>local function loadArgon()
+    if isfile and readfile and isfile("argon-ui.luau") then
+        local chunk = loadstring(readfile("argon-ui.luau"), "@argon-ui.luau")
+        if chunk then return chunk() end
+    end
+    return loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/JirkaachS/argon-ui/main/argon-ui.luau"
+    ))()
+end
+
+local Argon = loadArgon()</code></pre>
+<div class="note"><strong>Environment.</strong> Argon UI parents its ScreenGui to <code>CoreGui</code> when the executor allows it and falls back to <code>PlayerGui</code>. Configuration saving needs executor file functions (<code>writefile</code>, <code>readfile</code>, and friends); common <code>syn.*</code> aliases are detected automatically. Without them the UI still works, only persistence is unavailable.</div>
+
+<h2 id="window">Windows</h2>
+<p><code>Argon:CreateWindow(options)</code> builds the shell and returns a window object.</p>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Name</code></td><td>string</td><td><code>"Argon UI"</code></td><td>Sidebar title.</td></tr>
+<tr><td><code>LoadingTitle</code></td><td>string</td><td><code>Name</code></td><td>Title shown on the splash loader.</td></tr>
+<tr><td><code>Theme</code></td><td>string or table</td><td><code>"Argon"</code></td><td>Built-in theme name or a palette table.</td></tr>
+<tr><td><code>Logo</code></td><td>string</td><td>bundled mark</td><td><code>rbxassetid://…</code> or image URI.</td></tr>
+<tr><td><code>GuiName</code></td><td>string</td><td><code>"ArgonUI"</code></td><td>ScreenGui name. Only a previous Argon window with this name is replaced.</td></tr>
+<tr><td><code>ConfigurationSaving</code></td><td>table</td><td>disabled</td><td><code>{ Enabled, FolderName, FileName, FileExtension }</code>.</td></tr>
+<tr><td><code>PlayerList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable player overlay.</td></tr>
+<tr><td><code>KeybindList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable active-keybind overlay.</td></tr>
+<tr><td><code>ToggleUIKeybind</code></td><td>KeyCode</td><td><code>Insert</code></td><td>Key that hides and restores the interface.</td></tr>
+</tbody></table></div>
+<p>Press <kbd>/</kbd> while the window is open to focus the active tab's search field. Drag the window edges to resize; the minimum size is 560×400 and the layout collapses the sidebar on narrow viewports.</p>
+
+<h2 id="tabs">Tabs and sections</h2>
+<p>Tabs hold sections, and sections group controls. If you add a control before creating a section, Argon UI creates a <code>General</code> section for you.</p>
+<pre><button class="copy">Copy</button><code>local Tab = Window:CreateTab("Combat", "swords")
+
+Tab:CreateSection("Targeting")
+Tab:CreateToggle({ Name = "Aim assist", Callback = function() end })
+
+-- Section objects build controls directly, which reads well for long tabs.
+local Movement = Tab:Section({ Title = "Movement" })
+Movement:Slider({ Name = "Walk speed", Range = { 16, 120 }, CurrentValue = 16 })
+Movement:Toggle({ Name = "Infinite jump" })</code></pre>
+<p>Every <code>Create*</code> method also exists without the prefix (<code>Tab:Toggle</code>, <code>Tab:Slider</code>, <code>Section:Dropdown</code>, …), so both naming styles work.</p>
+
+<h2 id="components">All components</h2>
+<p>Eighteen controls, grouped by what they do. Anything that holds a value accepts a <code>Flag</code> and participates in configuration saving.</p>
+<div class="grid">
+  <div class="card"><span class="tag">stateful</span><h4>Toggle</h4><p>Boolean switch with animated knob.</p></div>
+  <div class="card"><span class="tag">stateful</span><h4>Slider</h4><p>Ranged number with drag and typed entry.</p></div>
+  <div class="card"><span class="tag new">new · stateful</span><h4>Stepper</h4><p>Precise numeric field with minus and plus buttons.</p></div>
+  <div class="card"><span class="tag">stateful</span><h4>Input</h4><p>Single-line text field.</p></div>
+  <div class="card"><span class="tag new">new · stateful</span><h4>TextArea</h4><p>Multi-line text with line helpers.</p></div>
+  <div class="card"><span class="tag">stateful</span><h4>Dropdown</h4><p>Single or multi select with filtering.</p></div>
+  <div class="card"><span class="tag new">new · stateful</span><h4>Segmented</h4><p>Inline pill row for small option sets.</p></div>
+  <div class="card"><span class="tag">stateful</span><h4>Keybind</h4><p>Key capture with overlay integration.</p></div>
+  <div class="card"><span class="tag">stateful</span><h4>ColorPicker</h4><p>HSV square, hue rail, and hex entry.</p></div>
+  <div class="card"><span class="tag">action</span><h4>Button</h4><p>One-shot action row.</p></div>
+  <div class="card"><span class="tag new">new · display</span><h4>ProgressBar</h4><p>Determinate progress with custom formatting.</p></div>
+  <div class="card"><span class="tag new">new · display</span><h4>List</h4><p>Scrollable rows with optional row actions.</p></div>
+  <div class="card"><span class="tag">display</span><h4>TelemetryCard</h4><p>Live status card with state colors.</p></div>
+  <div class="card"><span class="tag">display</span><h4>Label</h4><p>Short informational line.</p></div>
+  <div class="card"><span class="tag">display</span><h4>Paragraph</h4><p>Title plus wrapped body copy.</p></div>
+  <div class="card"><span class="tag">layout</span><h4>Divider</h4><p>Rule with an optional caption.</p></div>
+  <div class="card"><span class="tag">layout</span><h4>Space</h4><p>Explicit vertical gap.</p></div>
+  <div class="card"><span class="tag">layout</span><h4>Section</h4><p>Titled group with its own builders.</p></div>
+</div>
+
+<h2 id="input-controls">Input controls</h2>
+
+<h3>Toggle</h3>
+<pre><button class="copy">Copy</button><code>local toggle = Tab:CreateToggle({
+    Flag = "GodMode",
+    Name = "God mode",
+    Description = "Reapplies automatically on respawn.",
+    CurrentValue = false,
+    Callback = function(enabled) setGodMode(enabled) end,
+})
+
+toggle:Set(true)          -- fires the callback
+print(toggle.CurrentValue) -- true</code></pre>
+
+<h3>Input</h3>
+<pre><button class="copy">Copy</button><code>Tab:CreateInput({
+    Flag = "Webhook",
+    Name = "Webhook URL",
+    PlaceholderText = "https://…",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(value) saveWebhook(value) end,
+})</code></pre>
+
+<h3>TextArea <span class="badge">new</span></h3>
+<p>Multi-line entry for lists, notes, and payloads. <code>GetLines</code> returns non-empty lines, which suits “one item per line” input.</p>
+<pre><button class="copy">Copy</button><code>local notes = Tab:CreateTextArea({
+    Flag = "ItemFilter",
+    Name = "Item filter",
+    Height = 120,
+    PlaceholderText = "One item per line…",
+    Callback = function(text) print(#text, "characters") end,
+})
+
+for _, line in ipairs(notes:GetLines()) do
+    print("filter:", line)
+end</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th>Type</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Height</code></td><td>number</td><td>Control height, clamped to 72–320. Defaults to 104.</td></tr>
+<tr><td><code>PlaceholderText</code></td><td>string</td><td>Shown while empty.</td></tr>
+<tr><td><code>CurrentValue</code></td><td>string</td><td>Initial text.</td></tr>
+</tbody></table></div>
+
+<h3>Keybind</h3>
+<pre><button class="copy">Copy</button><code>local bind = Tab:CreateKeybind({
+    Flag = "PanicKey",
+    Name = "Panic",
+    CurrentKeybind = "P",
+    Toggle = true,                 -- latch instead of pulse
+    DisplayInKeybindList = true,
+    OnPressed = function(key, active) print(key, active) end,
+})
+
+bind:SetActive(true)
+bind:SetOverlayVisible(false)</code></pre>
+<p>Click the control, then press a key. <kbd>Escape</kbd> or <kbd>Backspace</kbd> clears it to <code>None</code>.</p>
+
+<h2 id="choice-controls">Choice controls</h2>
+
+<h3>Dropdown</h3>
+<pre><button class="copy">Copy</button><code>local dropdown = Tab:CreateDropdown({
+    Flag = "Target",
+    Name = "Target",
+    Options = { "Nearest", "Lowest health", "Random" },
+    CurrentOption = { "Nearest" },
+    MultipleOptions = false,
+    Callback = function(selection) print(selection[1]) end,
+})
+
+dropdown:Refresh(fetchTargets())   -- keeps the current selection when still valid
+dropdown:Set({ "Random" })
+print(dropdown.CurrentOption)</code></pre>
+<div class="note"><strong>Dynamic option lists are safe.</strong> A restored value whose option does not exist yet is remembered, then applied automatically the moment <code>Refresh</code> introduces that option.</div>
+
+<h3>Segmented <span class="badge">new</span></h3>
+<p>A compact pill row for two to four mutually exclusive choices. Cheaper to read than a dropdown and requires no popup.</p>
+<pre><button class="copy">Copy</button><code>local mode = Tab:CreateSegmented({
+    Flag = "FarmMode",
+    Name = "Farm mode",
+    Options = { "Safe", "Balanced", "Fast" },
+    CurrentOption = "Balanced",
+    Callback = function(value) setFarmMode(value) end,
+})
+
+mode:Set("Fast")
+mode:Refresh({ "Safe", "Fast" })   -- rebuilds the strip
+print(mode.CurrentValue)           -- "Fast"</code></pre>
+<p>The callback receives a plain string, unlike <code>Dropdown</code> which returns a table.</p>
+
+<h3>ColorPicker</h3>
+<pre><button class="copy">Copy</button><code>local accent = Tab:CreateColorPicker({
+    Flag = "HighlightColor",
+    Name = "Highlight color",
+    Color = Color3.fromRGB(153, 112, 255),
+    Callback = function(color) applyHighlight(color) end,
+})
+
+accent:Set("#5DE1EB")   -- hex strings and Color3 both work</code></pre>
+
+<h2 id="numeric-controls">Numeric controls</h2>
+
+<h3>Slider</h3>
+<pre><button class="copy">Copy</button><code>Tab:CreateSlider({
+    Flag = "FlySpeed",
+    Name = "Fly speed",
+    Range = { 10, 500 },
+    Increment = 5,
+    Suffix = " studs",
+    CurrentValue = 60,
+    Callback = function(value) CFG.FlySpeed = value end,
+})</code></pre>
+
+<h3>Stepper <span class="badge">new</span></h3>
+<p>Better than a slider when the exact number matters or when touch dragging is awkward. Values are rounded to <code>Increment</code> and clamped to <code>Range</code>.</p>
+<pre><button class="copy">Copy</button><code>local charge = Tab:CreateStepper({
+    Flag = "ChargeTime",
+    Name = "Charge time",
+    Range = { 0.05, 2 },
+    Increment = 0.05,
+    Suffix = "s",
+    CurrentValue = 0.45,
+    Callback = function(value) CFG.ChargeTime = value end,
+})
+
+charge:Set(1.2)</code></pre>
+
+<h2 id="display-controls">Display and data</h2>
+
+<h3>ProgressBar <span class="badge">new</span></h3>
+<p>Determinate progress for long jobs such as scans, exports, or queues.</p>
+<pre><button class="copy">Copy</button><code>local progress = Tab:CreateProgressBar({
+    Name = "Export progress",
+    Minimum = 0,
+    Maximum = 500,
+    ShowValue = false,
+    Format = function(value, maximum) return ("%d / %d"):format(value, maximum) end,
+})
+
+progress:Set(120)
+progress:Increment(10)
+progress:SetRange(0, 900)
+progress:SetColor(Color3.fromRGB(99, 223, 160))</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Member</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Set(value[, silent])</code></td><td>Clamps to the range and animates the fill.</td></tr>
+<tr><td><code>Increment(amount)</code></td><td>Adds to the current value. Defaults to 1.</td></tr>
+<tr><td><code>SetRange(min, max)</code></td><td>Updates bounds and rerenders.</td></tr>
+<tr><td><code>SetColor(Color3)</code></td><td>Tints the fill, useful for warning states.</td></tr>
+<tr><td><code>Format(value, max, ratio)</code></td><td>Optional function returning the readout text. Defaults to a percentage.</td></tr>
+</tbody></table></div>
+
+<h3>List <span class="badge">new</span></h3>
+<p>A scrollable data region with an item counter, an empty state, and optional per-row buttons. Good for saved profiles, queues, discovered players, or scan results.</p>
+<pre><button class="copy">Copy</button><code>local profiles = Tab:CreateList({
+    Name = "Saved profiles",
+    Height = 170,
+    EmptyText = "No profiles saved yet",
+    Callback = function(record) loadProfile(record.Title) end,
+})
+
+profiles:SetItems({
+    "Default",
+    { Title = "Farming", Description = "Mining + auto sell", Action = "Load" },
+    { Title = "Combat", Description = "PvP preset", Action = "Load",
+      Callback = function(record) loadProfile(record.Title) end },
+})
+
+profiles:AddItem({ Title = "Minimal" })
+profiles:Clear()</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Item field</th><th>Type</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Title</code></td><td>string</td><td>Primary row text. A plain string item becomes the title.</td></tr>
+<tr><td><code>Description</code></td><td>string</td><td>Optional second line; the row grows to fit.</td></tr>
+<tr><td><code>Action</code></td><td>string</td><td>Adds a trailing button with this caption.</td></tr>
+<tr><td><code>Callback</code></td><td>function</td><td>Row-specific handler. Falls back to the list <code>Callback</code>.</td></tr>
+<tr><td><code>Color</code></td><td>Color3</td><td>Overrides the title color, handy for status rows.</td></tr>
+</tbody></table></div>
+
+<h3>TelemetryCard</h3>
+<pre><button class="copy">Copy</button><code>local status = Tab:CreateTelemetryCard({
+    Title = "Session",
+    Content = "Waiting for data…",
+    Icon = "radio-tower",
+})
+
+status:SetContent("Uptime 4m · 128 items")
+status:SetStatus("LIVE", Color3.fromRGB(99, 223, 160))</code></pre>
+
+<h3>Label and Paragraph</h3>
+<pre><button class="copy">Copy</button><code>Tab:CreateLabel("Autosave runs a third of a second after each change.")
+
+local details = Tab:CreateParagraph({
+    Title = "How targeting works",
+    Content = "Nearest uses straight-line distance and ignores players behind walls.",
+})
+details:SetContent("Updated copy.")</code></pre>
+
+<h2 id="layout-controls">Layout</h2>
+<pre><button class="copy">Copy</button><code>Tab:CreateDivider("Advanced")   -- caption optional
+Tab:CreateSpace(16)             -- 4–80 pixels</code></pre>
+
+<h2 id="element-api">Element methods</h2>
+<p>Every control returned by a <code>Create*</code> call shares this surface.</p>
+<div class="tw"><table>
+<thead><tr><th>Member</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Set(value[, silent])</code></td><td>Updates the value. Passing <code>true</code> as the second argument skips the callback and autosave.</td></tr>
+<tr><td><code>CurrentValue</code></td><td>Current value. Dropdowns also expose <code>CurrentOption</code>; keybinds expose <code>CurrentKeybind</code>.</td></tr>
+<tr><td><code>Type</code></td><td>Control kind, for example <code>"Toggle"</code> or <code>"Segmented"</code>.</td></tr>
+<tr><td><code>Flag</code></td><td>Configuration key, when one was supplied.</td></tr>
+<tr><td><code>SetTitle(text)</code> / <code>SetDesc(text)</code></td><td>Retitles the control or sets its secondary line.</td></tr>
+<tr><td><code>SetTooltip(text)</code></td><td>Hover tooltip. <code>Tooltip</code> is an alias.</td></tr>
+<tr><td><code>Lock(reason)</code> / <code>Unlock()</code></td><td>Blocks interaction with a labeled scrim.</td></tr>
+<tr><td><code>SetVisible(bool)</code></td><td>Shows or hides the row.</td></tr>
+<tr><td><code>Destroy()</code></td><td>Removes the control and unregisters its bookkeeping.</td></tr>
+</tbody></table></div>
+<pre><button class="copy">Copy</button><code>local premium = Tab:CreateToggle({ Name = "Cloud sync" })
+premium:SetDesc("Requires an account")
+premium:SetTooltip("Available in the paid tier")
+premium:Lock("Premium")
+premium:Unlock()</code></pre>
+
+<h2 id="persistence">Configuration and persistence</h2>
+<p>Give a control a <code>Flag</code> and it becomes part of the saved configuration. Values are written to <code>FolderName/FileName</code> about a third of a second after a change, and every write is read back and verified.</p>
+<pre><button class="copy">Copy</button><code>local Window = Argon:CreateWindow({
+    Name = "My Hub",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "MyHub",
+        FileName = "config-" .. tostring(game.Players.LocalPlayer.UserId),
+    },
+})
+
+-- build every tab and control first, then:
+local ok, info = Argon:LoadConfiguration()
+if not ok then warn("config:", info) end</code></pre>
+<h3>How loading behaves</h3>
+<div class="grid">
+  <div class="card"><h4>Callbacks always run</h4><p>A stored value equal to the control default still reapplies its behavior, so features cannot silently stay off.</p></div>
+  <div class="card"><h4>Autosave turns itself on</h4><p>Persistence activates after loading, or shortly after <code>CreateWindow</code> if you never load.</p></div>
+  <div class="card"><h4>Unknown flags survive</h4><p>Values for controls that do not exist yet are kept, applied when that flag registers, and never dropped on save.</p></div>
+  <div class="card"><h4>Writes are verified</h4><p>Saves re-read the file and return <code>false, reason</code> when the contents do not match.</p></div>
+</div>
+<div class="note warn"><strong>Order matters.</strong> Create controls before calling <code>LoadConfiguration</code>. Flags that arrive later still hydrate, but loading last keeps startup deterministic.</div>
+<h3>Working with values directly</h3>
+<pre><button class="copy">Copy</button><code>print(Argon:GetFlagValue("AutoFarm"))
+Argon:SetFlagValue("FlySpeed", 220)      -- applies and saves
+local everything = Argon:GetFlags()       -- flag -> value snapshot
+
+local unbind = Argon:OnFlagChanged(function(flag, value)
+    print("changed:", flag, value)
+end)
+unbind()                                  -- stop listening
+
+local stats = Argon:GetConfigurationStats()
+print(stats.Path, stats.Ready, stats.PendingFlags, stats.LastError)</code></pre>
+<h3>Resetting</h3>
+<pre><button class="copy">Copy</button><code>Argon:SaveConfiguration()     -- returns ok, path
+Argon:DeleteConfiguration()   -- removes the file
+Argon:ResetConfiguration()    -- clears stored values and deletes the file</code></pre>
+<div class="note"><strong>Multiple accounts or presets.</strong> Put the identifier in <code>FileName</code>. Separate files never overwrite each other, which avoids the classic “settings keep resetting” problem when two builds share one file.</div>
+
+<h2 id="themes">Themes</h2>
+<p>Built-in palettes: <code>Argon</code>, <code>Amethyst</code>, <code>Midnight</code>, <code>Emerald</code>, and <code>Rose</code>. Theme changes apply live to existing controls.</p>
+<pre><button class="copy">Copy</button><code>print(Argon:GetThemes())
+Window:SetTheme("Midnight")
+
+Argon:AddTheme("Slate", {
+    Background = Color3.fromRGB(9, 11, 14),
+    Window     = Color3.fromRGB(14, 17, 22),
+    Surface    = Color3.fromRGB(21, 26, 33),
+    Accent     = Color3.fromRGB(120, 190, 255),
+    Text       = Color3.fromRGB(238, 244, 250),
+})
+Argon:SetTheme("Slate")</code></pre>
+<p>A palette may define any of <code>Background</code>, <code>Window</code>, <code>Sidebar</code>, <code>Surface</code>, <code>Hover</code>, <code>Active</code>, <code>Input</code>, <code>Border</code>, <code>BorderSoft</code>, <code>Text</code>, <code>Muted</code>, <code>Dim</code>, <code>Accent</code>, <code>AccentLight</code>, <code>AccentDark</code>, <code>Success</code>, <code>Warning</code>, and <code>Danger</code>. Missing keys inherit the default theme.</p>
+
+<h2 id="overlays">Overlays, dialogs, and the settings tab</h2>
+<h3>Overlays</h3>
+<p>Two draggable overlays ship with the window: a player list and an active-keybind panel. Both stay usable while the main window is hidden, and their positions persist.</p>
+<pre><button class="copy">Copy</button><code>Window:SetPlayerListVisible(true)
+Window:ToggleKeybindList()
+Window:SetOverlayTransparency(0.3)   -- 0.12–0.8
+Window:SetOverlayScale(1.1)          -- 0.75–1.4
+Window:ResetOverlayPositions()</code></pre>
+<h3>Dialogs</h3>
+<pre><button class="copy">Copy</button><code>Window:Dialog({
+    Title = "Delete profile?",
+    Content = "This cannot be undone.",
+    Buttons = {
+        { Title = "Cancel" },
+        { Title = "Delete", Variant = "Danger", Callback = function() deleteProfile() end },
+    },
+})</code></pre>
+<h3>Built-in settings tab</h3>
+<p>One call adds theme, overlay, logo, and transition controls, all flagged and persisted for you.</p>
+<pre><button class="copy">Copy</button><code>local Settings = Window:CreateTab("Settings", "settings")
+Window:CreateLibrarySettings(Settings)</code></pre>
+
+<h2 id="notifications">Notifications</h2>
+<pre><button class="copy">Copy</button><code>Argon:Notify({ Title = "Saved", Content = "Configuration written.", Duration = 4 })</code></pre>
+<p>The accent color follows the title text: titles containing <em>error</em> or <em>failed</em> turn red, <em>warn</em> or <em>wait</em> amber, and <em>success</em> or <em>complete</em> green.</p>
+
+<h2 id="api">Library API</h2>
+<div class="api"><div class="api-head">Argon:CreateWindow(options) → window</div><div class="api-body"><p>Creates the interface shell. See <a href="#window">Windows</a> for options.</p></div></div>
+<div class="api"><div class="api-head">Argon:Notify(options)</div><div class="api-body"><p>Shows a toast: <code>Title</code>, <code>Content</code>, <code>Duration</code>.</p></div></div>
+<div class="api"><div class="api-head">Argon:SetTheme(name) → ok, err</div><div class="api-body"><p>Applies a built-in name or palette table to every live control.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetThemes() → table</div><div class="api-body"><p>Sorted list of registered theme names.</p></div></div>
+<div class="api"><div class="api-head">Argon:AddTheme(name, palette)</div><div class="api-body"><p>Registers a custom palette. Unspecified keys inherit defaults.</p></div></div>
+<div class="api"><div class="api-head">Argon:SaveConfiguration() → ok, pathOrReason</div><div class="api-body"><p>Writes and verifies the configuration file immediately.</p></div></div>
+<div class="api"><div class="api-head">Argon:LoadConfiguration() → ok, warningOrReason</div><div class="api-body"><p>Restores values, reapplies callbacks, and enables autosave. Returns a warning string when some flags failed or are unknown.</p></div></div>
+<div class="api"><div class="api-head">Argon:DeleteConfiguration() → ok, pathOrReason</div><div class="api-body"><p>Removes the configuration file if the executor exposes <code>delfile</code>.</p></div></div>
+<div class="api"><div class="api-head">Argon:ResetConfiguration() → ok, reason</div><div class="api-body"><p>Clears pending values and deletes the file while suppressing a queued autosave.</p></div></div>
+<div class="api"><div class="api-head">Argon:SetPersistenceReady(value[, saveNow]) → ok</div><div class="api-body"><p>Manual autosave gate. Optional now that loading enables persistence automatically; still useful to suppress writes during a long startup.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetFlagValue(flag) → value</div><div class="api-body"><p>Reads a live control value, or a stored value whose control is not built yet.</p></div></div>
+<div class="api"><div class="api-head">Argon:SetFlagValue(flag, value) → ok, reason</div><div class="api-body"><p>Applies a value through the control (running its callback) or parks it for later registration.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetFlags() → table</div><div class="api-body"><p>Snapshot of every flag value, including pending ones.</p></div></div>
+<div class="api"><div class="api-head">Argon:OnFlagChanged(callback) → unbind</div><div class="api-body"><p>Called with <code>(flag, value, element)</code> on user edits and restores. Returns a function that removes the listener.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetConfigurationStats() → table</div><div class="api-body"><p><code>Path</code>, <code>Enabled</code>, <code>Ready</code>, <code>Loading</code>, <code>RegisteredFlags</code>, <code>PendingFlags</code>, <code>LastError</code>, <code>LastAutosaveError</code>, <code>LastSaveAt</code>, <code>LastLoadAt</code>, <code>LastLoad</code>.</p></div></div>
+<div class="api"><div class="api-head">Argon:Destroy()</div><div class="api-body"><p>Saves, disconnects everything, and removes all windows.</p></div></div>
+<div class="api"><div class="api-head">Argon.Flags · Argon.Version · Argon.CurrentTheme</div><div class="api-body"><p><code>Flags</code> maps flag names to control objects, which keeps profile-reset helpers simple.</p></div></div>
+
+<h2 id="window-api">Window API</h2>
+<div class="tw"><table>
+<thead><tr><th>Method</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>CreateTab(name, icon)</code></td><td>Adds a sidebar tab and returns it.</td></tr>
+<tr><td><code>CreateLibrarySettings(tab)</code></td><td>Fills a tab with interface preference controls.</td></tr>
+<tr><td><code>Dialog(config)</code></td><td>Modal dialog. <code>Popup</code> is an alias.</td></tr>
+<tr><td><code>Open()</code> · <code>Close()</code> · <code>Toggle()</code></td><td>Visibility helpers. <code>SetVisibility(bool)</code> and <code>ToggleVisibility()</code> also exist.</td></tr>
+<tr><td><code>SetToggleKey(key)</code></td><td>Changes the show/hide key.</td></tr>
+<tr><td><code>SetTitle(text)</code> · <code>SetLogo(asset)</code></td><td>Updates branding at runtime.</td></tr>
+<tr><td><code>SetTheme(name)</code> · <code>GetThemes()</code></td><td>Theme control at window level.</td></tr>
+<tr><td><code>SetSize(value)</code></td><td>Accepts a <code>Vector2</code> or <code>{ width, height }</code>.</td></tr>
+<tr><td><code>SetPlayerListVisible(bool)</code> · <code>TogglePlayerList()</code></td><td>Player overlay control.</td></tr>
+<tr><td><code>SetKeybindListVisible(bool)</code> · <code>ToggleKeybindList()</code></td><td>Keybind overlay control.</td></tr>
+<tr><td><code>SetOverlayTransparency(n)</code> · <code>SetOverlayScale(n)</code></td><td>Overlay appearance.</td></tr>
+<tr><td><code>SetSmoothTransitions(bool)</code></td><td>Enables or disables animated tab changes.</td></tr>
+<tr><td><code>ResetOverlayPositions()</code></td><td>Returns both overlays to their defaults.</td></tr>
+<tr><td><code>ScreenGui</code> · <code>Tabs</code> · <code>ActiveTab</code></td><td>Useful properties for advanced hosts.</td></tr>
+</tbody></table></div>
+
+<h2 id="icons">Tab icons</h2>
+<p>Tab icons are drawn from a bundled vector atlas, so no operating-system glyph fallback is used. Unknown names fall back to <code>activity</code>.</p>
+<pre><button class="copy">Copy</button><code>Window:CreateTab("Mining", "pickaxe")</code></pre>
+<div class="pillrow">
+<span class="pill">activity</span><span class="pill">chevron-down</span><span class="pill">eye</span><span class="pill">gem</span><span class="pill">keyboard</span><span class="pill">loader</span><span class="pill">map-pin</span><span class="pill">move</span><span class="pill">pickaxe</span><span class="pill">radio-tower</span><span class="pill">search</span><span class="pill">server</span><span class="pill">settings</span><span class="pill">shirt</span><span class="pill">sword</span><span class="pill">swords</span><span class="pill">users</span><span class="pill">zap</span>
+</div>
+
+<h2 id="recipes">Recipes</h2>
+<h3>Progress-reporting task</h3>
+<pre><button class="copy">Copy</button><code>local bar = Tab:CreateProgressBar({ Name = "Scan", Maximum = #targets })
+local log = Tab:CreateList({ Name = "Results", Height = 150, EmptyText = "Nothing found yet" })
+
+Tab:CreateButton({ Name = "Start scan", Callback = function()
+    task.spawn(function()
+        for index, target in ipairs(targets) do
+            bar:Set(index)
+            if inspect(target) then log:AddItem({ Title = target.Name, Description = "match" }) end
+            task.wait()
+        end
+        Argon:Notify({ Title = "Scan complete", Content = ("%d results"):format(#log.Items) })
+    end)
+end })</code></pre>
+<h3>Mirror settings into your own config table</h3>
+<pre><button class="copy">Copy</button><code>local CFG = { FlySpeed = 60, FarmMode = "Balanced" }
+
+Argon:OnFlagChanged(function(flag, value)
+    if CFG[flag] ~= nil then CFG[flag] = value end
+end)</code></pre>
+<h3>Surface persistence health in your UI</h3>
+<pre><button class="copy">Copy</button><code>local card = Tab:CreateTelemetryCard({ Title = "Config", Content = "…" })
+
+task.spawn(function()
+    while true do
+        local stats = Argon:GetConfigurationStats()
+        card:SetContent(("%s · %d flags · %d pending"):format(
+            stats.Ready and "autosaving" or "gated", stats.RegisteredFlags, stats.PendingFlags))
+        card:SetStatus(stats.LastError and "ERROR" or "OK")
+        task.wait(2)
+    end
+end)</code></pre>
+
+<h2 id="migration">Migrating from Rayfield-style scripts</h2>
+<p>The window, tab, control, flag, notification, and configuration calls keep the same shapes, so most menus only need their loader swapped.</p>
+<pre><button class="copy">Copy</button><code>-- before
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+
+-- after: the rest of the script can stay as it is
+local Rayfield = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/JirkaachS/argon-ui/main/argon-ui.luau"
+))()</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Difference</th><th>What to expect</th></tr></thead>
+<tbody>
+<tr><td>ScreenGui name</td><td><code>ArgonUI</code> by default; override with <code>GuiName</code>.</td></tr>
+<tr><td>Config file extension</td><td><code>FileName</code> without an extension gets <code>.rfld</code>; any extension you provide is kept.</td></tr>
+<tr><td>Restored callbacks</td><td>Always fire once on load, even when the value matches the default.</td></tr>
+<tr><td>Save results</td><td><code>SaveConfiguration</code> returns <code>ok, path</code> or <code>ok, reason</code> instead of only a boolean.</td></tr>
+<tr><td>Sections</td><td>Optional grouping layer with its own builders.</td></tr>
+</tbody></table></div>
+
+<h2 id="changelog">Changelog</h2>
+<h3>1.8.0</h3>
+<ul>
+<li>Standalone hardening: configurable <code>GuiName</code>, neutral default folder and titles, and no assumptions about any host script.</li>
+<li>New components: <code>ProgressBar</code>, <code>Stepper</code>, <code>Segmented</code>, <code>TextArea</code>, and <code>List</code>.</li>
+<li>New API: <code>SetFlagValue</code>, <code>GetFlags</code>, <code>OnFlagChanged</code>, <code>GetConfigurationStats</code>, <code>DeleteConfiguration</code>, and <code>ResetConfiguration</code>.</li>
+<li><code>FileName</code> now respects a custom extension instead of always appending <code>.rfld</code>.</li>
+<li>Section builders gained <code>Label</code>, <code>TelemetryCard</code>, and every new component.</li>
+</ul>
+<h3>1.7.0</h3>
+<ul>
+<li>Autosave enables itself after loading; restored values always reapply their callbacks exactly once.</li>
+<li>Values for controls that do not exist yet are retained, hydrated later, and preserved on save.</li>
+<li>Dropdowns remember a requested selection while their options are empty or filtered.</li>
+</ul>
+
+<footer>
+  <p>Argon UI is a standalone Roblox UI library. Source and issues on <a href="https://github.com/JirkaachS/argon-ui">GitHub</a>.</p>
+</footer>
+</main>
+</div>
+<script>
+const nav=document.querySelector('#side'),menuBtn=document.querySelector('#menuBtn'),search=document.querySelector('#navSearch'),noresults=document.querySelector('#noresults'),links=[...document.querySelectorAll('nav.side a')];
+menuBtn.addEventListener('click',()=>{const open=nav.classList.toggle('open');menuBtn.setAttribute('aria-expanded',String(open))});
+links.forEach(link=>link.addEventListener('click',()=>{nav.classList.remove('open');menuBtn.setAttribute('aria-expanded','false')}));
+search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();let shown=0;links.forEach(link=>{const match=!q||link.textContent.toLowerCase().includes(q);link.hidden=!match;if(match)shown++});document.querySelectorAll('.nav-group h4').forEach(head=>{const group=head.parentElement;head.hidden=![...group.querySelectorAll('a')].some(a=>!a.hidden)});noresults.style.display=shown?'none':'block'});
+document.addEventListener('click',async event=>{const button=event.target.closest('.copy');if(!button)return;const code=button.parentElement.querySelector('code');try{await navigator.clipboard.writeText(code.innerText);button.textContent='Copied';}catch{button.textContent='Select manually';}setTimeout(()=>button.textContent='Copy',1400)});
+const targets=[...document.querySelectorAll('main [id]')];
+const spy=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;const id=entry.target.id;links.forEach(link=>link.classList.toggle('active',link.getAttribute('href')==='#'+id))})},{rootMargin:'-84px 0px -70% 0px'});
+targets.forEach(target=>spy.observe(target));
+</script>
+</body>
+</html>
