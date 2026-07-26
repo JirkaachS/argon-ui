@@ -842,15 +842,14 @@ function Argon:CreateWindow(options)
     create("UIListLayout",{HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=notifications})
 
     local savedPreferences=self._uiPreferences or {}
-    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false}
+    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
         if not self._visible and self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if not self._visible and self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
         main.Visible=self._visible shadow.Visible=self._visible notifications.Visible=self._visible
-        if self.PlayerListOverlay then self.PlayerListOverlay.Visible=self._visible and self._playerListEnabled end
-        if self.KeybindListOverlay then self.KeybindListOverlay.Visible=self._visible and self._keybindListEnabled end
+        if self._refreshOverlayVisibility then self:_refreshOverlayVisibility() end
     end
     function window:ToggleVisibility() self:SetVisibility(not self._visible) end
     function window:Open() self:SetVisibility(true) end
@@ -908,12 +907,27 @@ function Argon:CreateWindow(options)
 
     local playerOverlay=makeOverlay("PLAYER LIST","users",UDim2.new(1,-18,0,72),UDim2.fromOffset(270,262))
     local keybindOverlay=makeOverlay("ACTIVE BINDS","keyboard",UDim2.new(1,-18,0,348),UDim2.fromOffset(270,214))
-    playerOverlay.Root.Visible=window._playerListEnabled keybindOverlay.Root.Visible=window._keybindListEnabled
     window.PlayerListOverlay=playerOverlay.Root window.KeybindListOverlay=keybindOverlay.Root
-    function window:SetPlayerListVisible(value) self._playerListEnabled=value~=false playerOverlay.Root.Visible=self._visible and self._playerListEnabled scheduleSave() return self end
-    function window:SetKeybindListVisible(value) self._keybindListEnabled=value~=false keybindOverlay.Root.Visible=self._visible and self._keybindListEnabled scheduleSave() return self end
-    function window:TogglePlayerList() return self:SetPlayerListVisible(not playerOverlay.Root.Visible) end
-    function window:ToggleKeybindList() return self:SetKeybindListVisible(not keybindOverlay.Root.Visible) end
+    -- Overlays can stay on screen while the main window is hidden. Pinning is a
+    -- separate preference from each overlay's own enabled state.
+    function window:_refreshOverlayVisibility()
+        local shellVisible=self._visible or self._overlaysAlwaysVisible==true
+        playerOverlay.Root.Visible=shellVisible and self._playerListEnabled==true
+        keybindOverlay.Root.Visible=shellVisible and self._keybindListEnabled==true
+        return self
+    end
+    function window:SetPlayerListVisible(value) self._playerListEnabled=value~=false self:_refreshOverlayVisibility() scheduleSave() return self end
+    function window:SetKeybindListVisible(value) self._keybindListEnabled=value~=false self:_refreshOverlayVisibility() scheduleSave() return self end
+    function window:TogglePlayerList() return self:SetPlayerListVisible(not self._playerListEnabled) end
+    function window:ToggleKeybindList() return self:SetKeybindListVisible(not self._keybindListEnabled) end
+    function window:SetOverlaysAlwaysVisible(value)
+        self._overlaysAlwaysVisible=value==true
+        self:_refreshOverlayVisibility() scheduleSave() return self
+    end
+    window.SetOverlaysPinned=window.SetOverlaysAlwaysVisible
+    function window:ToggleOverlaysAlwaysVisible() return self:SetOverlaysAlwaysVisible(not self._overlaysAlwaysVisible) end
+    function window:AreOverlaysAlwaysVisible() return self._overlaysAlwaysVisible==true end
+    window:_refreshOverlayVisibility()
     function window:SetOverlayTransparency(value)
         self._overlayTransparency=math.clamp(tonumber(value) or .38,.12,.8)
         playerOverlay.Root.BackgroundTransparency=self._overlayTransparency keybindOverlay.Root.BackgroundTransparency=self._overlayTransparency
@@ -929,20 +943,21 @@ function Argon:CreateWindow(options)
         playerOverlay.Root.Position=playerOverlay.DefaultPosition keybindOverlay.Root.Position=keybindOverlay.DefaultPosition scheduleSave() return self
     end
     function window:_exportUIPreferences()
-        return {Theme=Argon.CurrentTheme,Logo=self._logo,PlayerListEnabled=self._playerListEnabled,KeybindListEnabled=self._keybindListEnabled,OverlayTransparency=self._overlayTransparency,OverlayScale=self._overlayScale,SmoothTransitions=self._smoothTransitions,OverlayPositions={Players=encodePosition(playerOverlay.Root.Position),Keybinds=encodePosition(keybindOverlay.Root.Position)}}
+        return {Theme=Argon.CurrentTheme,Logo=self._logo,PlayerListEnabled=self._playerListEnabled,KeybindListEnabled=self._keybindListEnabled,OverlaysAlwaysVisible=self._overlaysAlwaysVisible,OverlayTransparency=self._overlayTransparency,OverlayScale=self._overlayScale,SmoothTransitions=self._smoothTransitions,OverlayPositions={Players=encodePosition(playerOverlay.Root.Position),Keybinds=encodePosition(keybindOverlay.Root.Position)}}
     end
     function window:_applyUIPreferences(preferences)
         preferences=preferences or {}
         if preferences.Theme and Argon.Themes[preferences.Theme] then Argon:SetTheme(preferences.Theme) end
         if preferences.Logo~=nil then self._logo=tostring(preferences.Logo) setBrandLogo(self._logo) end
         self._playerListEnabled=preferences.PlayerListEnabled~=false self._keybindListEnabled=preferences.KeybindListEnabled~=false
+        if preferences.OverlaysAlwaysVisible~=nil then self._overlaysAlwaysVisible=preferences.OverlaysAlwaysVisible==true end
         self._smoothTransitions=preferences.SmoothTransitions~=false
         self:SetOverlayTransparency(preferences.OverlayTransparency or self._overlayTransparency)
         self:SetOverlayScale(preferences.OverlayScale or self._overlayScale)
         local positions=preferences.OverlayPositions or {}
         playerOverlay.Root.Position=decodePosition(positions.Players,playerOverlay.DefaultPosition)
         keybindOverlay.Root.Position=decodePosition(positions.Keybinds,keybindOverlay.DefaultPosition)
-        playerOverlay.Root.Visible=self._visible and self._playerListEnabled keybindOverlay.Root.Visible=self._visible and self._keybindListEnabled
+        self:_refreshOverlayVisibility()
     end
     window:_applyUIPreferences(savedPreferences)
 
@@ -1730,6 +1745,9 @@ function Argon:CreateWindow(options)
         end})
         tab:CreateToggle({Flag="ArgonUIPlayerList",Name="Show Player List Overlay",CurrentValue=self._playerListEnabled,Callback=function(value) self:SetPlayerListVisible(value) end})
         tab:CreateToggle({Flag="ArgonUIKeybindList",Name="Show Keybind Overlay",CurrentValue=self._keybindListEnabled,Callback=function(value) self:SetKeybindListVisible(value) end})
+        tab:CreateToggle({Flag="ArgonUIOverlaysAlwaysVisible",Name="Keep Overlays On Screen",Description="Overlays stay visible after hiding the main window.",CurrentValue=self._overlaysAlwaysVisible,Callback=function(value) self:SetOverlaysAlwaysVisible(value) end})
+        tab:CreateKeybind({Flag="ArgonUIPlayerListKey",Name="Toggle Player List Key",CurrentKeybind="None",DisplayInKeybindList=true,OnPressed=function() self:TogglePlayerList() end})
+        tab:CreateKeybind({Flag="ArgonUIKeybindListKey",Name="Toggle Keybind Overlay Key",CurrentKeybind="None",DisplayInKeybindList=true,OnPressed=function() self:ToggleKeybindList() end})
         tab:CreateToggle({Flag="ArgonUISmoothTransitions",Name="Smooth Tab Transitions",CurrentValue=self._smoothTransitions,Callback=function(value) self:SetSmoothTransitions(value) end})
         tab:CreateSlider({Flag="ArgonUIOverlayOpacity",Name="Overlay Opacity",Range={20,88},Increment=1,CurrentValue=math.round((1-self._overlayTransparency)*100),Callback=function(value) self:SetOverlayTransparency(1-value/100) end})
         tab:CreateSlider({Flag="ArgonUIOverlayScale",Name="Overlay Scale",Range={75,140},Increment=1,CurrentValue=math.round(self._overlayScale*100),Callback=function(value) self:SetOverlayScale(value/100) end})
@@ -1860,8 +1878,7 @@ function Argon:CreateWindow(options)
         tween(splash,.28,{GroupTransparency=1},Enum.EasingStyle.Quint)
         task.delay(.3,function()
             if splash then splash:Destroy() end
-            playerOverlay.Root.Visible=window._visible and window._playerListEnabled
-            keybindOverlay.Root.Visible=window._visible and window._keybindListEnabled
+            window:_refreshOverlayVisibility()
         end)
     end)
     return window
