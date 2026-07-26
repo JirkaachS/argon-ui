@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.8.0", Argon.Version == "1.8.0", Argon.Version)
+check("version is 1.8.1", Argon.Version == "1.8.1", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 

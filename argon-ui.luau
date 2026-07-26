@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.8.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.8.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),

@@ -85,7 +85,7 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
   <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
-  <span class="badge" id="verBadge">v1.8.0</span>
+  <span class="badge" id="verBadge">v1.8.1</span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
     <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
@@ -184,6 +184,7 @@ local Argon = loadArgon()</code></pre>
 <tr><td><code>ConfigurationSaving</code></td><td>table</td><td>disabled</td><td><code>{ Enabled, FolderName, FileName, FileExtension }</code>.</td></tr>
 <tr><td><code>PlayerList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable player overlay.</td></tr>
 <tr><td><code>KeybindList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable active-keybind overlay.</td></tr>
+<tr><td><code>OverlaysAlwaysVisible</code></td><td>boolean</td><td><code>false</code></td><td>Keep overlays on screen after the main window is hidden.</td></tr>
 <tr><td><code>ToggleUIKeybind</code></td><td>KeyCode</td><td><code>Insert</code></td><td>Key that hides and restores the interface.</td></tr>
 </tbody></table></div>
 <p>Press <kbd>/</kbd> while the window is open to focus the active tab's search field. Drag the window edges to resize; the minimum size is 560×400 and the layout collapses the sidebar on narrow viewports.</p>
@@ -506,12 +507,18 @@ Argon:SetTheme("Slate")</code></pre>
 
 <h2 id="overlays">Overlays, dialogs, and the settings tab</h2>
 <h3>Overlays</h3>
-<p>Two draggable overlays ship with the window: a player list and an active-keybind panel. Both stay usable while the main window is hidden, and their positions persist.</p>
+<p>Two draggable overlays ship with the window: a player list and an active-keybind panel. Their positions persist, and they can be pinned so they stay on screen after the main window is hidden.</p>
 <pre><button class="copy">Copy</button><code>Window:SetPlayerListVisible(true)
 Window:ToggleKeybindList()
 Window:SetOverlayTransparency(0.3)   -- 0.12–0.8
 Window:SetOverlayScale(1.1)          -- 0.75–1.4
-Window:ResetOverlayPositions()</code></pre>
+Window:ResetOverlayPositions()
+
+-- Keep them visible while the interface is hidden.
+Window:SetOverlaysAlwaysVisible(true)
+Window:ToggleOverlaysAlwaysVisible()
+print(Window:AreOverlaysAlwaysVisible())</code></pre>
+<p>Pass <code>OverlaysAlwaysVisible = true</code> to <code>CreateWindow</code> to start pinned. The preference is saved with the configuration, and <code>CreateLibrarySettings</code> adds a <em>Keep Overlays On Screen</em> toggle plus hotkeys that toggle each overlay while the menu is closed.</p>
 <h3>Dialogs</h3>
 <pre><button class="copy">Copy</button><code>Window:Dialog({
     Title = "Delete profile?",
@@ -564,6 +571,8 @@ Window:CreateLibrarySettings(Settings)</code></pre>
 <tr><td><code>SetPlayerListVisible(bool)</code> · <code>TogglePlayerList()</code></td><td>Player overlay control.</td></tr>
 <tr><td><code>SetKeybindListVisible(bool)</code> · <code>ToggleKeybindList()</code></td><td>Keybind overlay control.</td></tr>
 <tr><td><code>SetOverlayTransparency(n)</code> · <code>SetOverlayScale(n)</code></td><td>Overlay appearance.</td></tr>
+<tr><td><code>SetOverlaysAlwaysVisible(bool)</code></td><td>Keeps overlays on screen while the window is hidden. <code>SetOverlaysPinned</code> is an alias.</td></tr>
+<tr><td><code>ToggleOverlaysAlwaysVisible()</code> · <code>AreOverlaysAlwaysVisible()</code></td><td>Flips or reads the pinned preference.</td></tr>
 <tr><td><code>SetSmoothTransitions(bool)</code></td><td>Enables or disables animated tab changes.</td></tr>
 <tr><td><code>ResetOverlayPositions()</code></td><td>Returns both overlays to their defaults.</td></tr>
 <tr><td><code>ScreenGui</code> · <code>Tabs</code> · <code>ActiveTab</code></td><td>Useful properties for advanced hosts.</td></tr>
@@ -636,6 +645,11 @@ lune run tests/run.luau</code></pre>
 <p>113 checks cover every control, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.8.1</h3>
+<ul>
+<li>Overlays can stay on screen while the main window is hidden, with <code>SetOverlaysAlwaysVisible</code>, <code>ToggleOverlaysAlwaysVisible</code>, <code>AreOverlaysAlwaysVisible</code>, and an <code>OverlaysAlwaysVisible</code> window option.</li>
+<li>The preference persists, and the library settings tab gained a pin toggle plus hotkeys for each overlay.</li>
+</ul>
 <h3>1.8.0</h3>
 <ul>
 <li>Standalone hardening: configurable <code>GuiName</code>, neutral default folder and titles, and no assumptions about any host script.</li>
