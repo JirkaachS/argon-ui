@@ -7,7 +7,10 @@ local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Argon = {Flags={},Version="1.4.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={}}
+-- _pendingFlags holds configuration values whose element does not exist yet (or no
+-- longer exists). They are re-applied when a matching flag registers later and are
+-- preserved on save, so conditionally-built controls no longer lose their settings.
+local Argon = {Flags={},Version="1.7.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -364,6 +367,38 @@ local function decodePosition(value,fallback)
     return UDim2.new(tonumber(value.XS) or 0,tonumber(value.XO) or 0,tonumber(value.YS) or 0,tonumber(value.YO) or 0)
 end
 
+local FS_ALIASES={
+    readfile="read_file",writefile="write_file",isfile="is_file",makefolder="make_folder",
+    isfolder="is_folder",listfiles="list_files",delfile="delete_file",
+}
+local function fsFunction(name)
+    local environment=getgenv and getgenv() or _G
+    local direct=environment and rawget(environment,name) or nil
+    if type(direct)=="function" then return direct end
+    direct=rawget(_G,name)
+    if type(direct)=="function" then return direct end
+    local synTable=(environment and rawget(environment,"syn")) or rawget(_G,"syn")
+    local alias=FS_ALIASES[name]
+    local candidate=type(synTable)=="table" and alias and synTable[alias] or nil
+    return type(candidate)=="function" and candidate or nil
+end
+local function fileExists(path)
+    local check,reader=fsFunction("isfile"),fsFunction("readfile")
+    if check then local ok,value=pcall(check,path) return ok and value==true end
+    if reader then local ok=pcall(reader,path) return ok end
+    return false
+end
+local function ensureFolder(path)
+    if not path or path=="" then return true end
+    local check,create=fsFunction("isfolder"),fsFunction("makefolder")
+    if check then local ok,value=pcall(check,path) if ok and value==true then return true end end
+    if not create then return false,"makefolder is unavailable" end
+    local ok,err=pcall(create,path)
+    if ok then return true end
+    if check then local checkOk,value=pcall(check,path) if checkOk and value==true then return true end end
+    return false,tostring(err)
+end
+
 local function configPath()
     local config=Argon._configuration
     if not config or not config.Enabled then return nil end
@@ -374,10 +409,15 @@ local function configPath()
 end
 
 local function scheduleSave()
-    if Argon._loadingConfig or Argon._destroyed or not configPath() then return end
+    if not Argon._persistenceReady or Argon._loadingConfig or Argon._destroyed or not configPath() then return end
     Argon._saveToken+=1
     local token=Argon._saveToken
-    task.delay(.35,function() if token==Argon._saveToken and not Argon._destroyed then Argon:SaveConfiguration() end end)
+    task.delay(.35,function()
+        if token~=Argon._saveToken or not Argon._persistenceReady or Argon._loadingConfig or Argon._destroyed then return end
+        local ok,err=Argon:SaveConfiguration()
+        Argon._lastAutosaveError=ok and nil or tostring(err)
+        if not ok then warn("[Argon UI] Configuration autosave failed: "..tostring(err)) end
+    end)
 end
 
 local function hover(button,normal,over)
@@ -385,8 +425,25 @@ local function hover(button,normal,over)
     connect(button.MouseLeave,function() tween(button,.18,{BackgroundColor3=normal or C.Surface}) end)
 end
 
+local applyFlagValue
+
 local function registerFlag(flag,element)
-    if flag and flag~="" then element.Flag=flag Argon.Flags[flag]=element end
+    if flag and flag~="" then
+        element.Flag=flag
+        if Argon.Flags[flag] and Argon.Flags[flag]~=element then warn("[Argon UI] Duplicate configuration flag replaced: "..tostring(flag)) end
+        Argon.Flags[flag]=element
+        -- A saved value may have arrived before this control existed (deferred tab
+        -- construction, dynamic sections). Hydrate it now instead of discarding it.
+        local pending=Argon._pendingFlags[flag]
+        if pending~=nil and applyFlagValue then
+            local wasLoading=Argon._loadingConfig
+            Argon._loadingConfig=true
+            local ok,err=applyFlagValue(element,pending)
+            Argon._loadingConfig=wasLoading
+            if ok then Argon._pendingFlags[flag]=nil
+            else warn("[Argon UI] Deferred configuration value failed for "..tostring(flag)..": "..tostring(err)) end
+        end
+    end
 end
 
 local function changed(element)
@@ -397,10 +454,86 @@ local function changed(element)
     scheduleSave()
 end
 
+local function normalizeConfigValue(element,value)
+    if type(value)=="table" then
+        if value.CurrentValue~=nil then value=value.CurrentValue
+        elseif element.Type=="Dropdown" and value.CurrentOption~=nil then value=value.CurrentOption
+        elseif element.Type=="Keybind" and value.CurrentKeybind~=nil then value=value.CurrentKeybind
+        elseif element.Type=="Keybind" and value.Keybind~=nil then value=value.Keybind
+        elseif element.Type=="ColorPicker" and value.Object~=nil then value=value.Object
+        elseif element.Type=="ColorPicker" and value.Color~=nil then value=value.Color
+        elseif value.Value~=nil then value=value.Value end
+    end
+    if element.Type=="ColorPicker" then
+        if typeof(value)=="Color3" then return value end
+        if type(value)=="table" then
+            if value.__argonColor then
+                return Color3.new(tonumber(value.R) or 0,tonumber(value.G) or 0,tonumber(value.B) or 0)
+            end
+            local red=tonumber(value.R or value.r or value[1])
+            local green=tonumber(value.G or value.g or value[2])
+            local blue=tonumber(value.B or value.b or value[3])
+            if red and green and blue then
+                if math.max(red,green,blue)>1 then return Color3.fromRGB(red,green,blue) end
+                return Color3.new(red,green,blue)
+            end
+        end
+    end
+    return value
+end
+
+-- Applies a stored configuration value and guarantees the control's callback runs
+-- exactly once. Element:Set only fires callbacks when the value actually changes, so
+-- a saved value identical to the element default used to restore visually while the
+-- underlying feature was never applied. Setting silently and then invoking the
+-- callback ourselves makes autoload deterministic without double-firing.
+function applyFlagValue(element,value)
+    if not element or not element.Set then return false,"element is not settable" end
+    local normalized=normalizeConfigValue(element,value)
+    local setOk,setError=pcall(function() element:Set(normalized,true) end)
+    if not setOk then return false,setError end
+    local callback=element._callback
+    if type(callback)=="function" then
+        local payload=element.CurrentValue
+        if element.Type=="Dropdown" then payload=copy(element.CurrentOption)
+        elseif element.Type=="Keybind" then payload=element.CurrentKeybind end
+        local callOk,callError=pcall(callback,payload)
+        if not callOk then return false,callError end
+    end
+    return true
+end
+
+function Argon:GetFlagValue(flag)
+    local element=self.Flags[flag]
+    if not element then return self._pendingFlags[flag] end
+    if element.Type=="Dropdown" then return copy(element.CurrentOption) end
+    if element.Type=="Keybind" then return element.CurrentKeybind end
+    return element.CurrentValue
+end
+
+function Argon:SetPersistenceReady(value,saveImmediately)
+    self._persistenceReady=value==true
+    self._saveToken+=1
+    if self._persistenceReady and saveImmediately==true then return self:SaveConfiguration() end
+    return true
+end
+
 function Argon:SaveConfiguration()
     local path,folder=configPath()
-    if not path or not writefile then return false end
+    if not path then return false,"configuration saving is disabled" end
+    local writer=fsFunction("writefile")
+    if not writer then return false,"writefile is unavailable" end
+    local folderOk,folderError=ensureFolder(folder)
+    if not folderOk then
+        self._lastConfigError="could not create configuration folder "..tostring(folder)..": "..tostring(folderError)
+        return false,self._lastConfigError
+    end
     local data={}
+    -- Carry unresolved values forward first so saving never erases settings whose
+    -- control is not currently built. Live elements overwrite these below.
+    for flag,value in pairs(self._pendingFlags) do
+        if flag~="__argon" and self.Flags[flag]==nil then data[flag]=copy(value) end
+    end
     for flag,element in pairs(self.Flags) do
         if element.Type=="Dropdown" then data[flag]=copy(element.CurrentOption)
         elseif element.Type=="Keybind" then data[flag]=keyName(element.CurrentKeybind or element.CurrentValue)
@@ -409,30 +542,98 @@ function Argon:SaveConfiguration()
     end
     local window=self._windows[#self._windows]
     if window and window._exportUIPreferences then data.__argon=window:_exportUIPreferences() end
-    return pcall(function()
-        if folder and makefolder then pcall(makefolder,folder) end
-        writefile(path,HttpService:JSONEncode(data))
-    end)
+    local encodeOk,encoded=pcall(function() return HttpService:JSONEncode(data) end)
+    if not encodeOk then self._lastConfigError="JSON encode failed: "..tostring(encoded) return false,self._lastConfigError end
+    local writeOk,writeError=pcall(writer,path,encoded)
+    if not writeOk then self._lastConfigError="could not write "..path..": "..tostring(writeError) return false,self._lastConfigError end
+    local reader=fsFunction("readfile")
+    if reader then
+        local verifyOk,written=pcall(reader,path)
+        if not verifyOk or written~=encoded then
+            self._lastConfigError="configuration write verification failed for "..path..(verifyOk and " (content mismatch)" or ": "..tostring(written))
+            return false,self._lastConfigError
+        end
+    elseif not fileExists(path) then
+        self._lastConfigError="configuration write could not be verified for "..path
+        return false,self._lastConfigError
+    end
+    self._lastConfigError=nil
+    self._lastAutosaveError=nil
+    self._lastConfigPath=path
+    self._lastSaveAt=os.clock()
+    return true,path
 end
 
 function Argon:LoadConfiguration()
     local path=configPath()
-    if not path or not readfile or not isfile or not isfile(path) then return false end
-    local ok,data=pcall(function() return HttpService:JSONDecode(readfile(path)) end)
-    if not ok or type(data)~="table" then return false end
+    if not path then return false,"configuration saving is disabled" end
+    local reader=fsFunction("readfile")
+    if not reader then return false,"readfile is unavailable" end
+    if not fileExists(path) then
+        -- Nothing to restore: allow autosave so the first change creates the file.
+        self._persistenceReady=true
+        return false,"configuration file does not exist: "..path
+    end
+    local readOk,encoded=pcall(reader,path)
+    if not readOk then return false,"could not read "..path..": "..tostring(encoded) end
+    local decodeOk,data=pcall(function() return HttpService:JSONDecode(encoded) end)
+    if not decodeOk or type(data)~="table" then return false,"invalid configuration JSON: "..tostring(data) end
     self._loadingConfig=true
-    if type(data.__argon)=="table" then
-        self._uiPreferences=copy(data.__argon)
-        for _,window in ipairs(self._windows) do if window._applyUIPreferences then pcall(function() window:_applyUIPreferences(self._uiPreferences) end) end end
-    end
-    for flag,value in pairs(data) do
-        if flag=="__argon" then continue end
-        local element=self.Flags[flag]
-        if type(value)=="table" and value.__argonColor then value=Color3.new(tonumber(value.R) or 0,tonumber(value.G) or 0,tonumber(value.B) or 0) end
-        if element and element.Set then pcall(function() element:Set(value) end) end
-    end
+    self._saveToken+=1
+    local failures,missing={},{}
+    local applied,totalFlags=0,0
+    local applyOk,applyError=xpcall(function()
+        if type(data.__argon)=="table" then
+            self._uiPreferences=copy(data.__argon)
+            for _,window in ipairs(self._windows) do
+                if window._applyUIPreferences then
+                    local ok,err=pcall(function() window:_applyUIPreferences(self._uiPreferences) end)
+                    if not ok then failures[#failures+1]="UI preferences: "..tostring(err) end
+                end
+            end
+        end
+        local flags={}
+        for flag in pairs(data) do if flag~="__argon" then flags[#flags+1]=flag totalFlags+=1 end end
+        table.sort(flags,function(left,right)
+            local leftBoolean=type(data[left])=="boolean"
+            local rightBoolean=type(data[right])=="boolean"
+            if leftBoolean~=rightBoolean then return not leftBoolean end
+            return tostring(left)<tostring(right)
+        end)
+        for _,flag in ipairs(flags) do
+            local element=self.Flags[flag]
+            if element and element.Set then
+                self._pendingFlags[flag]=nil
+                local ok,err=applyFlagValue(element,data[flag])
+                if ok then applied+=1 else failures[#failures+1]=tostring(flag)..": "..tostring(err) end
+            else
+                -- Keep the value so a control registering later still receives it and
+                -- the next save does not silently drop the setting.
+                self._pendingFlags[flag]=copy(data[flag])
+                missing[#missing+1]=tostring(flag)
+            end
+        end
+    end,function(err) return debug.traceback(tostring(err),2) end)
     self._loadingConfig=false
-    return true
+    self._lastConfigStats={path=path,total=totalFlags,applied=applied,missing=#missing,failed=#failures}
+    -- Hydration finished, so autosave can safely take over. Hosts that never call
+    -- SetPersistenceReady still get working persistence from here on.
+    self._persistenceReady=true
+    self._saveToken+=1
+    if not applyOk then self._lastConfigError=tostring(applyError) return false,"configuration apply failed: "..tostring(applyError) end
+    if totalFlags>0 and applied==0 then
+        self._lastConfigError=("configuration contained %d flag(s), but none matched the current UI registry"):format(totalFlags)
+        return false,self._lastConfigError
+    end
+    local warnings={}
+    if #failures>0 then warnings[#warnings+1]=("%d value(s) failed: %s"):format(#failures,table.concat(failures," | ",1,math.min(#failures,8))) end
+    if #missing>0 then warnings[#warnings+1]=("%d unknown/retired flag(s): %s"):format(#missing,table.concat(missing,", ",1,math.min(#missing,12))) end
+    local warning=#warnings>0 and table.concat(warnings," | ") or nil
+    if warning then warn("[Argon UI] Configuration loaded with warnings: "..warning) end
+    self._lastConfigError=nil
+    self._lastConfigPath=path
+    self._lastLoadAt=os.clock()
+    return true,warning
 end
 
 function Argon:Destroy()
@@ -482,6 +683,15 @@ end
 function Argon:CreateWindow(options)
     options=options or {}
     self._destroyed=false
+    self._persistenceReady=false
+    self._saveToken+=1
+    self.Flags={}
+    self._pendingFlags={}
+    -- Fallback so a host that builds a window and never calls SetPersistenceReady or
+    -- LoadConfiguration still autosaves. Startup callbacks get time to settle first.
+    task.delay(4,function()
+        if not Argon._destroyed and not Argon._persistenceReady and not Argon._loadingConfig then Argon._persistenceReady=true end
+    end)
     self._configuration=options.ConfigurationSaving or {Enabled=false}
     if options.Theme then self:SetTheme(options.Theme) end
     local guiParent=resolveParent()
@@ -808,7 +1018,7 @@ function Argon:CreateWindow(options)
         local function base(controlName,height,config)
             if not tab._currentSection then tab:CreateSection("General") end
             local root=create("Frame",{Name="Control",BackgroundColor3=C.Surface,BackgroundTransparency=.08,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.new(1,0,0,height or 54),Parent=tab._currentSection.Body}) corner(root,10)
-            local element={Name=tostring(controlName or "Control"),Root=root,Section=tab._currentSection,_stroke=stroke(root,C.BorderSoft,.2,1)}
+            local element={Name=tostring(controlName or "Control"),Root=root,Section=tab._currentSection,_stroke=stroke(root,C.BorderSoft,.2,1),_callback=config and config.Callback or nil}
             function element:SetVisible(value) self.Root.Visible=value~=false return self end
             function element:SetTitle(value) self.Name=tostring(value or "Control") if self._title then self._title.Text=self.Name end return self end
             function element:SetDesc(value)
@@ -889,9 +1099,9 @@ function Argon:CreateWindow(options)
                 if element.CurrentValue then tween(track,duration,{BackgroundColor3=C.Accent}) tween(knob,duration,{Position=UDim2.fromOffset(23,3),BackgroundColor3=Color3.new(1,1,1)})
                 else tween(track,duration,{BackgroundColor3=C.Input}) tween(knob,duration,{Position=UDim2.fromOffset(3,3),BackgroundColor3=C.Muted}) end
             end
-            function element:Set(value)
+            function element:Set(value,silent)
                 local nextValue=value==true local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue render(true)
-                if didChange then changed(self) safeCall(config.Callback,self.CurrentValue) end
+                if didChange and not silent then changed(self) safeCall(config.Callback,self.CurrentValue) end
             end
             connect(click.MouseButton1Click,function() element:Set(not element.CurrentValue) end) hover(root,C.Surface,C.Hover)
             render(false) registerFlag(config.Flag,element) return element
@@ -915,10 +1125,10 @@ function Argon:CreateWindow(options)
                 local ratio=maximum==minimum and 0 or (element.CurrentValue-minimum)/(maximum-minimum)
                 fill.Size=UDim2.new(ratio,0,1,0) handle.Position=UDim2.new(ratio,0,.5,0) valueBox.Text=tostring(element.CurrentValue)..(config.Suffix or "")
             end
-            function element:Set(value)
+            function element:Set(value,silent)
                 local parsed=tonumber(value) or tonumber(tostring(value):match("[-%d%.]+")) if not parsed then render() return end
                 local nextValue=round(parsed) local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue render()
-                if didChange then changed(self) safeCall(config.Callback,self.CurrentValue) end
+                if didChange and not silent then changed(self) safeCall(config.Callback,self.CurrentValue) end
             end
             local draggingSlider=false
             local function fromX(x) local ratio=math.clamp((x-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X),0,1) element:Set(minimum+(maximum-minimum)*ratio) end
@@ -937,9 +1147,9 @@ function Argon:CreateWindow(options)
             corner(inputField,9) local inputStroke=stroke(inputField,C.BorderSoft,.22,1)
             local input=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,MultiLine=false,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter value...",Position=UDim2.fromOffset(11,0),Size=UDim2.new(1,-22,1,0),Text=tostring(config.CurrentValue or ""),TextColor3=C.Text,TextSize=11,TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,Parent=inputField})
             element.Type="Input" element.CurrentValue=tostring(config.CurrentValue or "")
-            function element:Set(value)
+            function element:Set(value,silent)
                 local nextValue=tostring(value or "") local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue input.Text=nextValue
-                if didChange then changed(self) safeCall(config.Callback,nextValue) end
+                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
             end
             connect(input.Focused,function() tween(inputStroke,.15,{Color=C.Accent,Transparency=0}) end)
             connect(input.FocusLost,function()
@@ -958,10 +1168,10 @@ function Argon:CreateWindow(options)
             table.insert(window._keybindEntries,overlayEntry)
             local listening=false
             local function render() bind.Text=listening and "PRESS KEY" or element.CurrentKeybind bind.TextColor3=listening and C.Warning or C.AccentLight end
-            function element:Set(value)
+            function element:Set(value,silent)
                 local nextValue=keyName(value) local didChange=self.CurrentKeybind~=nextValue self.CurrentKeybind=nextValue self.CurrentValue=nextValue listening=false render()
                 overlayEntry.Key=nextValue window:_refreshKeybindOverlay()
-                if didChange then changed(self) safeCall(config.Callback,nextValue) end
+                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
             end
             function element:SetActive(value) overlayEntry.Active=value==true window:_refreshKeybindOverlay() return self end
             function element:SetOverlayVisible(value) overlayEntry.Visible=value~=false window:_refreshKeybindOverlay() return self end
@@ -1007,17 +1217,37 @@ function Argon:CreateWindow(options)
                 end
             end
             function element:Set(value,silent)
+                local requested={}
+                if type(value)=="table" then for _,entry in ipairs(value) do table.insert(requested,entry) if not multiple then break end end
+                elseif value~=nil then requested={value} end
+                -- Remember what was asked for even when the option list is not populated
+                -- yet (dynamic/filtered dropdowns). Refresh re-applies it later instead
+                -- of silently discarding a restored selection.
+                self._desiredOption=copy(requested)
                 local nextSelection={}
-                if type(value)=="table" then
-                    for _,entry in ipairs(value) do if contains(self.Options,entry) then table.insert(nextSelection,entry) if not multiple then break end end end
-                elseif contains(self.Options,value) then nextSelection={value} end
+                for _,entry in ipairs(requested) do if contains(self.Options,entry) then table.insert(nextSelection,entry) if not multiple then break end end end
+                if #nextSelection==0 and #requested>0 and self.Flag then Argon._pendingFlags[self.Flag]=copy(requested) end
                 local before=HttpService:JSONEncode(self.CurrentOption) self.CurrentOption=nextSelection self.CurrentValue=nextSelection render()
                 if before~=HttpService:JSONEncode(nextSelection) and not silent then changed(self) safeCall(config.Callback,copy(nextSelection)) end
             end
             function element:Refresh(newOptions,keepCurrent)
                 self.Options=copy(newOptions or {}) local retained={}
-                if keepCurrent~=false then for _,selected in ipairs(self.CurrentOption) do if contains(self.Options,selected) then table.insert(retained,selected) end end end
+                if keepCurrent~=false then
+                    for _,selected in ipairs(self.CurrentOption) do if contains(self.Options,selected) then table.insert(retained,selected) end end
+                    -- A restored value that was unavailable at load time becomes valid as
+                    -- soon as its option appears, so apply it and run the callback once.
+                    if #retained==0 and type(self._desiredOption)=="table" then
+                        for _,wanted in ipairs(self._desiredOption) do if contains(self.Options,wanted) then table.insert(retained,wanted) if not multiple then break end end end
+                        if #retained>0 then
+                            self.CurrentOption=retained self.CurrentValue=retained render()
+                            if self.Flag then Argon._pendingFlags[self.Flag]=nil end
+                            safeCall(config.Callback,copy(retained))
+                            return self
+                        end
+                    end
+                end
                 self.CurrentOption=retained self.CurrentValue=retained render()
+                return self
             end
             local function closePopup()
                 if window._dropdownPopup then window._dropdownPopup:Destroy() window._dropdownPopup=nil end
@@ -1130,10 +1360,10 @@ function Argon:CreateWindow(options)
                 return Color3.fromRGB(math.floor(number/65536)%256,math.floor(number/256)%256,number%256)
             end
             local function render() swatch.BackgroundColor3=element.CurrentValue hexLabel.Text=hex(element.CurrentValue) end
-            function element:Set(value)
+            function element:Set(value,silent)
                 local color=typeof(value)=="Color3" and value or parseHex(value) if not color then return end
                 local didChange=self.CurrentValue~=color self.CurrentValue=color render()
-                if didChange then changed(self) safeCall(config.Callback,color) end
+                if didChange and not silent then changed(self) safeCall(config.Callback,color) end
             end
             local function closePicker()
                 if window._colorPopup then window._colorPopup:Destroy() window._colorPopup=nil end

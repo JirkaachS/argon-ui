@@ -39,6 +39,7 @@ local Argon = loadstring(game:HttpGet(
 - `CreateInput`, `CreateKeybind`, and `CreateLabel`
 - Element `Set` methods and dropdown `Refresh`
 - `Notify`, `SaveConfiguration`, `LoadConfiguration`, and `Destroy`
+- `SetPersistenceReady`, `GetFlagValue`, and deferred flag hydration
 - `Window:SetLogo`, `Window:SetTheme`, and `Window:SetTitle`
 - `Window:SetPlayerListVisible`, `Window:SetKeybindListVisible`, and matching toggle methods
 - `Rayfield.Flags` compatibility for live profile resets
@@ -118,3 +119,20 @@ Window:ToggleKeybindList()
 ```
 
 Built-in themes are `Argon`, `Amethyst`, `Midnight`, `Emerald`, and `Rose`. Add custom palettes with `Argon:AddTheme(name, palette)` and apply them using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
+
+## Configuration Persistence
+
+Flag values are written to `FolderName/FileName.rfld` roughly a third of a second after a change, and `LoadConfiguration` restores them.
+
+- Autosave stays gated while the UI is built, then enables automatically after `LoadConfiguration` or shortly after `CreateWindow`. Calling `SetPersistenceReady(true)` yourself is still supported but no longer required.
+- Restoring a value applies it silently and then invokes the control callback exactly once, so a saved value identical to the element default still reapplies its behavior instead of only updating the visuals.
+- Values whose control does not exist yet are retained, applied when that flag registers later, and preserved by `SaveConfiguration`, so conditionally created controls no longer lose their settings.
+- Dropdowns remember the requested selection even when their option list is empty or filtered, and `Refresh` reapplies it once the option appears.
+
+```luau
+Argon:LoadConfiguration()          -- restores values and enables autosave
+Argon:GetFlagValue("MyToggle")     -- reads a live or still-pending value
+Argon:SaveConfiguration()          -- returns ok, path or ok, reason
+```
+
+Every control that should persist needs a `Flag`. Controls without one stay transient by design.
