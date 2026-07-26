@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.8.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.9.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -36,8 +36,13 @@ Argon.Themes = {
 }
 Argon.Themes.Argon={}
 for key,value in pairs(C) do Argon.Themes.Argon[key]=value end
-Argon.Themes.Amethyst={}
-for key,value in pairs(C) do Argon.Themes.Amethyst[key]=value end
+-- Amethyst used to be a byte-for-byte copy of Argon. It is now a deeper, warmer violet.
+Argon.Themes.Amethyst={Background=Color3.fromRGB(14,9,22),Window=Color3.fromRGB(21,14,33),Sidebar=Color3.fromRGB(17,11,27),Surface=Color3.fromRGB(31,21,47),Hover=Color3.fromRGB(41,28,62),Active=Color3.fromRGB(52,35,78),Input=Color3.fromRGB(24,16,37),Border=Color3.fromRGB(72,50,107),BorderSoft=Color3.fromRGB(49,34,74),Text=Color3.fromRGB(245,240,255),Muted=Color3.fromRGB(178,163,205),Dim=Color3.fromRGB(124,107,153),Accent=Color3.fromRGB(167,109,255),AccentLight=Color3.fromRGB(210,178,255),AccentDark=Color3.fromRGB(103,45,183),Success=Color3.fromRGB(94,226,175),Warning=Color3.fromRGB(250,196,92),Danger=Color3.fromRGB(255,112,133)}
+Argon.Themes.Slate={Background=Color3.fromRGB(11,13,16),Window=Color3.fromRGB(17,20,25),Sidebar=Color3.fromRGB(13,16,20),Surface=Color3.fromRGB(25,29,36),Hover=Color3.fromRGB(33,38,47),Active=Color3.fromRGB(42,48,59),Input=Color3.fromRGB(19,23,29),Border=Color3.fromRGB(58,66,80),BorderSoft=Color3.fromRGB(38,44,55),Text=Color3.fromRGB(238,243,249),Muted=Color3.fromRGB(154,166,182),Dim=Color3.fromRGB(103,114,130),Accent=Color3.fromRGB(125,196,255),AccentLight=Color3.fromRGB(186,222,255),AccentDark=Color3.fromRGB(52,120,186),Success=Color3.fromRGB(85,214,158),Warning=Color3.fromRGB(240,190,96),Danger=Color3.fromRGB(248,113,133)}
+Argon.Themes.Ember={Background=Color3.fromRGB(16,9,7),Window=Color3.fromRGB(24,14,10),Sidebar=Color3.fromRGB(19,11,8),Surface=Color3.fromRGB(35,20,15),Hover=Color3.fromRGB(46,26,19),Active=Color3.fromRGB(58,33,24),Input=Color3.fromRGB(27,15,11),Border=Color3.fromRGB(83,49,35),BorderSoft=Color3.fromRGB(56,33,24),Text=Color3.fromRGB(255,241,233),Muted=Color3.fromRGB(196,163,146),Dim=Color3.fromRGB(140,110,95),Accent=Color3.fromRGB(255,138,76),AccentLight=Color3.fromRGB(255,190,150),AccentDark=Color3.fromRGB(190,74,26),Success=Color3.fromRGB(94,220,160),Warning=Color3.fromRGB(252,196,92),Danger=Color3.fromRGB(255,105,105)}
+Argon.Themes.Nord={Background=Color3.fromRGB(31,36,48),Window=Color3.fromRGB(41,46,61),Sidebar=Color3.fromRGB(36,41,54),Surface=Color3.fromRGB(52,58,74),Hover=Color3.fromRGB(62,70,88),Active=Color3.fromRGB(73,82,102),Input=Color3.fromRGB(44,50,65),Border=Color3.fromRGB(87,97,118),BorderSoft=Color3.fromRGB(63,71,88),Text=Color3.fromRGB(236,239,244),Muted=Color3.fromRGB(177,187,201),Dim=Color3.fromRGB(126,138,156),Accent=Color3.fromRGB(136,192,208),AccentLight=Color3.fromRGB(190,224,232),AccentDark=Color3.fromRGB(76,132,152),Success=Color3.fromRGB(163,190,140),Warning=Color3.fromRGB(235,203,139),Danger=Color3.fromRGB(191,97,106)}
+Argon.Themes.Mono={Background=Color3.fromRGB(10,10,11),Window=Color3.fromRGB(16,16,18),Sidebar=Color3.fromRGB(13,13,14),Surface=Color3.fromRGB(24,24,27),Hover=Color3.fromRGB(32,32,36),Active=Color3.fromRGB(41,41,46),Input=Color3.fromRGB(18,18,20),Border=Color3.fromRGB(58,58,64),BorderSoft=Color3.fromRGB(38,38,42),Text=Color3.fromRGB(244,244,246),Muted=Color3.fromRGB(159,159,168),Dim=Color3.fromRGB(108,108,118),Accent=Color3.fromRGB(226,226,232),AccentLight=Color3.fromRGB(255,255,255),AccentDark=Color3.fromRGB(140,140,150),Success=Color3.fromRGB(120,214,170),Warning=Color3.fromRGB(232,196,120),Danger=Color3.fromRGB(244,120,134)}
+Argon.Themes.Ocean={Background=Color3.fromRGB(6,14,20),Window=Color3.fromRGB(10,21,30),Sidebar=Color3.fromRGB(8,17,25),Surface=Color3.fromRGB(15,31,43),Hover=Color3.fromRGB(20,41,56),Active=Color3.fromRGB(26,52,70),Input=Color3.fromRGB(11,24,34),Border=Color3.fromRGB(40,74,97),BorderSoft=Color3.fromRGB(27,51,68),Text=Color3.fromRGB(233,246,252),Muted=Color3.fromRGB(146,175,192),Dim=Color3.fromRGB(94,124,143),Accent=Color3.fromRGB(56,189,208),AccentLight=Color3.fromRGB(150,231,240),AccentDark=Color3.fromRGB(17,110,130),Success=Color3.fromRGB(74,222,180),Warning=Color3.fromRGB(247,196,92),Danger=Color3.fromRGB(255,110,130)}
 
 local ICONS={
     activity={{{3,12},{7,12},{10,4},{14,20},{17,12},{21,12}}},
@@ -215,9 +220,101 @@ local function iconLine(parent,firstPoint,secondPoint,color,thickness)
     return line
 end
 
+-- Official Lucide icon set (https://lucide.dev) via the latte-soft/lucide-roblox
+-- spritesheets, which are public Roblox image assets usable from any game. The index is
+-- fetched once and cached on disk; the bundled atlas stays as an offline fallback so the
+-- library never depends on network access.
+local LUCIDE_INDEX_URL="https://raw.githubusercontent.com/latte-soft/lucide-roblox/master/lib/Icons.luau"
+local LUCIDE_CACHE=ASSET_FOLDER.."/lucide-icons.luau"
+local LUCIDE_SET=nil
+
+local function loadLucideIndex()
+    if LUCIDE_SET~=nil then return LUCIDE_SET end
+    LUCIDE_SET=false
+    local function parse(source)
+        if type(source)~="string" or #source<1000 then return nil end
+        local chunk=loadstring(source,"@lucide-icons")
+        if not chunk then return nil end
+        local ok,data=pcall(chunk)
+        if not ok or type(data)~="table" then return nil end
+        -- 48px cells stay crisp at the 14-22px sizes this UI draws.
+        return data["48px"] or data["256px"] or data["16px"]
+    end
+    -- Resolved locally: the shared filesystem helpers are declared further down.
+    local environment=getgenv and getgenv() or _G
+    local function executorFunction(name)
+        local candidate=environment and rawget(environment,name) or rawget(_G,name)
+        return type(candidate)=="function" and candidate or nil
+    end
+    local reader=executorFunction("readfile")
+    local writer=executorFunction("writefile")
+    local checkFile=executorFunction("isfile")
+    local checkFolder=executorFunction("isfolder")
+    local createFolder=executorFunction("makefolder")
+
+    if reader and checkFile then
+        local exists=select(2,pcall(checkFile,LUCIDE_CACHE))
+        if exists==true then
+            local ok,cached=pcall(reader,LUCIDE_CACHE)
+            if ok then
+                local parsed=parse(cached)
+                if parsed then LUCIDE_SET=parsed return LUCIDE_SET end
+            end
+        end
+    end
+
+    local ok,source=pcall(function() return game:HttpGet(LUCIDE_INDEX_URL) end)
+    if ok then
+        local parsed=parse(source)
+        if parsed then
+            LUCIDE_SET=parsed
+            if writer then
+                if createFolder then
+                    local present=checkFolder and select(2,pcall(checkFolder,ASSET_FOLDER))
+                    if present~=true then pcall(createFolder,ASSET_FOLDER) end
+                end
+                pcall(writer,LUCIDE_CACHE,source)
+            end
+        end
+    end
+    return LUCIDE_SET
+end
+
+-- Aliases so existing icon names keep working against current Lucide naming.
+local LUCIDE_ALIASES={
+    ["map-pin"]="map-pin",["radio-tower"]="radio-tower",["chevron-down"]="chevron-down",
+    ["user-search"]="user-round-search",["loader"]="loader-circle",["gem"]="gem",
+    ["pickaxe"]="pickaxe",["shirt"]="shirt",["swords"]="swords",["sword"]="sword",
+    ["server"]="server",["settings"]="settings",["users"]="users",["zap"]="zap",
+    ["eye"]="eye",["keyboard"]="keyboard",["move"]="move",["search"]="search",
+    ["activity"]="activity",
+}
+
+function Argon:GetIcon(name)
+    local set=loadLucideIndex()
+    if not set then return nil end
+    local key=LUCIDE_ALIASES[tostring(name)] or tostring(name)
+    local entry=set[key] or set[tostring(name)]
+    if type(entry)~="table" then return nil end
+    local assetId,cell,offset=entry[1],entry[2],entry[3]
+    if not (assetId and cell and offset) then return nil end
+    return {
+        Image="rbxassetid://"..tostring(assetId),
+        ImageRectSize=Vector2.new(cell[1],cell[2]),
+        ImageRectOffset=Vector2.new(offset[1],offset[2]),
+    }
+end
+
+function Argon:HasIcon(name) return self:GetIcon(name)~=nil end
+
 local function drawIcon(parent,name,color,size)
     local iconSize=math.max(16,size or 20)
     local holder=create("Frame",{Name="LucideIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(iconSize,iconSize),Parent=parent})
+    local lucide=Argon:GetIcon(name)
+    if lucide then
+        create("ImageLabel",{Name="LucideGlyph",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Image=lucide.Image,ImageColor3=color,ImageRectOffset=lucide.ImageRectOffset,ImageRectSize=lucide.ImageRectSize,Position=UDim2.fromScale(.5,.5),ResampleMode=Enum.ResamplerMode.Default,Size=UDim2.fromScale(1,1),Parent=holder})
+        return holder
+    end
     local rect=ICON_ATLAS_RECTS[tostring(name)] or ICON_ATLAS_RECTS.activity
     if ICON_ATLAS_IMAGE and rect then
         create("ImageLabel",{Name="VectorAtlasIcon",AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Image=ICON_ATLAS_IMAGE,ImageColor3=color,ImageRectOffset=rect,ImageRectSize=ICON_ATLAS_CELL,Position=UDim2.fromScale(.5,.5),ResampleMode=Enum.ResamplerMode.Default,Size=UDim2.fromScale(1,1),Parent=holder})
@@ -273,9 +370,42 @@ local function tween(object,duration,props,style,direction)
     return animation
 end
 
+-- Text sharpness: the legacy Gotham enum renders thin and muddy at 8-11px. Mapping to
+-- GothamSSm FontFace weights and nudging small sizes up gives noticeably crisper glyphs
+-- with the same layout. Falls back to the enum font when FontFace is unavailable.
+local FONT_FAMILY="rbxasset://fonts/families/GothamSSm.json"
+local FONT_WEIGHTS={
+    [Enum.Font.Gotham]=Enum.FontWeight.Medium,
+    [Enum.Font.GothamMedium]=Enum.FontWeight.SemiBold,
+    [Enum.Font.GothamBold]=Enum.FontWeight.Bold,
+    [Enum.Font.GothamBlack]=Enum.FontWeight.Heavy,
+}
+local FONT_FACES={}
+local function fontFaceFor(font)
+    if FONT_FACES[font]~=nil then return FONT_FACES[font] or nil end
+    local weight=FONT_WEIGHTS[font]
+    if not weight then FONT_FACES[font]=false return nil end
+    local ok,face=pcall(function() return Font.new(FONT_FAMILY,weight,Enum.FontStyle.Normal) end)
+    FONT_FACES[font]=ok and face or false
+    return ok and face or nil
+end
+
+-- Small text gets a small bump; larger headings are left alone so layout stays put.
+local function readableSize(size)
+    size=size or 14
+    if size<=9 then return size+2 end
+    if size<=12 then return size+1 end
+    return size
+end
+
 local function text(parent,value,size,color,font,props)
-    local label=create("TextLabel",{BackgroundTransparency=1,Text=value or "",TextColor3=color or C.Text,TextSize=size or 14,Font=font or Enum.Font.Gotham,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,Parent=parent})
-    for property,setting in pairs(props or {}) do label[property]=setting end
+    local requested=font or Enum.Font.Gotham
+    local label=create("TextLabel",{BackgroundTransparency=1,Text=value or "",TextColor3=color or C.Text,TextSize=readableSize(size),Font=requested,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,Parent=parent})
+    local face=fontFaceFor(requested)
+    if face then pcall(function() label.FontFace=face end) end
+    for property,setting in pairs(props or {}) do
+        if property=="TextSize" then label.TextSize=readableSize(setting) else label[property]=setting end
+    end
     return label
 end
 
@@ -984,7 +1114,10 @@ function Argon:CreateWindow(options)
         clearOverlayRows(keybindOverlay.Body)
         local shown=0
         for _,entry in ipairs(self._keybindEntries) do
-            if entry.Element and entry.Element.Root and entry.Element.Root.Parent and entry.Visible~=false then
+            -- Only binds currently held or toggled on are listed; a roster of every
+            -- registered keybind was noise.
+            local live=entry.Active==true
+            if entry.Element and entry.Element.Root and entry.Element.Root.Parent and entry.Visible~=false and live then
                 shown+=1
                 local row=create("Frame",{BackgroundColor3=entry.Active and C.Active or C.Surface,BackgroundTransparency=.46,BorderSizePixel=0,Size=UDim2.new(1,-4,0,36),ZIndex=72,Parent=keybindOverlay.Body}) corner(row,10)
                 entry.OverlayRow=row
@@ -994,8 +1127,8 @@ function Argon:CreateWindow(options)
                 entry.OverlayState=state entry.OverlayKey=key
             end
         end
-        keybindOverlay.Meta.Text=tostring(shown).." REGISTERED"
-        if shown==0 then text(keybindOverlay.Body,"Keybind controls appear here",10,C.Dim,Enum.Font.GothamMedium,{Size=UDim2.new(1,-4,0,44),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=72}) end
+        keybindOverlay.Meta.Text=tostring(shown).." ACTIVE"
+        if shown==0 then text(keybindOverlay.Body,"No binds active",10,C.Dim,Enum.Font.GothamMedium,{Size=UDim2.new(1,-4,0,44),TextXAlignment=Enum.TextXAlignment.Center,ZIndex=72}) end
     end
     connect(Players.PlayerAdded,refreshPlayers) connect(Players.PlayerRemoving,function() task.defer(refreshPlayers) end)
     refreshPlayers() window:_refreshKeybindOverlay()
@@ -1135,8 +1268,19 @@ function Argon:CreateWindow(options)
             function element:SetDesc(value)
                 local description=tostring(value or "")
                 if not self._description then
-                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,31),Size=UDim2.new(1,-28,0,18),TextTruncate=Enum.TextTruncate.AtEnd})
-                    root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,math.max(root.Size.Y.Offset,68))
+                    -- Titles of most controls fill the full row height and are centred, so
+                    -- a description placed underneath used to draw straight over them.
+                    -- Reserve the top of the row for the title and the bottom for the
+                    -- description, then grow the row so neither is clipped.
+                    local baseHeight=math.max(root.Size.Y.Offset,72)
+                    root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,baseHeight)
+                    if self._title then
+                        self._title.Position=UDim2.fromOffset(self._title.Position.X.Offset,9)
+                        self._title.Size=UDim2.new(self._title.Size.X.Scale,self._title.Size.X.Offset,0,22)
+                        self._title.TextYAlignment=Enum.TextYAlignment.Center
+                    end
+                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,34),Size=UDim2.new(1,-28,0,30),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+                    self._descriptionApplied=true
                 end
                 self._description.Text=description self._description.Visible=description~="" return self
             end
@@ -1171,7 +1315,11 @@ function Argon:CreateWindow(options)
             end
             table.insert(tab._currentSection.Elements,element) table.insert(tab._elements,element) tab._controlCount+=1 tab:_updateCount()
             local description=config and (config.Description or config.Desc)
-            if description and tostring(description)~="" then element:SetDesc(description) end
+            if description and tostring(description)~="" then
+                -- Deferred: constructors assign element._title after base() returns, and
+                -- SetDesc needs the title so it can move it out of the description's way.
+                task.defer(function() if element.Root and element.Root.Parent then element:SetDesc(description) end end)
+            end
             return root,element
         end
         local function title(root,value,width,y)

@@ -85,7 +85,7 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
   <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
-  <span class="badge" id="verBadge">v1.8.1</span>
+  <span class="badge" id="verBadge">v1.9.0</span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
     <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
@@ -491,7 +491,7 @@ Argon:ResetConfiguration()    -- clears stored values and deletes the file</code
 <div class="note"><strong>Multiple accounts or presets.</strong> Put the identifier in <code>FileName</code>. Separate files never overwrite each other, which avoids the classic “settings keep resetting” problem when two builds share one file.</div>
 
 <h2 id="themes">Themes</h2>
-<p>Built-in palettes: <code>Argon</code>, <code>Amethyst</code>, <code>Midnight</code>, <code>Emerald</code>, and <code>Rose</code>. Theme changes apply live to existing controls.</p>
+<p>Ten built-in palettes: <code>Argon</code>, <code>Amethyst</code>, <code>Midnight</code>, <code>Emerald</code>, <code>Rose</code>, <code>Slate</code>, <code>Ember</code>, <code>Nord</code>, <code>Mono</code>, and <code>Ocean</code>. Theme changes apply live to existing controls.</p>
 <pre><button class="copy">Copy</button><code>print(Argon:GetThemes())
 Window:SetTheme("Midnight")
 
@@ -578,12 +578,26 @@ Window:CreateLibrarySettings(Settings)</code></pre>
 <tr><td><code>ScreenGui</code> · <code>Tabs</code> · <code>ActiveTab</code></td><td>Useful properties for advanced hosts.</td></tr>
 </tbody></table></div>
 
-<h2 id="icons">Tab icons</h2>
-<p>Tab icons are drawn from a bundled vector atlas, so no operating-system glyph fallback is used. Unknown names fall back to <code>activity</code>.</p>
-<pre><button class="copy">Copy</button><code>Window:CreateTab("Mining", "pickaxe")</code></pre>
-<div class="pillrow">
-<span class="pill">activity</span><span class="pill">chevron-down</span><span class="pill">eye</span><span class="pill">gem</span><span class="pill">keyboard</span><span class="pill">loader</span><span class="pill">map-pin</span><span class="pill">move</span><span class="pill">pickaxe</span><span class="pill">radio-tower</span><span class="pill">search</span><span class="pill">server</span><span class="pill">settings</span><span class="pill">shirt</span><span class="pill">sword</span><span class="pill">swords</span><span class="pill">users</span><span class="pill">zap</span>
-</div>
+<h2 id="icons">Icons</h2>
+<p>Icons come from the official <a href="https://lucide.dev">Lucide</a> set, so any of its ~1,500 names can be used directly. The index is fetched once and cached on disk, and a bundled vector atlas covers the offline case. Unknown names fall back to <code>activity</code>.</p>
+<pre><button class="copy">Copy</button><code>Window:CreateTab("Mining", "pickaxe")
+Window:CreateTab("Combat", "swords")
+Window:CreateTab("Alerts", "bell-ring")
+
+-- Resolve an icon yourself for custom UI.
+local icon = Argon:GetIcon("shield-check")
+if icon then
+    imageLabel.Image = icon.Image
+    imageLabel.ImageRectOffset = icon.ImageRectOffset
+    imageLabel.ImageRectSize = icon.ImageRectSize
+end
+print(Argon:HasIcon("rocket"))</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Member</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>Argon:GetIcon(name)</code></td><td>Returns <code>{ Image, ImageRectOffset, ImageRectSize }</code> or <code>nil</code>.</td></tr>
+<tr><td><code>Argon:HasIcon(name)</code></td><td><code>true</code> when the name resolves.</td></tr>
+</tbody></table></div>
 
 <h2 id="recipes">Recipes</h2>
 <h3>Progress-reporting task</h3>

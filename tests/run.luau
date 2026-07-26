@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.8.1", Argon.Version == "1.8.1", Argon.Version)
+check("version is 1.9.0", Argon.Version == "1.9.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -276,7 +276,14 @@ check("extension not double-appended", sandbox.files["JsonHub/settings.json"] ~=
 	table.concat((function() local out = {} for path in pairs(sandbox.files) do out[#out + 1] = path end return out end)(), ", "))
 
 section("themes, notifications, dialog")
-check("GetThemes lists five", #Argon:GetThemes() == 5, #Argon:GetThemes())
+check("GetThemes lists all built-ins", #Argon:GetThemes() == 10, #Argon:GetThemes())
+check("Amethyst is not a copy of Argon", (function()
+	local argon, amethyst = Argon.Themes.Argon, Argon.Themes.Amethyst
+	for key, value in pairs(argon) do
+		if amethyst[key] ~= value then return true end
+	end
+	return false
+end)())
 check("SetTheme applies", (Argon:SetTheme("Midnight")))
 check("AddTheme + SetTheme custom", (function()
 	Argon:AddTheme("TestTheme", { Accent = sandbox.environment.Color3.fromRGB(1, 2, 3) })

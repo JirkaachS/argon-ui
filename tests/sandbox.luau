@@ -117,6 +117,10 @@ local Enum = {
 		"N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
 		"F1", "F2", "F3", "F4", "RightControl", "LeftControl", "Delete", "End", "Home",
 	}),
+	FontWeight = buildEnum("FontWeight", {
+		"Thin", "ExtraLight", "Light", "Regular", "Medium", "SemiBold", "Bold", "ExtraBold", "Heavy",
+	}),
+	FontStyle = buildEnum("FontStyle", { "Normal", "Italic" }),
 	HorizontalAlignment = buildEnum("HorizontalAlignment", { "Center", "Left", "Right" }),
 	VerticalAlignment = buildEnum("VerticalAlignment", { "Center", "Top", "Bottom" }),
 	ContextActionResult = buildEnum("ContextActionResult", { "Pass", "Sink" }),
@@ -631,6 +635,12 @@ local environment = {
 	ColorSequence = { new = function(keypoints) return setmetatable({ Keypoints = keypoints }, ColorSequence) end },
 	ColorSequenceKeypoint = { new = function(time, value) return { Time = time, Value = value } end },
 	TweenInfo = { new = function(...) return { ... } end },
+	Font = {
+		new = function(family, weight, style)
+			return { Family = family, Weight = weight, Style = style, __fontFace = true }
+		end,
+		fromEnum = function(enumItem) return { Family = tostring(enumItem), __fontFace = true } end,
+	},
 	CFrame = { new = function() return {} end, Angles = function() return {} end, lookAt = function() return {} end },
 	tick = os.clock,
 	task = nil, -- assigned below

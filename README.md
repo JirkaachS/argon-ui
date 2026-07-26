@@ -96,6 +96,15 @@ Open `argon-ui-preview.html`, or the hosted [preview](https://jirkaachs.github.i
 
 ## Themes
 
-Built-in: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`. Register your own with `Argon:AddTheme(name, palette)` and apply it using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
+Ten built-in palettes: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`, `Slate`, `Ember`, `Nord`, `Mono`, `Ocean`. Register your own with `Argon:AddTheme(name, palette)` and apply it using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
+
+## Icons
+
+Icons come from the official [Lucide](https://lucide.dev) set, fetched once and cached on disk, with a bundled atlas as an offline fallback.
+
+```luau
+Window:CreateTab("Mining", "pickaxe")
+local icon = Argon:GetIcon("shield-check")   -- { Image, ImageRectOffset, ImageRectSize }
+```
 
 ![Argon UI logo](argon-ui-logo.svg)
