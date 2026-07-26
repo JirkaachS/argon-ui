@@ -67,6 +67,16 @@ Argon:ResetConfiguration()
 
 Restored values always run their callback once, even when the stored value equals the control default, and values whose control does not exist yet are retained rather than dropped.
 
+## Tests
+
+`tests/` runs the real library outside Roblox against a small Roblox API sandbox. Install [Lune](https://github.com/lune-org/lune), then:
+
+```sh
+lune run tests/run.luau
+```
+
+113 checks cover control behavior, the configuration round-trip, deferred flag hydration, autosave timing, themes, dialogs, and window controls. See `tests/README.md`.
+
 ## Browser preview
 
 Open `argon-ui-preview.html` (also published at [`/preview.html`](https://jirkaachs.github.io/argon-ui/preview.html)) to explore the visual system without Roblox. Press `/` to focus search and `Insert` to hide or restore the window.

@@ -106,7 +106,7 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
     <a href="#element-api">Element methods</a><a href="#persistence">Configuration</a><a href="#themes">Themes</a><a href="#overlays">Overlays &amp; dialogs</a><a href="#notifications">Notifications</a>
   </div>
   <div class="nav-group"><h4>Reference</h4>
-    <a href="#api">Library API</a><a href="#window-api">Window API</a><a href="#icons">Icons</a><a href="#recipes">Recipes</a><a href="#migration">Rayfield migration</a><a href="#changelog">Changelog</a>
+    <a href="#api">Library API</a><a href="#window-api">Window API</a><a href="#icons">Icons</a><a href="#recipes">Recipes</a><a href="#migration">Rayfield migration</a><a href="#tests">Tests</a><a href="#changelog">Changelog</a>
   </div>
   <div class="nav-group"><h4>Links</h4>
     <a href="preview.html">Browser preview</a><a href="https://github.com/JirkaachS/argon-ui">Source on GitHub</a>
@@ -628,6 +628,12 @@ local Rayfield = loadstring(game:HttpGet(
 <tr><td>Save results</td><td><code>SaveConfiguration</code> returns <code>ok, path</code> or <code>ok, reason</code> instead of only a boolean.</td></tr>
 <tr><td>Sections</td><td>Optional grouping layer with its own builders.</td></tr>
 </tbody></table></div>
+
+<h2 id="tests">Tests</h2>
+<p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
+<pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
+lune run tests/run.luau</code></pre>
+<p>113 checks cover every control, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
 <h3>1.8.0</h3>
