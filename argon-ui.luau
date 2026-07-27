@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.13.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.13.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1620,41 +1620,112 @@ function Argon:CreateWindow(options)
             -- the pointer.
             function element:SetTooltip(value)
                 self._tooltipText=tostring(value or "")
+                self.HasTooltip=self._tooltipText~=""
+                -- A hint you cannot see is a hint nobody reads. Mark the row with a small "?"
+                -- sitting just after the title, so hoverable explanations are discoverable
+                -- instead of something you have to already know about.
+                if self.HasTooltip and not self._tipMarker then
+                    local marker=create("TextLabel",{Name="TooltipMarker",BackgroundColor3=C.Accent,BackgroundTransparency=.78,BorderSizePixel=0,Size=UDim2.fromOffset(14,14),Text="?",TextColor3=C.AccentLight,TextSize=9,Font=Enum.Font.GothamBold,ZIndex=6,Parent=root})
+                    corner(marker,7)
+                    self._tipMarker=marker
+                    local function placeMarker()
+                        if not marker.Parent then return end
+                        local label=self._title
+                        if not label or not label.Parent then
+                            marker.Position=UDim2.fromOffset(14,8)
+                            return
+                        end
+                        -- The title may not have existed when the marker was made (the
+                        -- constructor assigns it after base() returns), so bind to it the
+                        -- first time we actually see one.
+                        if not self._tipMarkerBound then
+                            self._tipMarkerBound=true
+                            connect(label:GetPropertyChangedSignal("Text"),function() if self._placeTooltipMarker then self._placeTooltipMarker() end end)
+                            connect(label:GetPropertyChangedSignal("AbsoluteSize"),function() if self._placeTooltipMarker then self._placeTooltipMarker() end end)
+                        end
+                        -- Sit after the rendered text, but never past the space the title was
+                        -- given: a truncated title would otherwise push the marker out over
+                        -- the control on its right.
+                        -- Every measurement is optional: read it defensively and fall back to
+                        -- a sane offset so a stand-in that does not report text metrics still
+                        -- gets a marker in a reasonable spot.
+                        local labelX=label.Position and label.Position.X and label.Position.X.Offset or 14
+                        local allotted=label.AbsoluteSize and label.AbsoluteSize.X or 0
+                        local bounds=label.TextBounds and label.TextBounds.X or nil
+                        local textWidth=bounds and (allotted>0 and math.min(bounds,allotted) or bounds)
+                            or math.min(#tostring(label.Text or "")*6,allotted>0 and allotted or 120)
+                        local x=labelX+textWidth+6
+                        if allotted>0 then
+                            local limit=labelX+allotted-14
+                            if x>limit then x=math.max(labelX,limit) end
+                        end
+                        local height=label.AbsoluteSize and label.AbsoluteSize.Y or 0
+                        local centre=8
+                        if height>0 and label.AbsolutePosition and root.AbsolutePosition then
+                            centre=(label.AbsolutePosition.Y-root.AbsolutePosition.Y)+height/2-7
+                        end
+                        marker.Position=UDim2.fromOffset(math.floor(x),math.floor(math.max(2,centre)))
+                    end
+                    self._placeTooltipMarker=placeMarker
+                    placeMarker()
+                    task.defer(placeMarker)
+                    connect(root:GetPropertyChangedSignal("AbsoluteSize"),placeMarker)
+                end
+                if self._tipMarker then
+                    self._tipMarker.Visible=self.HasTooltip
+                    if self._placeTooltipMarker then task.defer(self._placeTooltipMarker) end
+                end
                 if self._tooltipBound then return self end
                 self._tooltipBound=true
-                local function place(tip,mouse)
+                -- Anchored to the CONTROL, not the cursor. Following the pointer meant the
+                -- panel jittered while you read it and sat under the mouse, covering the very
+                -- row you were pointing at. It now parks beside the row: to the right by
+                -- preference, flipped to the left when there is no room, and above or below
+                -- when neither side fits. Because it never overlaps the row it also cannot
+                -- steal the hover that keeps it open.
+                local function place(tip)
                     local viewport=gui.AbsoluteSize
-                    local width,height=tip.AbsoluteSize.X,tip.AbsoluteSize.Y
-                    if width<=0 then width=300 end
-                    if height<=0 then height=32 end
-                    -- Flip to the other side of the cursor rather than hanging off the edge.
-                    local x=mouse.X+14
-                    if viewport.X>0 and x+width>viewport.X-8 then x=math.max(8,mouse.X-14-width) end
-                    local y=mouse.Y+16
-                    if viewport.Y>0 and y+height>viewport.Y-8 then y=math.max(8,mouse.Y-16-height) end
+                    local width=tip.AbsoluteSize.X>0 and tip.AbsoluteSize.X or 300
+                    local height=tip.AbsoluteSize.Y>0 and tip.AbsoluteSize.Y or 40
+                    if viewport.X<=0 or viewport.Y<=0 then viewport=Vector2.new(width+400,height+400) end
+                    local origin,extent=root.AbsolutePosition,root.AbsoluteSize
+                    local gap=10
+                    local x=origin.X+extent.X+gap
+                    if x+width>viewport.X-8 then x=origin.X-gap-width end
+                    if x<8 then
+                        -- No room either side: sit under the row, or over it near the bottom.
+                        x=math.clamp(origin.X,8,math.max(8,viewport.X-width-8))
+                        local below=origin.Y+extent.Y+gap
+                        if below+height>viewport.Y-8 then below=math.max(8,origin.Y-gap-height) end
+                        tip.Position=UDim2.fromOffset(math.floor(x),math.floor(below))
+                        return
+                    end
+                    local y=math.clamp(origin.Y+extent.Y/2-height/2,8,math.max(8,viewport.Y-height-8))
                     tip.Position=UDim2.fromOffset(math.floor(x),math.floor(y))
                 end
                 local function closeTip()
-                    if self._tipMove then self._tipMove:Disconnect() self._tipMove=nil end
+                    self._tipToken=(self._tipToken or 0)+1
                     if window._tooltip then window._tooltip:Destroy() window._tooltip=nil end
                 end
                 connect(root.MouseEnter,function()
                     if self._tooltipText=="" then return end
                     closeTip()
-                    local holder=create("Frame",{BackgroundColor3=C.Window,BackgroundTransparency=.04,BorderSizePixel=0,Size=UDim2.fromOffset(300,0),AutomaticSize=Enum.AutomaticSize.Y,ZIndex=96,Parent=gui})
-                    corner(holder,8) stroke(holder,C.Border,.08,1) padding(holder,11,11,8,9)
-                    text(holder,self._tooltipText,10,C.Muted,Enum.Font.GothamMedium,{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=97})
-                    window._tooltip=holder
-                    local mouse=UserInputService:GetMouseLocation()
-                    place(holder,mouse)
-                    -- Re-place once the automatic height has settled, then track the pointer.
-                    task.defer(function() if holder.Parent then place(holder,UserInputService:GetMouseLocation()) end end)
-                    self._tipMove=UserInputService.InputChanged:Connect(function(input)
-                        if input.UserInputType~=Enum.UserInputType.MouseMovement then return end
-                        if not holder.Parent then closeTip() return end
-                        place(holder,UserInputService:GetMouseLocation())
+                    self._tipToken=(self._tipToken or 0)+1
+                    local token=self._tipToken
+                    -- Short delay so sweeping the pointer down a column does not strobe a
+                    -- tooltip for every row it crosses.
+                    task.delay(.28,function()
+                        if token~=self._tipToken or not root.Parent then return end
+                        local holder=create("Frame",{Name="Tooltip",Active=false,BackgroundColor3=C.Window,BackgroundTransparency=.04,BorderSizePixel=0,Size=UDim2.fromOffset(300,0),AutomaticSize=Enum.AutomaticSize.Y,ZIndex=96,Parent=gui})
+                        corner(holder,8) stroke(holder,C.Border,.08,1) padding(holder,11,11,8,9)
+                        create("Frame",{Name="Edge",BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(-11,-8),Size=UDim2.new(0,3,1,17),ZIndex=97,Parent=holder})
+                        text(holder,self._tooltipText,10,C.Muted,Enum.Font.GothamMedium,{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=97})
+                        window._tooltip=holder
+                        place(holder)
+                        -- Re-place once the automatic height has settled; the first pass
+                        -- measures a zero-height frame and would centre it wrong.
+                        task.defer(function() if holder.Parent and token==self._tipToken then place(holder) end end)
                     end)
-                    table.insert(Argon._connections,self._tipMove)
                 end)
                 connect(root.MouseLeave,closeTip)
                 return self

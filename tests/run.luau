@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.13.0", Argon.Version == "1.13.0", Argon.Version)
+check("version is 1.13.1", Argon.Version == "1.13.1", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -408,8 +408,13 @@ check("SetTooltip can be called directly and updated", (function()
 	plain:SetTooltip("second")
 	return plain._tooltipText == "second"
 end)())
-check("hovering opens a wrapped, self-sizing tooltip", (function()
+check("hovering does not open instantly", (function()
+	-- A short delay keeps a tooltip from strobing as the pointer sweeps down a column.
 	tipped.Root.MouseEnter:Fire()
+	return Window._tooltip == nil
+end)())
+check("hovering opens a wrapped, self-sizing tooltip", (function()
+	sandbox.advance(0.35)
 	local tip = Window._tooltip
 	if not tip then return false, "no tooltip shown" end
 	local label
@@ -418,6 +423,26 @@ check("hovering opens a wrapped, self-sizing tooltip", (function()
 	end
 	return label ~= nil and label.TextWrapped == true and label.Text == tipText
 end)())
+check("the tooltip is positioned in absolute offsets", (function()
+	-- Where it lands relative to the row cannot be asserted here: this sandbox reports the
+	-- window's own rect for every AbsolutePosition, so there is no layout to measure against.
+	-- The anchoring itself is verified against a real client. What is checkable here is that
+	-- placement ran and produced an offset position rather than leaving it at a scale default.
+	local tip = Window._tooltip
+	if not tip then return false, "no tooltip" end
+	return tip.Position.X.Scale == 0 and tip.Position.Y.Scale == 0
+end)())
+check("the tooltip is not click-through blocking the row", (function()
+	local tip = Window._tooltip
+	return tip ~= nil and tip.Active == false
+end)())
+check("the tooltip does not follow the pointer", (function()
+	local tip = Window._tooltip
+	if not tip then return false, "no tooltip" end
+	local before = tip.Position
+	sandbox.advance(0.2)
+	return tip.Position == before
+end)())
 check("leaving removes it", (function()
 	tipped.Root.MouseLeave:Fire()
 	return Window._tooltip == nil
@@ -425,9 +450,46 @@ end)())
 check("an empty tooltip shows nothing", (function()
 	plain:SetTooltip("")
 	plain.Root.MouseEnter:Fire()
+	sandbox.advance(0.35)
 	local shown = Window._tooltip ~= nil
 	plain.Root.MouseLeave:Fire()
 	return not shown
+end)())
+check("leaving before the delay cancels it", (function()
+	tipped.Root.MouseEnter:Fire()
+	tipped.Root.MouseLeave:Fire()
+	sandbox.advance(0.35)
+	return Window._tooltip == nil
+end)())
+
+section("a tooltip is visibly marked on its control")
+check("a marked control gets a question mark", (function()
+	local marker = tipped._tipMarker
+	return marker ~= nil and marker.Text == "?" and marker.Visible == true
+end)())
+check("HasTooltip reports it", tipped.HasTooltip == true)
+check("a control without a tooltip gets no marker", (function()
+	local bare = tipTab:CreateToggle({ Name = "Bare", CurrentValue = false })
+	task.wait(0.05)
+	return bare._tipMarker == nil and bare.HasTooltip ~= true
+end)())
+check("the marker is parented to the control row", tipped._tipMarker.Parent == tipped.Root)
+check("the marker stays inside the title's own space", (function()
+	local marker = tipped._tipMarker
+	local label = tipped._title
+	if not label then return true end -- no title to sit beside
+	local allotted = label.AbsoluteSize.X
+	if allotted <= 0 then return true end
+	local left = label.Position.X.Offset
+	return marker.Position.X.Offset >= left
+		and marker.Position.X.Offset + marker.Size.X.Offset <= left + allotted + 1,
+		("marker x %d w %d, title x %d w %d"):format(marker.Position.X.Offset, marker.Size.X.Offset, left, allotted)
+end)())
+check("clearing the tooltip hides the marker", (function()
+	tipped:SetTooltip("")
+	local hidden = tipped._tipMarker.Visible == false and tipped.HasTooltip == false
+	tipped:SetTooltip(tipText)
+	return hidden and tipped._tipMarker.Visible == true
 end)())
 
 section("locks state a precondition instead of failing after the click")

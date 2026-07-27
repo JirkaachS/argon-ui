@@ -85,7 +85,7 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
   <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
-  <span class="badge" id="verBadge">v1.13.0</span>
+  <span class="badge" id="verBadge">v1.13.1</span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#rows">Rows</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
     <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
@@ -564,7 +564,7 @@ Window:CreateLibrarySettings(Settings)</code></pre>
 <div class="api"><div class="api-head">Argon:GetPalette() → table</div><div class="api-body"><p>Detached snapshot of the active palette. <code>Argon.Palette</code> is the live table.</p></div></div>
 <div class="api"><div class="api-head">Argon:OnThemeChanged(callback) → unbind</div><div class="api-body"><p>Calls <code>callback(palette, themeName)</code> after every theme change, for GUIs the library does not own. Call the returned function to unbind.</p></div></div>
 <div class="api"><div class="api-head">Window:Confirm(options) → dialog</div><div class="api-body"><p>One-shot confirmation for destructive actions. <code>Title</code>, <code>Content</code>, <code>ConfirmText</code>, <code>CancelText</code>, <code>OnConfirm</code>, <code>OnCancel</code>. Cancel is the default, the confirm button is tinted as a danger, and the dialog destroys itself once a choice is made.</p></div></div>
-<div class="api"><div class="api-head">element:SetTooltip(text)</div><div class="api-body"><p>Hover text that costs no row height. Also settable as <code>Tooltip</code> in any control config. Wraps, sizes to content, stays inside the viewport and follows the pointer.</p></div></div>
+<div class="api"><div class="api-head">element:SetTooltip(text)</div><div class="api-body"><p>Hover text that costs no row height. Also settable as <code>Tooltip</code> in any control config. Marks the control with a <code>?</code> after its title and sets <code>element.HasTooltip</code>. The panel wraps, sizes to its content and anchors beside the row rather than under the cursor, flipping side or stacking above/below when there is no room.</p></div></div>
 <div class="api"><div class="api-head">element:Lock(reason) · Unlock() · SetLocked(locked, reason)</div><div class="api-body"><p>States a precondition on the control instead of failing after the click. Locking again only updates the reason.</p></div></div>
 <div class="api"><div class="api-head">Argon:SaveConfiguration() → ok, pathOrReason</div><div class="api-body"><p>Writes and verifies the configuration file immediately.</p></div></div>
 <div class="api"><div class="api-head">Argon:LoadConfiguration() → ok, warningOrReason</div><div class="api-body"><p>Restores values, reapplies callbacks, and enables autosave. Returns a warning string when some flags failed or are unknown.</p></div></div>

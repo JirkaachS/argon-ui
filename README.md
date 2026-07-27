@@ -71,7 +71,7 @@ Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pi
 
 ## Tooltips, locks and confirmations
 
-`Tooltip` carries the same explanatory text as `Description` without spending row height on it, which matters once controls share a row. Tooltips wrap, size to their content, stay inside the viewport and follow the pointer. Keep `Description` for anything a user must read before acting, since a tooltip needs a mouse.
+`Tooltip` carries the same explanatory text as `Description` without spending row height on it, which matters once controls share a row. A control with a tooltip is marked with a small `?` after its title, so the hint is discoverable rather than hidden. The panel wraps, sizes to its content, and anchors beside the row it explains — to the right by preference, flipped left when there is no room, above or below when neither side fits — so it never covers what you are pointing at. It opens after a short delay so sweeping down a column does not strobe. Keep `Description` for anything a user must read before acting, since a tooltip needs a mouse.
 
 ```luau
 Tab:CreateToggle({ Name = "Kill Aura", Tooltip = "Hits every nearby enemy. Cannot run with Aimbot.", CurrentValue = false })
