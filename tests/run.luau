@@ -8,6 +8,10 @@ local fs = require("@lune/fs")
 -- Resolve the library whether the suite is run from the repo root or from tests/.
 local ARGON_PATH = fs.isFile("argon-ui.luau") and "argon-ui.luau" or "../argon-ui.luau"
 local sandbox = require("./sandbox")
+-- The sandbox's task is what the library schedules against, so yielding through it is what
+-- actually lets a deferred relayout or a theme repaint run.
+local task = sandbox.environment.task or require("@lune/task")
+local UDim2 = sandbox.environment.UDim2
 
 local passed, failed = 0, 0
 local failures = {}
@@ -34,7 +38,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.13.1", Argon.Version == "1.13.1", Argon.Version)
+check("version is 1.14.0", Argon.Version == "1.14.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -225,6 +229,38 @@ check("clearing the filter restores the row", (function()
 	rowTab:_filter("")
 	return twoUp.Root.Visible == true and rowLeft.Root.Visible == true
 end)())
+check("controls on the same line are grown to the tallest", (function()
+	-- A toggle is 54 tall and a titled segmented strip is 76; left alone they made a ragged
+	-- line. They are padded to match, and the pad is tracked so repeated passes are stable.
+	local heightRow = rowTab:CreateRow({ Columns = 2 })
+	local short = heightRow:CreateToggle({ Name = "Short", CurrentValue = false })
+	local tall = heightRow:CreateSegmented({ Name = "Tall", Options = { "A", "B" }, CurrentOption = "A" })
+	task.wait(0.15)
+	if heightRow._balance then heightRow._balance() end
+	return short.Root.Size.Y.Offset == tall.Root.Size.Y.Offset,
+		("%d vs %d"):format(short.Root.Size.Y.Offset, tall.Root.Size.Y.Offset)
+end)())
+check("balancing is idempotent", (function()
+	local heightRow = rowTab:CreateRow({ Columns = 2 })
+	local a = heightRow:CreateToggle({ Name = "A", CurrentValue = false })
+	local b = heightRow:CreateSlider({ Name = "B", Range = { 0, 10 }, Increment = 1, CurrentValue = 5 })
+	task.wait(0.1)
+	for _ = 1, 4 do heightRow._balance() end
+	local first = a.Root.Size.Y.Offset
+	heightRow._balance()
+	return a.Root.Size.Y.Offset == first and a.Root.Size.Y.Offset == b.Root.Size.Y.Offset,
+		("%d vs %d"):format(a.Root.Size.Y.Offset, b.Root.Size.Y.Offset)
+end)())
+check("a lone control on a line is not stretched", (function()
+	local oddRow = rowTab:CreateRow({ Columns = 2 })
+	local one = oddRow:CreateToggle({ Name = "One", CurrentValue = false })
+	local two = oddRow:CreateToggle({ Name = "Two", CurrentValue = false })
+	local three = oddRow:CreateToggle({ Name = "Three", CurrentValue = false })
+	task.wait(0.1)
+	oddRow._balance()
+	-- Line 2 holds only "Three", so its natural height must survive untouched.
+	return three.Root.Size.Y.Offset == 54, three.Root.Size.Y.Offset
+end)())
 check("row controls follow a theme switch", (function()
 	Argon:SetTheme("Ocean")
 	for _ = 1, 40 do
@@ -233,11 +269,6 @@ check("row controls follow a theme switch", (function()
 	end
 	return false, tostring(rowLeft.Root.BackgroundColor3)
 end)())
-
-local UDim2 = sandbox.environment.UDim2
--- The sandbox's task is what the library schedules against, so yielding through it is what
--- actually lets a deferred relayout or a theme repaint run.
-local task = sandbox.environment.task or require("@lune/task")
 
 section("state-driven colours survive a theme switch")
 -- Regression: bindings only know the colour an object was BUILT with, so repainting a toggle
@@ -498,15 +529,26 @@ lockTab:CreateSection("Locks")
 local lockable = lockTab:CreateToggle({ Name = "Needs a container", CurrentValue = false })
 check("Lock marks the element and states a reason", (function()
 	lockable:Lock("enter a container ID")
+	-- LockReason is the authoritative value. The badge collapses to "LOCKED" or to the
+	-- padlock alone when the row is too narrow to show the reason AND the title, and this
+	-- sandbox reports the window's rect for every AbsoluteSize, so the rendered text is not
+	-- something to assert on here.
 	return lockable.Locked == true and lockable.LockReason == "enter a container ID"
-		and lockable._lock ~= nil and string.find(lockable._lock.Label.Text, "enter a container ID", 1, true) ~= nil
+		and lockable._lock ~= nil and lockable._lock.Badge ~= nil and lockable._lock.Icon ~= nil
 end)())
 check("locking again only updates the reason", (function()
 	local overlay = lockable._lock.Root
 	lockable:Lock("Conquest Auto-Hop is on")
-	return lockable._lock.Root == overlay
-		and string.find(lockable._lock.Label.Text, "Conquest Auto-Hop is on", 1, true) ~= nil
+	return lockable._lock.Root == overlay and lockable.LockReason == "Conquest Auto-Hop is on"
 end)())
+check("the badge is never wider than the row allows", (function()
+	local cap
+	for _, child in ipairs(lockable._lock.Badge:GetChildren()) do
+		if child.ClassName == "UISizeConstraint" then cap = child end
+	end
+	return cap ~= nil and cap.MaxSize.X >= cap.MinSize.X, cap and ("min %d max %d"):format(cap.MinSize.X, cap.MaxSize.X)
+end)())
+check("the scrim dims the row it covers", lockable._lock.Root.BackgroundTransparency < 1)
 check("Unlock clears everything", (function()
 	lockable:Unlock()
 	return lockable.Locked == false and lockable.LockReason == nil and lockable._lock == nil

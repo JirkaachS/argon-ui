@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.13.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.14.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1450,10 +1450,50 @@ function Argon:CreateWindow(options)
                 table.insert(row.Columns,{Holder=holder,Layout=layout,Section={Name=owner.Name,Elements=owner.Elements,Rows=owner.Rows,Body=holder,Layout=layout,Root=holder}})
             end
 
+            -- Controls in a row are naturally different heights: a toggle is 54, a slider 72,
+            -- a titled segmented strip 76. Left alone, each column is its own vertical list, so
+            -- a short control beside a tall one left a ragged gap and the two stopped reading as
+            -- one line. Every control on the same visual line is grown to the tallest of that
+            -- line. The added amount is tracked per control rather than caching a "natural"
+            -- height, so a row that grows later (a description wrapping) still balances
+            -- correctly and repeated passes are idempotent.
+            local function balance()
+                local lines={}
+                for index,element in ipairs(row.Elements) do
+                    local line=math.ceil(index/columnCount)
+                    lines[line]=lines[line] or {}
+                    table.insert(lines[line],element)
+                end
+                for _,group in ipairs(lines) do
+                    local tallest=0
+                    for _,element in ipairs(group) do
+                        if element.Root and element.Root.Parent then
+                            local natural=element.Root.Size.Y.Offset-(element._rowPad or 0)
+                            if natural>tallest then tallest=natural end
+                        end
+                    end
+                    if tallest>0 then
+                        for _,element in ipairs(group) do
+                            local target=element.Root
+                            if target and target.Parent then
+                                local natural=target.Size.Y.Offset-(element._rowPad or 0)
+                                local pad=math.max(0,tallest-natural)
+                                if math.abs(target.Size.Y.Offset-(natural+pad))>0.5 then
+                                    target.Size=UDim2.new(target.Size.X.Scale,target.Size.X.Offset,0,natural+pad)
+                                end
+                                element._rowPad=pad
+                            end
+                        end
+                    end
+                end
+            end
+            row._balance=balance
+
             -- Heights are computed rather than left to AutomaticSize: nested automatic
             -- sizing inside a scrolling canvas settles a frame late, which showed up as the
             -- section below a row jumping as you opened the tab.
             local function relayout()
+                balance()
                 local available=row.Root.AbsoluteSize.X
                 if available<=0 then available=owner.Body.AbsoluteSize.X-16 end
                 local stacked=columnCount>1 and ((available-(spacing*(columnCount-1)))/columnCount)<minimumWidth
@@ -1487,6 +1527,11 @@ function Argon:CreateWindow(options)
                 if type(element)=="table" and element.Root then
                     table.insert(self.Elements,element)
                     element.Row=self
+                    -- A control that grows on its own (a wrapped description, a lock badge)
+                    -- has to re-balance its line, not just resize itself.
+                    connect(element.Root:GetPropertyChangedSignal("AbsoluteSize"),function()
+                        if self._relayout then self._relayout() end
+                    end)
                 end
                 if self._relayout then task.defer(self._relayout) end
                 return table.unpack(result,2,result.n)
@@ -1596,16 +1641,76 @@ function Argon:CreateWindow(options)
                 if self._fitDescription then task.defer(self._fitDescription) end
                 return self
             end
+            -- The old lock was bare right-aligned text laid straight over the row, so it
+            -- collided with the title and the control it was covering and read as a rendering
+            -- fault rather than a state. It is now a dimming scrim plus a self-contained badge
+            -- with a padlock glyph, so the row is visibly inert and the reason sits on its own
+            -- background instead of on top of whatever text was underneath.
             function element:Lock(reason)
                 self.LockReason=reason and tostring(reason)~="" and tostring(reason) or nil
                 if self._lock then
-                    -- Already locked: just update the stated reason.
-                    self._lock.Label.Text="LOCKED"..(self.LockReason and " · "..self.LockReason or "")
+                    -- The gauge has to follow the new reason or the tier is decided against the
+                    -- width of the previous one.
+                    if self._lock.Gauge then self._lock.Gauge.Text=self.LockReason or "LOCKED" end
+                    if self._lock.Fit then self._lock.Fit() end
                     return self
                 end
-                local lock=create("TextButton",{Active=true,AutoButtonColor=false,BackgroundColor3=C.Window,BackgroundTransparency=.2,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Text="",ZIndex=28,Parent=root}) corner(lock,10)
-                local label=text(lock,"LOCKED"..(self.LockReason and " · "..self.LockReason or ""),9,C.Warning,Enum.Font.GothamBold,{Position=UDim2.new(0,12,0,0),Size=UDim2.new(1,-24,1,0),TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=29})
-                self._lock={Root=lock,Label=label} self.Locked=true return self
+                local scrim=create("TextButton",{Active=true,AutoButtonColor=false,BackgroundColor3=C.Background,BackgroundTransparency=.34,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Text="",ZIndex=28,Parent=root})
+                corner(scrim,10)
+                -- The badge sizes itself from the label rather than from a measurement. Reading
+                -- TextBounds here is circular: the bounds of a truncating label are clipped to
+                -- the label, which is sized from the badge, which is what we were trying to
+                -- compute -- and it settled at a badge too narrow to show the reason. Automatic
+                -- width plus a max-size constraint gets it right with no measuring at all.
+                local badge=create("Frame",{AnchorPoint=Vector2.new(1,.5),BackgroundColor3=C.Warning,BackgroundTransparency=.86,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(1,-10,.5,0),Size=UDim2.fromOffset(0,24),AutomaticSize=Enum.AutomaticSize.X,ZIndex=29,Parent=scrim})
+                corner(badge,8) stroke(badge,C.Warning,.55,1)
+                padding(badge,27,10,0,0)
+                local cap=create("UISizeConstraint",{MinSize=Vector2.new(58,24),MaxSize=Vector2.new(260,24),Parent=badge})
+                local label=text(badge,self.LockReason or "LOCKED",9,C.Warning,Enum.Font.GothamBold,{Position=UDim2.fromOffset(0,0),Size=UDim2.new(0,0,1,0),AutomaticSize=Enum.AutomaticSize.X,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=30})
+                -- Drawn after the label so it sits over the left padding rather than inside the
+                -- flow, which keeps the padding doubling as the icon's gutter.
+                local glyph=drawIcon(badge,"lock",C.Warning,14)
+                glyph.AnchorPoint=Vector2.new(0,.5)
+                glyph.Position=UDim2.new(0,-20,.5,0)
+                glyph.ZIndex=30
+                -- An invisible gauge that always holds the full reason. Measuring the visible
+                -- label instead made the decision depend on the text the decision had just
+                -- chosen: picking "LOCKED" shrank the measurement, which then said the reason
+                -- would fit, which grew it again -- the badge flipped between the two on every
+                -- layout pass. The gauge never changes, so the width it reports is stable.
+                local gauge=text(scrim,self.LockReason or "LOCKED",9,C.Warning,Enum.Font.GothamBold,{BackgroundTransparency=1,Position=UDim2.fromOffset(0,-200),Size=UDim2.fromOffset(0,12),AutomaticSize=Enum.AutomaticSize.X,TextTransparency=1,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=1})
+
+                -- Three tiers, because a badge wide enough to state the reason would bury the
+                -- title on a narrow column: full reason when there is room for both, just
+                -- "LOCKED" when there is not, and the padlock alone when the row is tiny.
+                -- TITLE_ROOM is what the title needs before the badge is allowed to grow.
+                local TITLE_ROOM=104
+                local function fit()
+                    if not badge.Parent then return end
+                    local room=math.floor((root.AbsoluteSize and root.AbsoluteSize.X or 0))-20
+                    if room<34 then room=34 end
+                    local reason=self.LockReason
+                    local spare=room-TITLE_ROOM
+                    local reasonWidth=(gauge.AbsoluteSize and gauge.AbsoluteSize.X or 0)+37
+                    if reason and spare>=reasonWidth then
+                        label.Visible=true label.Text=reason
+                        cap.MinSize=Vector2.new(58,24) cap.MaxSize=Vector2.new(room,24)
+                    elseif spare>=76 then
+                        label.Visible=true label.Text="LOCKED"
+                        cap.MinSize=Vector2.new(58,24) cap.MaxSize=Vector2.new(math.min(room,110),24)
+                    else
+                        label.Visible=false
+                        cap.MinSize=Vector2.new(34,24) cap.MaxSize=Vector2.new(34,24)
+                    end
+                end
+                fit()
+                task.defer(fit)
+                connect(root:GetPropertyChangedSignal("AbsoluteSize"),fit)
+                -- The gauge's width is only known once it has been laid out, and it never
+                -- changes after that, so this settles the tier exactly once.
+                connect(gauge:GetPropertyChangedSignal("AbsoluteSize"),fit)
+                self._lock={Root=scrim,Badge=badge,Label=label,Icon=glyph,Gauge=gauge,Fit=fit}
+                self.Locked=true return self
             end
             function element:Unlock() if self._lock then self._lock.Root:Destroy() self._lock=nil end self.Locked=false self.LockReason=nil return self end
             -- Lock or unlock in one call, so callers can express a rule rather than branch.

@@ -67,6 +67,8 @@ row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })
 
 `Columns` accepts 1 to 4 and may be passed bare (`Tab:CreateRow(2)`). `Spacing` sets the gap, and `MinColumnWidth` (default 200) is the width below which the columns collapse back into one stack — so a resized window and a phone get a readable layout from the same calls. Rows carry the same shorthands as sections, join the owning section for search, and hide themselves when everything in them is filtered out.
 
+Controls on the same visual line are grown to the tallest of that line, so a toggle beside a titled segmented strip reads as one line instead of leaving a ragged gap.
+
 Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers, buttons, inputs, dropdowns and short segmented pickers. Lists and text areas want the full width.
 
 ## Tooltips, locks and confirmations
@@ -77,7 +79,7 @@ Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pi
 Tab:CreateToggle({ Name = "Kill Aura", Tooltip = "Hits every nearby enemy. Cannot run with Aimbot.", CurrentValue = false })
 ```
 
-`Lock` states a precondition on the control itself instead of failing after the click:
+`Lock` states a precondition on the control itself instead of failing after the click. The row is dimmed and gets a padlock badge carrying the reason; on a narrow column the badge collapses to `LOCKED` and then to the padlock alone, so it never buries the title.
 
 ```luau
 element:Lock("enter a container ID")   -- greyed, with the reason on the row
