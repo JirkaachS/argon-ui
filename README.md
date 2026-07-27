@@ -154,7 +154,7 @@ The suite covers control behavior, the configuration round-trip, deferred flag h
 
 ## Browser preview
 
-Open `argon-ui-preview.html`, or the hosted [preview](https://jirkaachs.github.io/argon-ui/preview.html), to explore the visual system without Roblox. Press `/` to focus search and `Insert` to hide or restore the window.
+Open `argon-ui-preview.html`, or the hosted [preview](https://jirkaachs.github.io/argon-ui/preview.html), to use the interface without Roblox. It is a working reimplementation rather than a screenshot: every control responds, sliders drag, the colour picker has a real HSV square, dropdowns filter, rows collapse as the window narrows, tooltips and locks behave as they do in game, and all ten palettes apply live. Press `/` to focus search, `Insert` to hide or restore the window, and `Esc` to close whatever is open.
 
 ## Themes
 
