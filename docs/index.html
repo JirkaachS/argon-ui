@@ -85,9 +85,9 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
   <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
-  <span class="badge" id="verBadge">v1.10.0</span>
+  <span class="badge" id="verBadge">v1.11.0</span>
   <span class="top-links">
-    <a href="#getting-started">Start</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
+    <a href="#getting-started">Start</a><a href="#rows">Rows</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
     <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
   </span>
 </div></header>
@@ -201,6 +201,17 @@ local Movement = Tab:Section({ Title = "Movement" })
 Movement:Slider({ Name = "Walk speed", Range = { 16, 120 }, CurrentValue = 16 })
 Movement:Toggle({ Name = "Infinite jump" })</code></pre>
 <p>Every <code>Create*</code> method also exists without the prefix (<code>Tab:Toggle</code>, <code>Tab:Slider</code>, <code>Section:Dropdown</code>, …), so both naming styles work.</p>
+
+<h2 id="rows">Rows</h2>
+<p>A tab with ninety controls is a single column you scroll blind, and the related ones end up screens apart. A row splits the section body into equal columns and hands controls out round-robin, so the pair you build together sits side by side.</p>
+<pre><button class="copy">Copy</button><code>local row = Tab:CreateRow({ Columns = 2 })
+row:CreateToggle({ Flag = "Chams", Name = "Chams", CurrentValue = false })
+row:CreateSlider({ Flag = "ChamsOpacity", Name = "Opacity %", Range = { 5, 100 }, CurrentValue = 60 })
+
+-- when the pairing matters more than the balance
+row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })</code></pre>
+<p><code>Columns</code> accepts 1 to 4 and may be passed bare (<code>Tab:CreateRow(2)</code>). <code>Spacing</code> sets the gap and <code>MinColumnWidth</code> (default 200) is the width below which columns collapse back into a single stack, so a resized window and a phone get a readable layout from the same calls.</p>
+<p>Rows carry the same shorthands as sections, their controls join the owning section for search and the control count, and a row hides itself when everything in it is filtered out. Best suited to compact controls — toggles, sliders, steppers, keybinds, colour pickers, buttons. Dropdowns, inputs, segmented pickers, lists and text areas want the full width.</p>
 
 <h2 id="components">All components</h2>
 <p>Eighteen controls, grouped by what they do. Anything that holds a value accepts a <code>Flag</code> and participates in configuration saving.</p>

@@ -52,6 +52,23 @@ Keep a copy of `argon-ui.luau` beside your script if you want an offline fallbac
 
 Every `Create*` method has a prefix-free alias (`Tab:Toggle`, `Section:Dropdown`, and so on).
 
+## Rows
+
+A tab with ninety controls is a single column you scroll blind, and the related ones end up screens apart. `CreateRow` splits the section body into equal columns and hands controls out round-robin, so the pair you build together sits side by side.
+
+```luau
+local row = Tab:CreateRow({ Columns = 2 })
+row:CreateToggle({ Flag = "Chams", Name = "Chams", CurrentValue = false })
+row:CreateSlider({ Flag = "ChamsOpacity", Name = "Opacity %", Range = { 5, 100 }, Increment = 1, CurrentValue = 60 })
+
+-- or, when the pairing matters more than the balance
+row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })
+```
+
+`Columns` accepts 1 to 4 and may be passed bare (`Tab:CreateRow(2)`). `Spacing` sets the gap, and `MinColumnWidth` (default 200) is the width below which the columns collapse back into one stack — so a resized window and a phone get a readable layout from the same calls. Rows carry the same shorthands as sections, join the owning section for search, and hide themselves when everything in them is filtered out.
+
+Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers and buttons. Dropdowns, inputs, segmented pickers, lists and text areas want the full width.
+
 ## Persistence
 
 Any control given a `Flag` is saved to `FolderName/FileName` shortly after it changes, and each write is read back to confirm it landed.

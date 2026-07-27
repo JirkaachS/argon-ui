@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.10.0", Argon.Version == "1.10.0", Argon.Version)
+check("version is 1.11.0", Argon.Version == "1.11.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -160,6 +160,79 @@ for _, method in ipairs({ "ProgressBar", "Stepper", "Segmented", "TextArea", "Li
 end
 local sectionToggleOk = pcall(function() built:Toggle({ Name = "From section" }) end)
 check("section builder creates control", sectionToggleOk)
+
+section("rows put several controls on one line")
+local rowTab = Window:CreateTab("Rows", "zap")
+rowTab:CreateSection("Row Tests")
+local twoUp = rowTab:CreateRow({ Columns = 2 })
+local rowLeft = twoUp:CreateToggle({ Flag = "R_Left", Name = "Left", CurrentValue = false })
+local rowRight = twoUp:CreateToggle({ Flag = "R_Right", Name = "Right", CurrentValue = true })
+check("CreateRow returns a builder", type(twoUp) == "table" and #twoUp.Columns == 2)
+check("row exposes the same shorthands as a section", type(twoUp.Slider) == "function"
+	and type(twoUp.Dropdown) == "function" and type(twoUp.ColorPicker) == "function")
+check("controls are handed out round-robin", (function()
+	return rowLeft.Root.Parent ~= rowRight.Root.Parent
+		and rowLeft.Root.Parent.Parent == twoUp.Root
+		and rowRight.Root.Parent.Parent == twoUp.Root
+end)())
+check("column order follows build order", rowLeft.Root.Parent.LayoutOrder == 1 and rowRight.Root.Parent.LayoutOrder == 2)
+check("a third control wraps back to the first column", (function()
+	local third = twoUp:CreateToggle({ Name = "Third", CurrentValue = false })
+	return third.Root.Parent == rowLeft.Root.Parent
+end)())
+check("row controls still work", (function()
+	local fired
+	local slider = twoUp:CreateSlider({ Name = "InRow", Range = { 0, 10 }, Increment = 1,
+		CurrentValue = 0, Callback = function(v) fired = v end })
+	slider:Set(7)
+	return slider.CurrentValue == 7 and fired == 7
+end)())
+check("row controls register their flags", Argon.Flags.R_Left == rowLeft and Argon.Flags.R_Right == rowRight)
+check("row controls join the owning section, so search sees them", (function()
+	for _, element in ipairs(rowTab._sections[1].Elements) do
+		if element == rowLeft then return true end
+	end
+	return false
+end)())
+check("row controls count toward the tab total", rowTab._controlCount >= 4, rowTab._controlCount)
+check("Columns is clamped to a sane range", (function()
+	local tooMany = rowTab:CreateRow({ Columns = 99 })
+	local tooFew = rowTab:CreateRow({ Columns = 0 })
+	return #tooMany.Columns == 4 and #tooFew.Columns == 1
+end)())
+check("Use targets a specific column", (function()
+	local row = rowTab:CreateRow({ Columns = 3 })
+	row:CreateToggle({ Name = "First", CurrentValue = false })
+	local pinned = row:Use(3):CreateToggle({ Name = "Pinned", CurrentValue = false })
+	return pinned.Root.Parent == row.Columns[3].Holder
+end)())
+check("a plain number is accepted as the column count", #rowTab:CreateRow(3).Columns == 3)
+check("sections expose Row too", (function()
+	local sec = rowTab:CreateSection("Via Section")
+	local row = sec:Row({ Columns = 2 })
+	local made = row:CreateToggle({ Name = "SectionRow", CurrentValue = false })
+	return type(row) == "table" and made.Root.Parent.Parent == row.Root
+end)())
+check("filtering hides a row with no surviving controls", (function()
+	rowTab:_filter("zzz-nothing-matches")
+	return twoUp.Root.Visible == false
+end)())
+check("filtering keeps a row that still has a match", (function()
+	rowTab:_filter("Right")
+	return twoUp.Root.Visible == true and rowRight.Root.Visible == true and rowLeft.Root.Visible == false
+end)())
+check("clearing the filter restores the row", (function()
+	rowTab:_filter("")
+	return twoUp.Root.Visible == true and rowLeft.Root.Visible == true
+end)())
+check("row controls follow a theme switch", (function()
+	Argon:SetTheme("Ocean")
+	for _ = 1, 40 do
+		if rowLeft.Root.BackgroundColor3 == Argon.Themes.Ocean.Surface then return true end
+		task.wait()
+	end
+	return false, tostring(rowLeft.Root.BackgroundColor3)
+end)())
 
 section("element helpers")
 local locked = Tab:CreateToggle({ Name = "Lockable" })

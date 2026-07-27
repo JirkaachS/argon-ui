@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.10.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.11.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1303,6 +1303,17 @@ function Argon:CreateWindow(options)
                     local match=query=="" or element.Name:lower():find(query,1,true) or section.Name:lower():find(query,1,true)
                     element.Root.Visible=match and true or false if match then visible+=1 end
                 end
+                -- A row is a container, not a control, so it has to follow its children:
+                -- otherwise filtering everything out of a row left an empty gap behind, and
+                -- a partly filtered row kept the height of its hidden controls.
+                for _,row in ipairs(section.Rows or {}) do
+                    local rowVisible=false
+                    for _,element in ipairs(row.Elements) do
+                        if element.Root.Visible then rowVisible=true break end
+                    end
+                    row.Root.Visible=rowVisible or query==""
+                    if row._relayout then row._relayout() end
+                end
                 section.Root.Visible=visible>0 or query==""
             end
         end
@@ -1317,6 +1328,7 @@ function Argon:CreateWindow(options)
             local body=create("Frame",{BackgroundColor3=C.Background,BackgroundTransparency=.56,BorderSizePixel=0,Position=UDim2.fromOffset(0,31),Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,Parent=root})
             corner(body,13) stroke(body,C.BorderSoft,.28,1) padding(body,8,8,8,8)
             section.Body=body section.Layout=create("UIListLayout",{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder,Parent=body})
+            section.Rows={}
             function section:_build(method,...)
                 local previous=tab._currentSection tab._currentSection=self
                 local result=table.pack(pcall(tab[method],tab,...)) tab._currentSection=previous
@@ -1328,9 +1340,104 @@ function Argon:CreateWindow(options)
                 section[alias]=function(self,...) return self:_build(methodName,...) end
                 section[method]=section[alias]
             end
+            section.Row=function(self,...) return self:_build("CreateRow",...) end
+            section.CreateRow=section.Row
             self._currentSection=section table.insert(self._sections,section)
             if window.ActiveTab==self and window._refreshSectionMenu then window:_refreshSectionMenu() end
             return section
+        end
+
+        -- Several controls on ONE row. A tab with ninety controls is otherwise a single
+        -- column you scroll blind, and the related ones (a toggle and its strength, an
+        -- element and its colour) end up screens apart. A row splits the section body into
+        -- equal columns, each with its own vertical layout, and hands controls out
+        -- round-robin so the pair you built together sits side by side.
+        --
+        -- Columns collapse back into one stack when the window is too narrow to give each
+        -- one a usable width, so a resized window and a phone get a readable layout from the
+        -- same calls rather than four squashed sliders.
+        function tab:CreateRow(config)
+            config=type(config)=="table" and config or {Columns=tonumber(config) or 2}
+            if not tab._currentSection then tab:CreateSection("General") end
+            local owner=tab._currentSection
+            owner.Rows=owner.Rows or {}
+            local columnCount=math.clamp(math.floor(tonumber(config.Columns) or 2),1,4)
+            local spacing=math.clamp(tonumber(config.Spacing) or 7,0,24)
+            -- Below this a slider is all value box and no track, and a toggle title is
+            -- nothing but an ellipsis, so stacking is genuinely better than fitting.
+            local minimumWidth=math.clamp(tonumber(config.MinColumnWidth) or 200,80,400)
+
+            local row={Name=tostring(config.Name or owner.Name),Columns={},Elements={},Owner=owner,_next=0}
+            row.Root=create("Frame",{Name="Row",BackgroundTransparency=1,BorderSizePixel=0,Size=UDim2.new(1,0,0,0),Parent=owner.Body})
+            row.Layout=create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,spacing),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=row.Root})
+
+            for index=1,columnCount do
+                local holder=create("Frame",{Name="Column",BackgroundTransparency=1,BorderSizePixel=0,LayoutOrder=index,Size=UDim2.new(1/columnCount,0,0,0),Parent=row.Root})
+                local layout=create("UIListLayout",{Padding=UDim.new(0,spacing),SortOrder=Enum.SortOrder.LayoutOrder,Parent=holder})
+                -- The column shares the owning section's Name and Elements table so search,
+                -- the section menu and the control count keep working unchanged; the only
+                -- thing that differs is which frame new controls are parented to.
+                table.insert(row.Columns,{Holder=holder,Layout=layout,Section={Name=owner.Name,Elements=owner.Elements,Rows=owner.Rows,Body=holder,Layout=layout,Root=holder}})
+            end
+
+            -- Heights are computed rather than left to AutomaticSize: nested automatic
+            -- sizing inside a scrolling canvas settles a frame late, which showed up as the
+            -- section below a row jumping as you opened the tab.
+            local function relayout()
+                local available=row.Root.AbsoluteSize.X
+                if available<=0 then available=owner.Body.AbsoluteSize.X-16 end
+                local stacked=columnCount>1 and ((available-(spacing*(columnCount-1)))/columnCount)<minimumWidth
+                row.Layout.FillDirection=stacked and Enum.FillDirection.Vertical or Enum.FillDirection.Horizontal
+                local total,tallest,filled=0,0,0
+                for _,column in ipairs(row.Columns) do
+                    local height=column.Layout.AbsoluteContentSize.Y
+                    column.Holder.Size=stacked and UDim2.new(1,0,0,height)
+                        or UDim2.new(1/columnCount,-(spacing*(columnCount-1)/columnCount),0,height)
+                    total+=height
+                    if height>tallest then tallest=height end
+                    if height>0 then filled+=1 end
+                end
+                row.Root.Size=UDim2.new(1,0,0,stacked and (total+math.max(0,filled-1)*spacing) or tallest)
+            end
+            row._relayout=relayout
+            for _,column in ipairs(row.Columns) do
+                connect(column.Layout:GetPropertyChangedSignal("AbsoluteContentSize"),relayout)
+            end
+            connect(row.Root:GetPropertyChangedSignal("AbsoluteSize"),relayout)
+            connect(owner.Body:GetPropertyChangedSignal("AbsoluteSize"),relayout)
+            relayout()
+
+            function row:_build(method,...)
+                self._next=(self._next%#self.Columns)+1
+                local target=self.Columns[self._next]
+                local previous=tab._currentSection tab._currentSection=target.Section
+                local result=table.pack(pcall(tab[method],tab,...)) tab._currentSection=previous
+                if not result[1] then error(result[2],2) end
+                local element=result[2]
+                if type(element)=="table" and element.Root then
+                    table.insert(self.Elements,element)
+                    element.Row=self
+                end
+                if self._relayout then task.defer(self._relayout) end
+                return table.unpack(result,2,result.n)
+            end
+
+            -- Send the next control to a specific column instead of taking the round-robin
+            -- turn, for the cases where the pairing matters more than the balance.
+            function row:Use(index)
+                local wanted=math.clamp(math.floor(tonumber(index) or 1),1,#self.Columns)
+                self._next=wanted-1
+                return self
+            end
+
+            for alias,method in pairs({Button="CreateButton",Toggle="CreateToggle",Slider="CreateSlider",Dropdown="CreateDropdown",Input="CreateInput",Keybind="CreateKeybind",Colorpicker="CreateColorPicker",ColorPicker="CreateColorPicker",Paragraph="CreateParagraph",Label="CreateLabel",TelemetryCard="CreateTelemetryCard",ProgressBar="CreateProgressBar",Stepper="CreateStepper",Segmented="CreateSegmented",TextArea="CreateTextArea",List="CreateList",Divider="CreateDivider",Space="CreateSpace"}) do
+                local methodName=method
+                row[alias]=function(self,...) return self:_build(methodName,...) end
+                row[method]=row[alias]
+            end
+
+            table.insert(owner.Rows,row)
+            return row
         end
 
         local function base(controlName,height,config)
@@ -1353,10 +1460,26 @@ function Argon:CreateWindow(options)
                         self._title.Size=UDim2.new(self._title.Size.X.Scale,self._title.Size.X.Offset,0,22)
                         self._title.TextYAlignment=Enum.TextYAlignment.Center
                     end
-                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,34),Size=UDim2.new(1,-28,0,30),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+                    -- Height is measured rather than fixed at 30px. A description that fits
+                    -- two lines across the full width needs four in a half-width column, and
+                    -- the row clips its children, so a fixed height silently cut the text off.
+                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,34),Size=UDim2.new(1,-28,0,30),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+                    local function fitDescription()
+                        if not self._description or not self._description.Parent then return end
+                        local needed=34+math.max(self._description.AbsoluteSize.Y,self._description.Visible and 14 or 0)+10
+                        local wanted=math.max(baseHeight,needed)
+                        if math.abs(root.Size.Y.Offset-wanted)>0.5 then
+                            root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,wanted)
+                        end
+                    end
+                    self._fitDescription=fitDescription
+                    connect(self._description:GetPropertyChangedSignal("AbsoluteSize"),fitDescription)
+                    connect(root:GetPropertyChangedSignal("AbsoluteSize"),fitDescription)
                     self._descriptionApplied=true
                 end
-                self._description.Text=description self._description.Visible=description~="" return self
+                self._description.Text=description self._description.Visible=description~=""
+                if self._fitDescription then task.defer(self._fitDescription) end
+                return self
             end
             function element:Lock(reason)
                 if self._lock then return self end
@@ -1955,6 +2078,7 @@ function Argon:CreateWindow(options)
         tab.Keybind=tab.CreateKeybind
         tab.Paragraph=tab.CreateParagraph
         tab.Divider=tab.CreateDivider
+        tab.Row=tab.CreateRow
         tab.Space=tab.CreateSpace
         tab.Section=tab.CreateSection
         tab.Label=tab.CreateLabel
