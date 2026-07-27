@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.11.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.12.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -191,6 +191,24 @@ local function registerThemeBinding(object,property,value)
         end
         if themed then table.insert(Argon._themeBindings,{Object=object,Property=property,Points=points}) end
     end
+end
+
+-- A static binding only knows the colour an object was BUILT with, which is wrong for any
+-- object whose colour depends on control state: a toggle track is Accent when on and Input
+-- when off, so repainting it from its binding forced an ON toggle back to the off colour and
+-- the switch kept its position while losing its highlight. Those objects opt out of bindings
+-- and re-render from their own state instead.
+local function unbindTheme(object,property)
+    for index=#Argon._themeBindings,1,-1 do
+        local binding=Argon._themeBindings[index]
+        if binding.Object==object and (property==nil or binding.Property==property) then
+            table.remove(Argon._themeBindings,index)
+        end
+    end
+end
+
+local function registerThemeRender(root,render)
+    table.insert(Argon._themeRenderers,{Root=root,Render=render})
 end
 
 local function create(className,props)
@@ -466,6 +484,18 @@ function Argon:SetTheme(name)
     if not nextTheme then return false,"Unknown theme: "..tostring(name) end
     for key,value in pairs(nextTheme) do if typeof(value)=="Color3" then C[key]=value end end
     self.CurrentTheme=type(name)=="string" and name or "Custom"
+    -- State-driven controls repaint themselves first. Their properties are unbound, so this
+    -- and the binding pass below cannot fight over the same object.
+    local writeRenderer=1
+    for _,renderer in ipairs(self._themeRenderers) do
+        if renderer.Root and renderer.Root.Parent then
+            self._themeRenderers[writeRenderer]=renderer
+            writeRenderer+=1
+            local ok,err=pcall(renderer.Render,false)
+            if not ok then warn("[Argon UI] Theme re-render failed: "..tostring(err)) end
+        end
+    end
+    for index=writeRenderer,#self._themeRenderers do self._themeRenderers[index]=nil end
     self._themeToken+=1
     local token=self._themeToken
     task.spawn(function()
@@ -1449,24 +1479,68 @@ function Argon:CreateWindow(options)
             function element:SetDesc(value)
                 local description=tostring(value or "")
                 if not self._description then
-                    -- Titles of most controls fill the full row height and are centred, so
-                    -- a description placed underneath used to draw straight over them.
-                    -- Reserve the top of the row for the title and the bottom for the
-                    -- description, then grow the row so neither is clipped.
-                    local baseHeight=math.max(root.Size.Y.Offset,72)
-                    root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,baseHeight)
+                    -- The old version dropped the description at a fixed y=34, which assumed
+                    -- the only thing above it was the title. Controls that stack their own
+                    -- content under the title (a slider's track sits at y=47, an input's field
+                    -- at y=28) therefore had the description drawn straight through them, and
+                    -- controls that centre their content vertically drifted into it as the row
+                    -- grew. Instead: treat the control's natural height as a fixed band, pin
+                    -- everything already inside it, and put the description strictly below.
+                    local band=math.max(root.Size.Y.Offset,44)
+                    local baseHeight=band
+                    -- Idempotent and re-runnable on purpose. SetDesc can be reached before a
+                    -- constructor has finished adding its children (the description is applied
+                    -- from a deferred callback, and how soon that runs is not ours to assume),
+                    -- so pinning happens again on every fit pass. Anything already pinned has a
+                    -- zero Y scale and is skipped.
+                    local function pinIntoBand()
+                        for _,child in ipairs(root:GetChildren()) do
+                            -- Duck-typed rather than IsA("GuiObject"): UIStroke, UICorner and
+                            -- the other modifiers simply have no Position, and this keeps
+                            -- working against any stand-in that does not model the hierarchy.
+                            local ok,position,size=pcall(function() return child.Position,child.Size end)
+                            if ok and position~=nil and size~=nil and position.Y~=nil and size.Y~=nil
+                                and child~=self._description then
+                                -- Leave the invisible full-row click target alone so the whole
+                                -- control, description included, stays clickable.
+                                local transparent=false
+                                pcall(function() transparent=child.BackgroundTransparency>=1 end)
+                                local isClickOverlay=transparent and size.X.Scale==1 and size.Y.Scale==1
+                                if not isClickOverlay then
+                                    if position.Y.Scale~=0 then
+                                        child.Position=UDim2.new(position.X.Scale,position.X.Offset,0,math.floor(band*position.Y.Scale+position.Y.Offset+.5))
+                                    end
+                                    if size.Y.Scale~=0 then
+                                        child.Size=UDim2.new(size.X.Scale,size.X.Offset,0,math.floor(band*size.Y.Scale+size.Y.Offset+.5))
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    self._pinIntoBand=pinIntoBand
+                    pinIntoBand()
+                    -- A constructor may still be adding its children after this point, so pin
+                    -- late arrivals too rather than assuming construction has finished.
+                    connect(root.ChildAdded,function() pinIntoBand() end)
                     if self._title then
-                        self._title.Position=UDim2.fromOffset(self._title.Position.X.Offset,9)
-                        self._title.Size=UDim2.new(self._title.Size.X.Scale,self._title.Size.X.Offset,0,22)
+                        self._title.Position=UDim2.fromOffset(self._title.Position.X.Offset,0)
+                        self._title.Size=UDim2.new(self._title.Size.X.Scale,self._title.Size.X.Offset,0,band)
                         self._title.TextYAlignment=Enum.TextYAlignment.Center
                     end
                     -- Height is measured rather than fixed at 30px. A description that fits
                     -- two lines across the full width needs four in a half-width column, and
                     -- the row clips its children, so a fixed height silently cut the text off.
-                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,34),Size=UDim2.new(1,-28,0,30),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+                    self._description=text(root,"",10,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(14,band-2),Size=UDim2.new(1,-28,0,14),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
                     local function fitDescription()
                         if not self._description or not self._description.Parent then return end
-                        local needed=34+math.max(self._description.AbsoluteSize.Y,self._description.Visible and 14 or 0)+10
+                        pinIntoBand()
+                        if not self._description.Visible then
+                            if math.abs(root.Size.Y.Offset-baseHeight)>0.5 then
+                                root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,baseHeight)
+                            end
+                            return
+                        end
+                        local needed=band-2+math.max(self._description.AbsoluteSize.Y,14)+10
                         local wanted=math.max(baseHeight,needed)
                         if math.abs(root.Size.Y.Offset-wanted)>0.5 then
                             root.Size=UDim2.new(root.Size.X.Scale,root.Size.X.Offset,0,wanted)
@@ -1478,6 +1552,7 @@ function Argon:CreateWindow(options)
                     self._descriptionApplied=true
                 end
                 self._description.Text=description self._description.Visible=description~=""
+                if self._pinIntoBand then self._pinIntoBand() end
                 if self._fitDescription then task.defer(self._fitDescription) end
                 return self
             end
@@ -1560,6 +1635,9 @@ function Argon:CreateWindow(options)
                 if didChange and not silent then changed(self) safeCall(config.Callback,self.CurrentValue) end
             end
             connect(click.MouseButton1Click,function() element:Set(not element.CurrentValue) end) hover(root,C.Surface,C.Hover)
+            -- The track and knob are state-driven, so they must not be theme-bound.
+            unbindTheme(track,"BackgroundColor3") unbindTheme(knob,"BackgroundColor3")
+            registerThemeRender(root,render)
             render(false) registerFlag(config.Flag,element) return element
         end
 
@@ -1660,7 +1738,10 @@ function Argon:CreateWindow(options)
                     safeCall(config.OnPressed or config.Pressed,element.CurrentKeybind,overlayEntry.Active)
                 end
             end)
-            hover(root,C.Surface,C.Hover) render() window:_refreshKeybindOverlay() registerFlag(config.Flag,element) return element
+            hover(root,C.Surface,C.Hover)
+            -- Warning while listening, AccentLight otherwise: state-driven, so unbind.
+            unbindTheme(bind,"TextColor3") registerThemeRender(root,render)
+            render() window:_refreshKeybindOverlay() registerFlag(config.Flag,element) return element
         end
 
         function tab:CreateDropdown(config)
@@ -1671,6 +1752,8 @@ function Argon:CreateWindow(options)
             local selectButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(.45,0,0,10),Size=UDim2.new(.55,-14,0,37),Text="",Parent=root}) corner(selectButton,9)
             local selectStroke=stroke(selectButton,C.BorderSoft,.22,1)
             local selectedText=text(selectButton,"Select...",10,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(11,0),Size=UDim2.new(1,-45,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
+            -- Dim while nothing is selected, Text once something is: state-driven.
+            unbindTheme(selectedText,"TextColor3")
             local chevronHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.new(1,-31,.5,-10),Size=UDim2.fromOffset(20,20),Parent=selectButton})
             local chevronIcon=drawIcon(chevronHost,"chevron-down",C.Dim,16)
             element.Type="Dropdown" element.Options=copy(config.Options or {}) element.CurrentOption={}
@@ -1757,6 +1840,7 @@ function Argon:CreateWindow(options)
                 tween(selectStroke,.15,{Color=C.Accent,Transparency=0}) tween(chevronIcon,.16,{Rotation=180}) tween(popup,.2,{Size=UDim2.fromOffset(popupWidth,226)},Enum.EasingStyle.Back)
             end
             connect(selectButton.MouseButton1Click,function() if window._dropdownPopup then closePopup() else openPopup() end end)
+            registerThemeRender(root,render)
             render() registerFlag(config.Flag,element) return element
         end
 
@@ -1933,6 +2017,8 @@ function Argon:CreateWindow(options)
                 table.clear(buttons)
                 for _,value in ipairs(rebuilt) do
                     local button=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.5,BorderSizePixel=0,Size=UDim2.new(1/#rebuilt,-3,1,0),Text=value,TextColor3=C.Muted,TextSize=10,Font=Enum.Font.GothamBold,TextTruncate=Enum.TextTruncate.AtEnd,Parent=strip}) corner(button,7)
+                    -- The selected pill is Accent and the rest are Surface; state-driven.
+                    unbindTheme(button,"BackgroundColor3") unbindTheme(button,"TextColor3")
                     table.insert(buttons,{Button=button,Value=value})
                     connect(button.MouseButton1Click,function() element:Set(value) end)
                 end
@@ -1941,6 +2027,7 @@ function Argon:CreateWindow(options)
             end
             element:Refresh(options,true)
             element:Set(element.CurrentValue,true)
+            registerThemeRender(root,render)
             registerFlag(config.Flag,element) return element
         end
 
@@ -1989,15 +2076,39 @@ function Argon:CreateWindow(options)
                     local record=type(item)=="table" and item or {Title=tostring(item)}
                     table.insert(self.Items,record)
                     local hasDescription=record.Description~=nil and tostring(record.Description)~=""
+                    -- Actions = { {Label="Load",Callback=...}, {Label="Delete",Style="danger"} }.
+                    -- A single Action string still works; per-row buttons beat a selection plus
+                    -- a separate stack of buttons that act on "whatever is selected".
+                    local actions={}
+                    if type(record.Actions)=="table" then
+                        for _,entry in ipairs(record.Actions) do
+                            if type(entry)=="table" and (entry.Label or entry.Title) then
+                                actions[#actions+1]={Label=tostring(entry.Label or entry.Title),Callback=entry.Callback,Style=entry.Style,Color=entry.Color}
+                            elseif type(entry)=="string" then
+                                actions[#actions+1]={Label=entry,Callback=record.Callback}
+                            end
+                        end
+                    elseif record.Action then
+                        actions[1]={Label=tostring(record.Action),Callback=record.Callback}
+                    end
+                    local buttonWidth=#actions>2 and 58 or 78
+                    local actionSpan=#actions>0 and (#actions*(buttonWidth+5)+3) or 0
                     local row=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.18,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.new(1,0,0,hasDescription and 44 or 30),Parent=list}) corner(row,8)
-                    local reserved=record.Action and -96 or -18
+                    local reserved=#actions>0 and -(actionSpan+18) or -18
                     text(row,tostring(record.Title or record.Name or "Item"),11,record.Color or C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(10,hasDescription and 5 or 0),Size=UDim2.new(1,reserved,0,hasDescription and 18 or 30),TextTruncate=Enum.TextTruncate.AtEnd})
                     if hasDescription then
                         text(row,tostring(record.Description),9,C.Dim,Enum.Font.Gotham,{Position=UDim2.fromOffset(10,23),Size=UDim2.new(1,reserved,0,16),TextTruncate=Enum.TextTruncate.AtEnd})
                     end
-                    if record.Action then
-                        local action=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Accent,BackgroundTransparency=.78,BorderSizePixel=0,Position=UDim2.new(1,-86,.5,-11),Size=UDim2.fromOffset(78,22),Text=tostring(record.Action),TextColor3=C.AccentLight,TextSize=9,Font=Enum.Font.GothamBold,Parent=row}) corner(action,7)
-                        connect(action.MouseButton1Click,function() safeCall(record.Callback or config.Callback,record,item) end)
+                    if #actions>0 then
+                        for index,entry in ipairs(actions) do
+                            local fill=entry.Color or (entry.Style=="danger" and C.Danger) or (entry.Style=="warning" and C.Warning) or C.Accent
+                            local ink=entry.Color or (entry.Style=="danger" and C.Danger) or (entry.Style=="warning" and C.Warning) or C.AccentLight
+                            local offset=-(actionSpan-3)+((index-1)*(buttonWidth+5))
+                            local action=create("TextButton",{AutoButtonColor=false,BackgroundColor3=fill,BackgroundTransparency=.78,BorderSizePixel=0,Position=UDim2.new(1,offset,.5,-11),Size=UDim2.fromOffset(buttonWidth,22),Text=entry.Label,TextColor3=ink,TextSize=9,Font=Enum.Font.GothamBold,TextTruncate=Enum.TextTruncate.AtEnd,Parent=row}) corner(action,7)
+                            connect(action.MouseEnter,function() tween(action,.12,{BackgroundTransparency=.35,TextColor3=Color3.new(1,1,1)}) end)
+                            connect(action.MouseLeave,function() tween(action,.16,{BackgroundTransparency=.78,TextColor3=ink}) end)
+                            connect(action.MouseButton1Click,function() safeCall(entry.Callback or config.Callback,record,item) end)
+                        end
                     elseif config.Callback then
                         local click=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Text="",Parent=row})
                         connect(click.MouseButton1Click,function() safeCall(config.Callback,record,item) end)
@@ -2066,6 +2177,10 @@ function Argon:CreateWindow(options)
                 tween(swatchStroke,.15,{Color=C.Accent,Transparency=0}) tween(popup,.2,{Size=UDim2.fromOffset(250,201)},Enum.EasingStyle.Back)
             end
             connect(swatch.MouseButton1Click,function() if window._colorPopup then closePicker() else openPicker() end end)
+            -- The swatch holds the user's own colour, not a palette entry. If that colour
+            -- happened to match a palette slot it would otherwise be repainted on a theme
+            -- switch, silently changing a saved setting.
+            unbindTheme(swatch,"BackgroundColor3")
             render() registerFlag(config.Flag,element) return element
         end
         tab.Colorpicker=tab.CreateColorPicker

@@ -67,7 +67,23 @@ row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })
 
 `Columns` accepts 1 to 4 and may be passed bare (`Tab:CreateRow(2)`). `Spacing` sets the gap, and `MinColumnWidth` (default 200) is the width below which the columns collapse back into one stack — so a resized window and a phone get a readable layout from the same calls. Rows carry the same shorthands as sections, join the owning section for search, and hide themselves when everything in them is filtered out.
 
-Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers and buttons. Dropdowns, inputs, segmented pickers, lists and text areas want the full width.
+Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers, buttons, inputs, dropdowns and short segmented pickers. Lists and text areas want the full width.
+
+## List row actions
+
+A list row can carry several buttons instead of one, which beats a selectable list plus a stack of buttons that act on "whatever is selected".
+
+```luau
+Tab:CreateList({ Name = "Profiles", Items = {
+    { Title = "Mining", Description = "saved snapshot", Actions = {
+        { Label = "Load",   Callback = function(row) load(row.Title) end },
+        { Label = "Rename", Style = "warning", Callback = function(row) rename(row.Title) end },
+        { Label = "Delete", Style = "danger",  Callback = function(row) remove(row.Title) end },
+    } },
+} })
+```
+
+`Style` accepts `danger` and `warning`, or pass an explicit `Color`. A single `Action = "Load"` with a row-level `Callback` still works.
 
 ## Persistence
 

@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.11.0", Argon.Version == "1.11.0", Argon.Version)
+check("version is 1.12.0", Argon.Version == "1.12.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -232,6 +232,159 @@ check("row controls follow a theme switch", (function()
 		task.wait()
 	end
 	return false, tostring(rowLeft.Root.BackgroundColor3)
+end)())
+
+local UDim2 = sandbox.environment.UDim2
+-- The sandbox's task is what the library schedules against, so yielding through it is what
+-- actually lets a deferred relayout or a theme repaint run.
+local task = sandbox.environment.task or require("@lune/task")
+
+section("state-driven colours survive a theme switch")
+-- Regression: bindings only know the colour an object was BUILT with, so repainting a toggle
+-- track from its binding forced an ON toggle back to the off colour. The switch kept its
+-- position and lost its highlight, which looked like the value had not been restored.
+local colourTab = Window:CreateTab("Colour", "eye")
+colourTab:CreateSection("State")
+Argon:SetTheme("Argon")
+local onToggle = colourTab:CreateToggle({ Name = "Already On", CurrentValue = true })
+local offToggle = colourTab:CreateToggle({ Name = "Still Off", CurrentValue = false })
+local function trackOf(toggle)
+	for _, child in ipairs(toggle.Root:GetChildren()) do
+		if child:IsA("Frame") and child.Size == UDim2.fromOffset(44, 24) then return child end
+	end
+	return nil
+end
+check("an on toggle starts on the accent", trackOf(onToggle).BackgroundColor3 == Argon.Themes.Argon.Accent,
+	tostring(trackOf(onToggle).BackgroundColor3))
+check("an on toggle keeps its accent after a theme switch", (function()
+	Argon:SetTheme("Emerald")
+	for _ = 1, 40 do
+		if trackOf(onToggle).BackgroundColor3 == Argon.Themes.Emerald.Accent then return true end
+		task.wait()
+	end
+	return false, tostring(trackOf(onToggle).BackgroundColor3)
+end)())
+check("an off toggle keeps the off colour after a theme switch",
+	trackOf(offToggle).BackgroundColor3 == Argon.Themes.Emerald.Input,
+	tostring(trackOf(offToggle).BackgroundColor3))
+check("a toggle restored by config keeps its highlight", (function()
+	-- Exactly what autoload does: set silently, then the theme is applied from the config.
+	offToggle:Set(true, true)
+	Argon:SetTheme("Rose")
+	for _ = 1, 40 do
+		if trackOf(offToggle).BackgroundColor3 == Argon.Themes.Rose.Accent then return true end
+		task.wait()
+	end
+	return false, tostring(trackOf(offToggle).BackgroundColor3)
+end)())
+check("a colour picker keeps the user's colour through a theme switch", (function()
+	local chosen = sandbox.environment.Color3.fromRGB(244, 114, 182) -- Rose's accent
+	local picker = colourTab:CreateColorPicker({ Name = "Mine", Color = chosen })
+	Argon:SetTheme("Ocean")
+	task.wait()
+	return picker.CurrentValue == chosen
+end)())
+
+section("descriptions sit below a control, not through it")
+local descTab = Window:CreateTab("Desc", "settings")
+descTab:CreateSection("Descriptions")
+local longText = "A deliberately long description so the wrap is real and the row has to grow to fit it rather than clipping the tail off the end."
+local descSlider = descTab:CreateSlider({ Name = "With Desc", Range = { 0, 100 }, Increment = 1,
+	CurrentValue = 50, Description = longText })
+local descToggle = descTab:CreateToggle({ Name = "Toggle Desc", CurrentValue = false, Description = longText })
+task.wait(0.2)
+local function descriptionOf(element) return element._description end
+check("the slider grew past its natural height", descSlider.Root.Size.Y.Offset > 72, descSlider.Root.Size.Y.Offset)
+check("the description starts below the slider track", (function()
+	local desc = descriptionOf(descSlider)
+	local bar
+	for _, child in ipairs(descSlider.Root:GetChildren()) do
+		if child:IsA("Frame") and child.Active and child.Size.Y.Offset == 8 then bar = child end
+	end
+	return desc and bar and desc.Position.Y.Offset >= bar.Position.Y.Offset + bar.Size.Y.Offset
+end)())
+check("the description fits inside the grown row", (function()
+	local desc = descriptionOf(descSlider)
+	return desc.Position.Y.Offset + desc.AbsoluteSize.Y <= descSlider.Root.Size.Y.Offset + 1
+end)(), descSlider.Root.Size.Y.Offset)
+check("a centred control is pinned into its own band", (function()
+	-- The toggle track used to stay at 50% of the row, so it drifted down into the
+	-- description as the row grew.
+	--
+	-- Re-applied on purpose: this sandbox runs task.defer eagerly, so the description that
+	-- base() defers lands before the constructor has added the track. Roblox defers properly
+	-- and the first pass already sees it; calling SetDesc again is the same code path the
+	-- library takes when a host updates the text later.
+	descToggle:SetDesc(longText)
+	local track
+	for _, child in ipairs(descToggle.Root:GetChildren()) do
+		if child:IsA("Frame") and child.Size == UDim2.fromOffset(44, 24) then track = child end
+	end
+	local desc = descriptionOf(descToggle)
+	if not track then return false, "no track found" end
+	return track.Position.Y.Scale == 0
+		and track.Position.Y.Offset + track.Size.Y.Offset <= desc.Position.Y.Offset + 2,
+		("track y=%s+%s h=%s desc y=%s"):format(track.Position.Y.Scale, track.Position.Y.Offset,
+			track.Size.Y.Offset, desc.Position.Y.Offset)
+end)())
+check("clearing a description shrinks the row back", (function()
+	local before = descToggle.Root.Size.Y.Offset
+	descToggle:SetDesc("")
+	task.wait(0.15)
+	return descToggle.Root.Size.Y.Offset < before
+end)())
+
+section("list rows can carry several actions")
+local listTab = Window:CreateTab("Lists", "server")
+listTab:CreateSection("Actions")
+local fired = {}
+local actionList = listTab:CreateList({ Name = "Profiles", Items = {
+	{ Title = "Mining", Description = "snapshot", Actions = {
+		{ Label = "Load", Callback = function(row) fired[#fired + 1] = "load:" .. row.Title end },
+		{ Label = "Rename", Callback = function(row) fired[#fired + 1] = "rename:" .. row.Title end },
+		{ Label = "Delete", Style = "danger", Callback = function(row) fired[#fired + 1] = "delete:" .. row.Title end },
+	} },
+} })
+local function actionButtons(index)
+	local found = {}
+	local rows = {}
+	for _, child in ipairs(actionList.Root:GetDescendants()) do
+		if child:IsA("Frame") and child.Size.Y.Offset == 44 then table.insert(rows, child) end
+	end
+	for _, child in ipairs((rows[index] or actionList.Root):GetChildren()) do
+		if child:IsA("TextButton") then table.insert(found, child) end
+	end
+	table.sort(found, function(a, b) return a.Position.X.Offset < b.Position.X.Offset end)
+	return found
+end
+check("three buttons are drawn on the row", #actionButtons(1) == 3, #actionButtons(1))
+check("labels are in build order", (function()
+	local buttons = actionButtons(1)
+	return buttons[1].Text == "Load" and buttons[2].Text == "Rename" and buttons[3].Text == "Delete"
+end)())
+check("buttons do not overlap", (function()
+	local buttons = actionButtons(1)
+	for index = 1, #buttons - 1 do
+		if buttons[index].Position.X.Offset + buttons[index].Size.X.Offset > buttons[index + 1].Position.X.Offset then
+			return false
+		end
+	end
+	return true
+end)())
+check("a danger action is tinted differently", actionButtons(1)[3].BackgroundColor3 ~= actionButtons(1)[1].BackgroundColor3)
+check("each button calls its own callback", (function()
+	for _, button in ipairs(actionButtons(1)) do button.MouseButton1Click:Fire() end
+	return #fired == 3 and fired[1] == "load:Mining" and fired[3] == "delete:Mining"
+end)(), table.concat(fired, ","))
+check("a single Action string still works", (function()
+	local hit
+	local legacy = listTab:CreateList({ Name = "Legacy", Items = {
+		{ Title = "One", Action = "Go", Callback = function(row) hit = row.Title end },
+	} })
+	for _, child in ipairs(legacy.Root:GetDescendants()) do
+		if child:IsA("TextButton") and child.Text == "Go" then child.MouseButton1Click:Fire() end
+	end
+	return hit == "One"
 end)())
 
 section("element helpers")
