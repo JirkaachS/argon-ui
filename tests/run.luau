@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.12.0", Argon.Version == "1.12.0", Argon.Version)
+check("version is 1.13.0", Argon.Version == "1.13.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -385,6 +385,141 @@ check("a single Action string still works", (function()
 		if child:IsA("TextButton") and child.Text == "Go" then child.MouseButton1Click:Fire() end
 	end
 	return hit == "One"
+end)())
+
+section("tooltips replace descriptions without costing row height")
+local tipTab = Window:CreateTab("Tips", "eye")
+tipTab:CreateSection("Tooltips")
+local tipText = "Explanatory text that used to live in a Description and would otherwise spend three lines of row height on it."
+local tipped = tipTab:CreateToggle({ Name = "Tipped", CurrentValue = false, Tooltip = tipText })
+local plain = tipTab:CreateToggle({ Name = "Plain", CurrentValue = false })
+task.wait(0.15)
+check("Tooltip is accepted from the control config", tipped._tooltipText == tipText, tipped._tooltipText)
+check("a tooltip costs no row height", tipped.Root.Size.Y.Offset == plain.Root.Size.Y.Offset,
+	("%d vs %d"):format(tipped.Root.Size.Y.Offset, plain.Root.Size.Y.Offset))
+check("a tooltip creates no description label", tipped._description == nil)
+check("Tip is accepted as an alias", (function()
+	local aliased = tipTab:CreateToggle({ Name = "Aliased", CurrentValue = false, Tip = "short" })
+	task.wait(0.1)
+	return aliased._tooltipText == "short"
+end)())
+check("SetTooltip can be called directly and updated", (function()
+	plain:SetTooltip("first")
+	plain:SetTooltip("second")
+	return plain._tooltipText == "second"
+end)())
+check("hovering opens a wrapped, self-sizing tooltip", (function()
+	tipped.Root.MouseEnter:Fire()
+	local tip = Window._tooltip
+	if not tip then return false, "no tooltip shown" end
+	local label
+	for _, child in ipairs(tip:GetChildren()) do
+		if child.ClassName == "TextLabel" then label = child end
+	end
+	return label ~= nil and label.TextWrapped == true and label.Text == tipText
+end)())
+check("leaving removes it", (function()
+	tipped.Root.MouseLeave:Fire()
+	return Window._tooltip == nil
+end)())
+check("an empty tooltip shows nothing", (function()
+	plain:SetTooltip("")
+	plain.Root.MouseEnter:Fire()
+	local shown = Window._tooltip ~= nil
+	plain.Root.MouseLeave:Fire()
+	return not shown
+end)())
+
+section("locks state a precondition instead of failing after the click")
+local lockTab = Window:CreateTab("Locks", "settings")
+lockTab:CreateSection("Locks")
+local lockable = lockTab:CreateToggle({ Name = "Needs a container", CurrentValue = false })
+check("Lock marks the element and states a reason", (function()
+	lockable:Lock("enter a container ID")
+	return lockable.Locked == true and lockable.LockReason == "enter a container ID"
+		and lockable._lock ~= nil and string.find(lockable._lock.Label.Text, "enter a container ID", 1, true) ~= nil
+end)())
+check("locking again only updates the reason", (function()
+	local overlay = lockable._lock.Root
+	lockable:Lock("Conquest Auto-Hop is on")
+	return lockable._lock.Root == overlay
+		and string.find(lockable._lock.Label.Text, "Conquest Auto-Hop is on", 1, true) ~= nil
+end)())
+check("Unlock clears everything", (function()
+	lockable:Unlock()
+	return lockable.Locked == false and lockable.LockReason == nil and lockable._lock == nil
+end)())
+check("SetLocked expresses the rule in one call", (function()
+	lockable:SetLocked(true, "because")
+	local locked = lockable.Locked
+	lockable:SetLocked(false)
+	return locked and lockable.Locked == false
+end)())
+
+section("confirmation dialogs")
+check("Confirm builds a two-button dialog", (function()
+	local dialog = Window:Confirm({ Title = "Delete?", Content = "Gone for good.", OnConfirm = function() end })
+	local found = {}
+	for _, child in ipairs(dialog.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text ~= "" and child.Text ~= "×" then
+			table.insert(found, child.Text)
+		end
+	end
+	dialog:Close()
+	return #found == 2 and found[1] == "Cancel" and found[2] == "Confirm", table.concat(found, ",")
+end)())
+check("the confirm button runs the action and cancel does not", (function()
+	local ran = 0
+	local dialog = Window:Confirm({ Content = "?", OnConfirm = function() ran += 1 end })
+	for _, child in ipairs(dialog.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text == "Cancel" then child.MouseButton1Click:Fire() end
+	end
+	local afterCancel = ran
+	local second = Window:Confirm({ Content = "?", OnConfirm = function() ran += 1 end })
+	for _, child in ipairs(second.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text == "Confirm" then child.MouseButton1Click:Fire() end
+	end
+	return afterCancel == 0 and ran == 1, ran
+end)())
+check("the action fires only once even on a double click", (function()
+	local ran = 0
+	local dialog = Window:Confirm({ Content = "?", OnConfirm = function() ran += 1 end })
+	for _, child in ipairs(dialog.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text == "Confirm" then
+			child.MouseButton1Click:Fire()
+			child.MouseButton1Click:Fire()
+		end
+	end
+	return ran == 1, ran
+end)())
+check("custom button text is honoured", (function()
+	local dialog = Window:Confirm({ Content = "?", ConfirmText = "Empty it", CancelText = "Keep it" })
+	local labels = {}
+	for _, child in ipairs(dialog.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text ~= "" and child.Text ~= "×" then table.insert(labels, child.Text) end
+	end
+	dialog:Close()
+	return table.concat(labels, ",") == "Keep it,Empty it", table.concat(labels, ",")
+end)())
+check("a transient dialog does not linger in the tree", (function()
+	-- The teardown runs on a delay so the close animation can finish; advance the sandbox
+	-- clock rather than sleeping, the same way the autosave debounce is tested.
+	local before = #Window.ScreenGui:GetChildren()
+	local dialog = Window:Confirm({ Content = "?" })
+	dialog:Close()
+	sandbox.advance(0.4)
+	return #Window.ScreenGui:GetChildren() <= before,
+		("%d children, expected %d"):format(#Window.ScreenGui:GetChildren(), before)
+end)())
+check("a danger button is tinted apart from the cancel", (function()
+	local dialog = Window:Confirm({ Content = "?" })
+	local cancel, confirm
+	for _, child in ipairs(dialog.Panel:GetDescendants()) do
+		if child.ClassName == "TextButton" and child.Text == "Cancel" then cancel = child end
+		if child.ClassName == "TextButton" and child.Text == "Confirm" then confirm = child end
+	end
+	dialog:Close()
+	return cancel and confirm and confirm.BackgroundColor3 ~= cancel.BackgroundColor3
 end)())
 
 section("element helpers")

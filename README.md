@@ -69,6 +69,33 @@ row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })
 
 Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers, buttons, inputs, dropdowns and short segmented pickers. Lists and text areas want the full width.
 
+## Tooltips, locks and confirmations
+
+`Tooltip` carries the same explanatory text as `Description` without spending row height on it, which matters once controls share a row. Tooltips wrap, size to their content, stay inside the viewport and follow the pointer. Keep `Description` for anything a user must read before acting, since a tooltip needs a mouse.
+
+```luau
+Tab:CreateToggle({ Name = "Kill Aura", Tooltip = "Hits every nearby enemy. Cannot run with Aimbot.", CurrentValue = false })
+```
+
+`Lock` states a precondition on the control itself instead of failing after the click:
+
+```luau
+element:Lock("enter a container ID")   -- greyed, with the reason on the row
+element:SetLocked(conquestIsOn, "Conquest Auto-Hop is on")
+element:Unlock()
+```
+
+`Window:Confirm` is a one-shot gate for destructive actions. Cancel is the default, the confirm button is tinted as a danger, and the dialog destroys itself once a choice is made.
+
+```luau
+Window:Confirm({
+    Title = "Empty container?",
+    Content = "Every item type is pulled out at full quantity. There is no undo.",
+    ConfirmText = "Empty it",
+    OnConfirm = function() emptyContainer() end,
+})
+```
+
 ## List row actions
 
 A list row can carry several buttons instead of one, which beats a selectable list plus a stack of buttons that act on "whatever is selected".

@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.12.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.13.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1242,34 +1242,74 @@ function Argon:CreateWindow(options)
         local panel=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BorderSizePixel=0,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(380,0),ZIndex=106,Parent=overlay})
         corner(panel,15) stroke(panel,C.Border,.05,1)
         local dialogTitle=text(panel,tostring(config.Title or "Confirm action"),16,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(20,15),Size=UDim2.new(1,-58,0,24),ZIndex=107})
-        local dialogBody=text(panel,tostring(config.Content or config.Description or ""),11,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(20,47),Size=UDim2.new(1,-40,0,50),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=107})
+        -- Self-sizing: the panel used to open at a fixed 160px, so anything longer than two
+        -- lines of body text was clipped by the button row.
+        local dialogBody=text(panel,tostring(config.Content or config.Description or ""),11,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(20,47),Size=UDim2.new(1,-40,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=107})
         local closeButton=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Position=UDim2.new(1,-37,0,13),Size=UDim2.fromOffset(24,24),Text="×",TextColor3=C.Dim,TextSize=19,Font=Enum.Font.Gotham,ZIndex=108,Parent=panel})
         local buttonHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.new(0,20,1,-51),Size=UDim2.new(1,-40,0,34),ZIndex=107,Parent=panel})
         create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,Parent=buttonHost})
         local dialog={Root=overlay,Panel=panel,Title=dialogTitle,Body=dialogBody,Visible=false}
+        local function panelHeight()
+            return 47+math.max(dialogBody.AbsoluteSize.Y,16)+18+34+17
+        end
         function dialog:Close()
             if not self.Root.Parent or not self.Visible then return end
             self.Visible=false tween(overlay,.18,{BackgroundTransparency=1}) tween(panel,.18,{Size=UDim2.fromOffset(380,0)})
-            task.delay(.2,function() if overlay.Parent then overlay.Visible=false end end)
+            task.delay(.2,function()
+                if not overlay.Parent then return end
+                overlay.Visible=false
+                -- A dialog raised for one decision should not linger in the GUI tree. Callers
+                -- that keep a dialog around and reshow it pass Transient=false.
+                if config.Transient~=false then overlay:Destroy() end
+            end)
         end
         function dialog:Show()
             if not self.Root.Parent then return end
             self.Visible=true overlay.Visible=true panel.Size=UDim2.fromOffset(380,0) overlay.BackgroundTransparency=1
-            tween(overlay,.18,{BackgroundTransparency=.38}) tween(panel,.24,{Size=UDim2.fromOffset(380,160)},Enum.EasingStyle.Back)
+            tween(overlay,.18,{BackgroundTransparency=.38}) tween(panel,.24,{Size=UDim2.fromOffset(380,panelHeight())},Enum.EasingStyle.Back)
+            -- Re-measure after the wrapped body has settled so a long message is never clipped.
+            task.defer(function()
+                if overlay.Parent and self.Visible then tween(panel,.12,{Size=UDim2.fromOffset(380,panelHeight())}) end
+            end)
         end
         function dialog:Destroy() if self.Root then self.Root:Destroy() end end
         connect(closeButton.MouseButton1Click,function() dialog:Close() end)
         local buttons=config.Buttons or {{Title="Okay",Variant="Primary"}}
         for _,buttonConfig in ipairs(buttons) do
-            local primary=buttonConfig.Variant=="Primary" or buttonConfig.Primary==true
-            local button=create("TextButton",{AutoButtonColor=false,BackgroundColor3=primary and C.Accent or C.Surface,BorderSizePixel=0,Size=UDim2.fromOffset(math.max(82,#tostring(buttonConfig.Title or buttonConfig.Name or "Button")*7+28),34),Text=tostring(buttonConfig.Title or buttonConfig.Name or "Button"),TextColor3=primary and Color3.new(1,1,1) or C.Muted,TextSize=10,Font=Enum.Font.GothamBold,ZIndex=108,Parent=buttonHost})
-            corner(button,9) stroke(button,primary and C.Accent or C.BorderSoft,.18,1) hover(button,button.BackgroundColor3,primary and C.AccentLight or C.Hover)
+            local variant=tostring(buttonConfig.Variant or "")
+            local primary=variant=="Primary" or buttonConfig.Primary==true
+            local danger=variant=="Danger" or buttonConfig.Danger==true
+            local fill=danger and C.Danger or (primary and C.Accent or C.Surface)
+            local ink=(danger or primary) and Color3.new(1,1,1) or C.Muted
+            local button=create("TextButton",{AutoButtonColor=false,BackgroundColor3=fill,BorderSizePixel=0,Size=UDim2.fromOffset(math.max(82,#tostring(buttonConfig.Title or buttonConfig.Name or "Button")*7+28),34),Text=tostring(buttonConfig.Title or buttonConfig.Name or "Button"),TextColor3=ink,TextSize=10,Font=Enum.Font.GothamBold,ZIndex=108,Parent=buttonHost})
+            corner(button,9) stroke(button,danger and C.Danger or (primary and C.Accent or C.BorderSoft),.18,1)
+            hover(button,fill,danger and C.Danger or (primary and C.AccentLight or C.Hover))
             connect(button.MouseButton1Click,function() safeCall(buttonConfig.Callback,dialog) if buttonConfig.AutoClose~=false then dialog:Close() end end)
         end
         if config.Show~=false then dialog:Show() end
         return dialog
     end
     window.Popup=window.Dialog
+
+    -- One-shot confirmation for anything destructive. Cancel is the default action, the
+    -- confirm button is tinted as a danger unless told otherwise, and the whole dialog is
+    -- destroyed once a choice is made so repeated use does not pile up overlays.
+    function window:Confirm(config)
+        config=type(config)=="table" and config or {Content=tostring(config or "Are you sure?")}
+        local confirmed=false
+        return self:Dialog({
+            Title=config.Title or "Confirm",
+            Content=config.Content or config.Description or "This cannot be undone.",
+            Buttons={
+                {Title=config.CancelText or "Cancel",Callback=function() safeCall(config.OnCancel) end},
+                {Title=config.ConfirmText or "Confirm",Variant=config.Variant or "Danger",Callback=function()
+                    if confirmed then return end
+                    confirmed=true
+                    safeCall(config.OnConfirm or config.Callback)
+                end},
+            },
+        })
+    end
     function window:_select(tab)
         if self.ActiveTab==tab then return end
         self._tabTransitionToken+=1
@@ -1557,24 +1597,66 @@ function Argon:CreateWindow(options)
                 return self
             end
             function element:Lock(reason)
-                if self._lock then return self end
+                self.LockReason=reason and tostring(reason)~="" and tostring(reason) or nil
+                if self._lock then
+                    -- Already locked: just update the stated reason.
+                    self._lock.Label.Text="LOCKED"..(self.LockReason and " · "..self.LockReason or "")
+                    return self
+                end
                 local lock=create("TextButton",{Active=true,AutoButtonColor=false,BackgroundColor3=C.Window,BackgroundTransparency=.2,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Text="",ZIndex=28,Parent=root}) corner(lock,10)
-                local label=text(lock,"LOCKED"..(reason and reason~="" and " · "..tostring(reason) or ""),9,C.Warning,Enum.Font.GothamBold,{Position=UDim2.new(0,12,0,0),Size=UDim2.new(1,-24,1,0),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=29})
+                local label=text(lock,"LOCKED"..(self.LockReason and " · "..self.LockReason or ""),9,C.Warning,Enum.Font.GothamBold,{Position=UDim2.new(0,12,0,0),Size=UDim2.new(1,-24,1,0),TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=29})
                 self._lock={Root=lock,Label=label} self.Locked=true return self
             end
-            function element:Unlock() if self._lock then self._lock.Root:Destroy() self._lock=nil end self.Locked=false return self end
+            function element:Unlock() if self._lock then self._lock.Root:Destroy() self._lock=nil end self.Locked=false self.LockReason=nil return self end
+            -- Lock or unlock in one call, so callers can express a rule rather than branch.
+            function element:SetLocked(locked,reason)
+                if locked then return self:Lock(reason) end
+                return self:Unlock()
+            end
+            -- Rewritten to carry the text that used to live in a Description. The old version
+            -- guessed its width from the character count and pinned the height at 32px, so
+            -- anything longer than a few words was clipped, and it could open past the edge of
+            -- the screen. Now: wrapped, self-sizing, clamped into the viewport, and it follows
+            -- the pointer.
             function element:SetTooltip(value)
                 self._tooltipText=tostring(value or "")
                 if self._tooltipBound then return self end
                 self._tooltipBound=true
+                local function place(tip,mouse)
+                    local viewport=gui.AbsoluteSize
+                    local width,height=tip.AbsoluteSize.X,tip.AbsoluteSize.Y
+                    if width<=0 then width=300 end
+                    if height<=0 then height=32 end
+                    -- Flip to the other side of the cursor rather than hanging off the edge.
+                    local x=mouse.X+14
+                    if viewport.X>0 and x+width>viewport.X-8 then x=math.max(8,mouse.X-14-width) end
+                    local y=mouse.Y+16
+                    if viewport.Y>0 and y+height>viewport.Y-8 then y=math.max(8,mouse.Y-16-height) end
+                    tip.Position=UDim2.fromOffset(math.floor(x),math.floor(y))
+                end
+                local function closeTip()
+                    if self._tipMove then self._tipMove:Disconnect() self._tipMove=nil end
+                    if window._tooltip then window._tooltip:Destroy() window._tooltip=nil end
+                end
                 connect(root.MouseEnter,function()
                     if self._tooltipText=="" then return end
-                    if window._tooltip then window._tooltip:Destroy() end
+                    closeTip()
+                    local holder=create("Frame",{BackgroundColor3=C.Window,BackgroundTransparency=.04,BorderSizePixel=0,Size=UDim2.fromOffset(300,0),AutomaticSize=Enum.AutomaticSize.Y,ZIndex=96,Parent=gui})
+                    corner(holder,8) stroke(holder,C.Border,.08,1) padding(holder,11,11,8,9)
+                    text(holder,self._tooltipText,10,C.Muted,Enum.Font.GothamMedium,{Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=97})
+                    window._tooltip=holder
                     local mouse=UserInputService:GetMouseLocation()
-                    local tip=create("TextLabel",{BackgroundColor3=C.Window,BorderSizePixel=0,Position=UDim2.fromOffset(mouse.X+12,mouse.Y+12),Size=UDim2.fromOffset(math.clamp(#self._tooltipText*6+24,110,300),32),Text=self._tooltipText,TextColor3=C.Muted,TextSize=10,Font=Enum.Font.GothamMedium,ZIndex=96,Parent=gui})
-                    corner(tip,8) stroke(tip,C.Border,.08,1) window._tooltip=tip
+                    place(holder,mouse)
+                    -- Re-place once the automatic height has settled, then track the pointer.
+                    task.defer(function() if holder.Parent then place(holder,UserInputService:GetMouseLocation()) end end)
+                    self._tipMove=UserInputService.InputChanged:Connect(function(input)
+                        if input.UserInputType~=Enum.UserInputType.MouseMovement then return end
+                        if not holder.Parent then closeTip() return end
+                        place(holder,UserInputService:GetMouseLocation())
+                    end)
+                    table.insert(Argon._connections,self._tipMove)
                 end)
-                connect(root.MouseLeave,function() if window._tooltip then window._tooltip:Destroy() window._tooltip=nil end end)
+                connect(root.MouseLeave,closeTip)
                 return self
             end
             element.Tooltip=element.SetTooltip
@@ -1586,6 +1668,13 @@ function Argon:CreateWindow(options)
                 tab._controlCount=math.max(0,tab._controlCount-1) tab:_updateCount()
             end
             table.insert(tab._currentSection.Elements,element) table.insert(tab._elements,element) tab._controlCount+=1 tab:_updateCount()
+            -- Tooltip carries the same explanatory text as Description without spending row
+            -- height on it, which matters once controls are only half a row wide. Deferred for
+            -- the same reason as the description: the constructor is still building.
+            local tooltip=config and (config.Tooltip or config.Tip)
+            if tooltip and tostring(tooltip)~="" then
+                task.defer(function() if element.Root and element.Root.Parent then element:SetTooltip(tooltip) end end)
+            end
             local description=config and (config.Description or config.Desc)
             if description and tostring(description)~="" then
                 -- Deferred: constructors assign element._title after base() returns, and
