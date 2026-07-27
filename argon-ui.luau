@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.14.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.15.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1059,15 +1059,26 @@ function Argon:CreateWindow(options)
     local profileName=text(profile,LocalPlayer and LocalPlayer.DisplayName or "Player",11,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(38,2),Size=UDim2.new(1,-44,0,18),TextTruncate=Enum.TextTruncate.AtEnd})
     local profileState=text(profile,"ARGON ONLINE",8,C.Success,Enum.Font.GothamBold,{Position=UDim2.fromOffset(38,17),Size=UDim2.new(1,-44,0,15)})
 
-    local content=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(232,0),Size=UDim2.new(1,-232,1,0),ZIndex=3,Parent=main})
-    local topbar=create("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,0,0,70),Parent=content})
-    local eyebrow=text(topbar,"ARGON / DASHBOARD",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,14),Size=UDim2.new(1,-150,0,17)})
-    local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-160,0,29)})
-    local sectionsButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-222,0,19),Size=UDim2.fromOffset(86,28),Text="SECTIONS",TextColor3=C.Muted,TextSize=9,Font=Enum.Font.GothamBold,Parent=topbar}) corner(sectionsButton,14) stroke(sectionsButton,C.BorderSoft,.25,1) hover(sectionsButton,C.Surface,C.Hover)
-    local status=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-127,0,19),Size=UDim2.fromOffset(75,28),Parent=topbar}) corner(status,14) stroke(status,C.BorderSoft,.25,1)
+    local content=create("Frame",{BackgroundTransparency=1,Name="Content",Position=UDim2.fromOffset(232,0),Size=UDim2.new(1,-232,1,0),ZIndex=3,Parent=main})
+    local topbar=create("Frame",{BackgroundTransparency=1,Name="TopBar",Size=UDim2.new(1,0,0,70),Parent=content})
+    local eyebrow=text(topbar,"ARGON / DASHBOARD",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,14),Size=UDim2.new(1,-285,0,17),TextTruncate=Enum.TextTruncate.AtEnd})
+    local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-292,0,29),TextTruncate=Enum.TextTruncate.AtEnd})
+    local sectionsButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-259,0,19),Size=UDim2.fromOffset(86,28),Text="SECTIONS",TextColor3=C.Muted,TextSize=9,Font=Enum.Font.GothamBold,Parent=topbar}) corner(sectionsButton,14) stroke(sectionsButton,C.BorderSoft,.25,1) hover(sectionsButton,C.Surface,C.Hover)
+    local status=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-164,0,19),Size=UDim2.fromOffset(75,28),Parent=topbar}) corner(status,14) stroke(status,C.BorderSoft,.25,1)
     local statusGroup=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(42,14),Parent=status})
     local dot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.fromOffset(7,7),Parent=statusGroup}) corner(dot,7)
     text(statusGroup,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-13,1,0),TextXAlignment=Enum.TextXAlignment.Left})
+    -- The theme button wears the current palette instead of an icon: three overlapping
+    -- Accent/AccentLight/AccentDark dots, so the control says what it does without a glyph
+    -- and doubles as a readout of the active theme. Dots opt out of theme bindings because
+    -- they are repainted from the live palette by renderThemeChip.
+    local themeButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Name="ThemeButton",Position=UDim2.new(1,-80,0,19),Size=UDim2.fromOffset(28,28),Text="",Visible=options.ThemePicker~=false,Parent=topbar}) corner(themeButton,9) stroke(themeButton,C.BorderSoft,.25,1) hover(themeButton,C.Surface,C.Hover)
+    local themeDots={}
+    for index=1,3 do
+        local dot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.new(0,3+(index-1)*7,.5,0),Size=UDim2.fromOffset(9,9),ZIndex=4+index,Parent=themeButton}) corner(dot,9) stroke(dot,C.Window,.15,1)
+        unbindTheme(dot,"BackgroundColor3")
+        themeDots[index]=dot
+    end
     local hide=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-43,0,19),Size=UDim2.fromOffset(28,28),Text="–",TextColor3=C.Muted,TextSize=16,Font=Enum.Font.GothamBold,Parent=topbar}) corner(hide,9) stroke(hide,C.BorderSoft,.25,1) hover(hide,C.Surface,C.Hover)
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.25,BorderSizePixel=0,Position=UDim2.new(0,24,1,-1),Size=UDim2.new(1,-48,0,1),Parent=topbar})
     local pageHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-70),ClipsDescendants=true,Parent=content})
@@ -1492,7 +1503,17 @@ function Argon:CreateWindow(options)
             -- Heights are computed rather than left to AutomaticSize: nested automatic
             -- sizing inside a scrolling canvas settles a frame late, which showed up as the
             -- section below a row jumping as you opened the tab.
+            -- relayout WRITES row.Root.Size, and it is also connected to that frame's
+            -- AbsoluteSize. Each write re-entered the handler until Roblox gave up with
+            -- "Maximum event re-entrancy depth exceeded for Object.AbsoluteSizeChanged",
+            -- hundreds of times per session. The guard drops the nested pass (the layout is
+            -- already correct by the time it fires) and the listener below only reacts to a
+            -- real width change, which is the only thing that can alter the outcome.
+            local relaying=false
             local function relayout()
+                if relaying then return end
+                relaying=true
+                local ok,err=pcall(function()
                 balance()
                 local available=row.Root.AbsoluteSize.X
                 if available<=0 then available=owner.Body.AbsoluteSize.X-16 end
@@ -1508,12 +1529,21 @@ function Argon:CreateWindow(options)
                     if height>0 then filled+=1 end
                 end
                 row.Root.Size=UDim2.new(1,0,0,stacked and (total+math.max(0,filled-1)*spacing) or tallest)
+                end)
+                relaying=false
+                if not ok then warn("[Argon UI] Row relayout failed: "..tostring(err)) end
             end
             row._relayout=relayout
             for _,column in ipairs(row.Columns) do
                 connect(column.Layout:GetPropertyChangedSignal("AbsoluteContentSize"),relayout)
             end
-            connect(row.Root:GetPropertyChangedSignal("AbsoluteSize"),relayout)
+            local lastWidth=-1
+            connect(row.Root:GetPropertyChangedSignal("AbsoluteSize"),function()
+                local width=row.Root.AbsoluteSize.X
+                if math.abs(width-lastWidth)<.5 then return end
+                lastWidth=width
+                relayout()
+            end)
             connect(owner.Body:GetPropertyChangedSignal("AbsoluteSize"),relayout)
             relayout()
 
@@ -2539,7 +2569,89 @@ function Argon:CreateWindow(options)
             end)
         end
     end
-    connect(sectionsButton.MouseButton1Click,function() window:_refreshSectionMenu() sectionPopover.Visible=not sectionPopover.Visible end)
+    -- Theme picker. Swatches preview OTHER palettes, so nothing inside a swatch may be
+    -- theme-bound: a binding would repaint every swatch to the active palette and every
+    -- option would look identical. renderThemePicker redraws them from Argon.Themes instead.
+    local themePopover=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundColor3=C.Window,BorderSizePixel=0,Name="ThemePicker",Position=UDim2.new(1,-15,0,52),Size=UDim2.fromOffset(244,0),AutomaticSize=Enum.AutomaticSize.Y,Visible=false,ZIndex=80,Parent=content}) corner(themePopover,12) stroke(themePopover,C.Border,.08,1) padding(themePopover,9,9,9,9)
+    create("UIListLayout",{Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,Parent=themePopover})
+    text(themePopover,"THEMES",9,C.Dim,Enum.Font.GothamBold,{LayoutOrder=0,Size=UDim2.new(1,0,0,11)})
+    local themeGrid=create("Frame",{AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=1,Name="ThemeOptions",Size=UDim2.new(1,0,0,0),Parent=themePopover})
+    create("UIGridLayout",{CellPadding=UDim2.fromOffset(6,6),CellSize=UDim2.fromOffset(110,34),SortOrder=Enum.SortOrder.LayoutOrder,Parent=themeGrid})
+
+    local function renderThemePicker()
+        for index,dot in ipairs(themeDots) do
+            dot.BackgroundColor3=index==1 and C.AccentLight or index==2 and C.Accent or C.AccentDark
+        end
+        for _,option in ipairs(themeGrid:GetChildren()) do
+            if option:IsA("TextButton") then
+                local active=option.Name==Argon.CurrentTheme
+                local outline=option:FindFirstChildOfClass("UIStroke")
+                option.BackgroundColor3=active and C.Active or C.Surface
+                if outline then outline.Color=active and C.Accent or C.BorderSoft outline.Transparency=active and 0 or .25 end
+                local label=option:FindFirstChild("ThemeName")
+                if label then label.TextColor3=active and C.Text or C.Muted end
+            end
+        end
+    end
+    registerThemeRender(themeButton,renderThemePicker)
+
+    local function chooseTheme(name)
+        Argon:SetTheme(name)
+        -- CreateLibrarySettings owns the ArgonUITheme flag. Writing through it keeps the
+        -- dropdown in step and makes the choice persist; without this the next
+        -- LoadConfiguration would restore the dropdown's value over the picked one.
+        if Argon.Flags.ArgonUITheme then Argon:SetFlagValue("ArgonUITheme",{name}) end
+        renderThemePicker()
+    end
+
+    local function buildThemeMenu()
+        for _,child in ipairs(themeGrid:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+        for order,name in ipairs(Argon:GetThemes()) do
+            local palette=Argon.Themes[name] or {}
+            local option=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.12,BorderSizePixel=0,LayoutOrder=order,Name=name,Text="",ZIndex=81,Parent=themeGrid})
+            corner(option,9)
+            -- The outline marks the ACTIVE theme with Accent. Left bound to BorderSoft, the
+            -- binding pass in SetTheme would run after renderThemePicker and wipe that mark.
+            unbindTheme(stroke(option,C.BorderSoft,.25,1),"Color")
+            unbindTheme(option,"BackgroundColor3")
+            -- Accent/AccentLight/AccentDark rather than Accent/Surface/Background: the
+            -- surface and background of a dark theme are almost invisible against this panel,
+            -- so all ten swatches collapsed into one indistinguishable dot.
+            for index,key in ipairs({"AccentLight","Accent","AccentDark"}) do
+                local dot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=palette[key] or C.Surface,BorderSizePixel=0,Position=UDim2.new(0,9+(index-1)*7,.5,0),Size=UDim2.fromOffset(11,11),ZIndex=82+index,Parent=option}) corner(dot,11) stroke(dot,C.Window,.15,1)
+                unbindTheme(dot,"BackgroundColor3")
+            end
+            local label=text(option,name,10,C.Muted,Enum.Font.GothamBold,{Name="ThemeName",Position=UDim2.new(0,39,0,0),Size=UDim2.new(1,-46,1,0),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=82})
+            unbindTheme(label,"TextColor3")
+            connect(option.MouseEnter,function() if option.Name~=Argon.CurrentTheme then option.BackgroundColor3=C.Hover end end)
+            connect(option.MouseLeave,function() if option.Name~=Argon.CurrentTheme then option.BackgroundColor3=C.Surface end end)
+            connect(option.MouseButton1Click,function() chooseTheme(name) end)
+        end
+        renderThemePicker()
+    end
+
+    function window:SetThemePickerVisible(visible)
+        window._themePickerEnabled=visible~=false
+        themeButton.Visible=window._themePickerEnabled and main.AbsoluteSize.X>=520
+        if not window._themePickerEnabled then themePopover.Visible=false end
+        return window._themePickerEnabled
+    end
+    function window:ToggleThemePicker()
+        if not themeButton.Visible then return false end
+        sectionPopover.Visible=false
+        if not themePopover.Visible then buildThemeMenu() end
+        themePopover.Visible=not themePopover.Visible
+        return themePopover.Visible
+    end
+    window._themePickerEnabled=options.ThemePicker~=false
+    connect(themeButton.MouseButton1Click,function() window:ToggleThemePicker() end)
+    -- Only one popover at a time; both hang off the same topbar and would overlap.
+    connect(sectionsButton.MouseButton1Click,function()
+        themePopover.Visible=false
+        window:_refreshSectionMenu()
+        sectionPopover.Visible=not sectionPopover.Visible
+    end)
+    renderThemePicker()
 
     local resizeGrip=create("TextButton",{Active=true,AutoButtonColor=false,AnchorPoint=Vector2.new(1,1),BackgroundTransparency=1,Position=UDim2.fromScale(1,1),Size=UDim2.fromOffset(30,30),Text="",ZIndex=95,Parent=main})
     for offset=0,2 do create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Dim,BackgroundTransparency=.15+offset*.16,BorderSizePixel=0,Position=UDim2.new(1,-7-offset*5,1,-7),Rotation=-45,Size=UDim2.fromOffset(2,10+offset*5),ZIndex=96,Parent=resizeGrip}) end
@@ -2586,7 +2698,13 @@ function Argon:CreateWindow(options)
         tabList.Position=UDim2.fromOffset(compact and 11 or 12,compact and 72 or 146) tabList.Size=UDim2.new(1,compact and -18 or -24,1,compact and -132 or -205)
         for _,tab in ipairs(window.Tabs) do tab.ButtonTitle.Visible=not compact tab.Count.Visible=not compact end
         status.Visible=width>=620 sectionsButton.Visible=width>=720
+        themeButton.Visible=window._themePickerEnabled~=false and width>=520
         if not sectionsButton.Visible then sectionPopover.Visible=false end
+        if not themeButton.Visible then themePopover.Visible=false end
+        -- Reserve only as much of the topbar as the visible buttons actually occupy, so the
+        -- page title gets the width back instead of truncating early on a narrow window.
+        local reserve=sectionsButton.Visible and 271 or (status.Visible and 176 or (themeButton.Visible and 92 or 55))
+        eyebrow.Size=UDim2.new(1,-reserve,0,17) pageTitle.Size=UDim2.new(1,-reserve,0,29)
     end
     connect(workspace:GetPropertyChangedSignal("CurrentCamera"),responsive)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end

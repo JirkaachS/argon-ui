@@ -160,6 +160,17 @@ Open `argon-ui-preview.html`, or the hosted [preview](https://jirkaachs.github.i
 
 Ten built-in palettes: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`, `Slate`, `Ember`, `Nord`, `Mono`, `Ocean`. Register your own with `Argon:AddTheme(name, palette)` and apply it using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
 
+Every window gets a theme picker in the topbar. The button wears the active palette rather than an icon — three overlapping `AccentLight`/`Accent`/`AccentDark` dots — so it reads as a swatch and as a readout of what is applied. Clicking it opens a grid of every registered theme, each option previewing its own palette, with the active one outlined in its accent.
+
+```luau
+local Window = Argon:CreateWindow({ Name = "My Hub", ThemePicker = false })  -- opt out
+
+Window:SetThemePickerVisible(true)   -- bring it back
+Window:ToggleThemePicker()           -- open or close the panel; returns the new state
+```
+
+When `CreateLibrarySettings` is present the picker writes through that tab's `ArgonUITheme` flag, so the dropdown stays in step and the choice survives the next `LoadConfiguration`.
+
 Every control the library builds re-themes itself, including ones that were hovered or mid-animation when the theme changed. If your script builds its own frames outside the library, read the live palette instead of baking in colours:
 
 ```luau

@@ -92,6 +92,13 @@ button{cursor:pointer;border:0;background:transparent}
 .ibtn:hover{color:var(--text);background:var(--hover)}
 .ibtn.on{color:var(--accent-light);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 16%,transparent)}
 .ibtn svg{width:15px;height:15px}
+/* The theme button wears the palette instead of an icon, so it reads as a swatch and as a
+   readout of what is applied. Matches the library's own topbar button. */
+.ibtn.chip{gap:0;padding-left:3px;justify-content:flex-start}
+.ibtn.chip>i{width:9px;height:9px;margin-left:-2px;border-radius:50%;border:1px solid var(--window)}
+.ibtn.chip>i:first-child{margin-left:0;background:var(--accent-light)}
+.ibtn.chip>i:nth-child(2){background:var(--accent)}
+.ibtn.chip>i:nth-child(3){background:var(--accent-dark)}
 
 /* section jump rail */
 .jump{display:flex;gap:6px;align-items:center;padding:9px 20px;overflow-x:auto;border-bottom:1px solid color-mix(in srgb,var(--border) 40%,transparent)}
@@ -315,8 +322,8 @@ textarea.fld{height:auto;min-height:80px;padding:9px 11px;resize:vertical;line-h
 .theme-btn:hover{color:var(--text);border-color:var(--accent)}
 .theme-btn.on{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
 .dots{display:flex;flex:none}
-.dots i{width:9px;height:9px;border-radius:50%;border:1px solid #0006}
-.dots i+i{margin-left:-3px}
+.dots i{width:11px;height:11px;border-radius:50%;border:1px solid var(--window)}
+.dots i+i{margin-left:-4px}
 
 /* ---------------- dialog + toasts ---------------- */
 .scrim{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:20px;background:#00000091;
@@ -430,7 +437,7 @@ textarea.fld{height:auto;min-height:80px;padding:9px 11px;resize:vertical;line-h
         <div><div class="eyebrow" id="eyebrow">ARGON / DASHBOARD</div><div class="page-title" id="title">Dashboard</div></div>
         <div class="top-actions">
           <div class="live"><i></i>LIVE</div>
-          <button class="ibtn" id="themeBtn" title="Change theme" aria-label="Change theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 0 20 2 2 0 0 0 0-4 6 6 0 0 1 0-12 2 2 0 0 0 0-4z"/></svg></button>
+          <button class="ibtn chip" id="themeBtn" title="Change theme" aria-label="Change theme"><i></i><i></i><i></i></button>
           <button class="ibtn on" id="pinBtn" title="Pin overlays" aria-label="Pin overlays"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 10.8V4h6v6.8l2 3.2H7l2-3.2z"/></svg></button>
           <button class="ibtn" id="notifyBtn" title="Preview a notification" aria-label="Preview a notification"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a2 2 0 0 0 3.4 0"/></svg></button>
           <button class="ibtn" id="hideBtn" title="Hide the interface (Insert)" aria-label="Hide the interface"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
@@ -961,9 +968,11 @@ function toggleThemePanel() {
   themePanel.className = 'themes';
   themePanel.innerHTML = '<h6>THEMES</h6><div class="theme-grid">' + THEME_NAMES.map(name => {
     const palette = THEMES[name];
+    // Accent shades, not Accent/Surface/Background: a dark theme's surface and background are
+    // almost invisible on this panel, which collapsed all ten swatches into one dot.
     return '<button class="theme-btn' + (name === state.theme ? ' on' : '') + '" data-theme="' + name + '">' +
-      '<span class="dots"><i style="background:' + palette.Accent + '"></i><i style="background:' + palette.Surface +
-      '"></i><i style="background:' + palette.Background + '"></i></span>' + name + '</button>';
+      '<span class="dots"><i style="background:' + palette.AccentLight + '"></i><i style="background:' + palette.Accent +
+      '"></i><i style="background:' + palette.AccentDark + '"></i></span>' + name + '</button>';
   }).join('') + '</div>';
   document.body.appendChild(themePanel);
   themePanel.style.top = Math.round(anchor.bottom + 8) + 'px';

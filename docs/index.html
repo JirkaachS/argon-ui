@@ -360,6 +360,19 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 .m-scroll{max-height:132px;overflow:hidden}
 .m-grow{flex:1;min-width:220px}
 .m-dlg .b>em{font-style:normal;color:var(--m-text)}
+/* theme picker */
+.m-swatchbtn{display:flex;align-items:center;width:28px;height:28px;padding-left:3px;border:1px solid var(--m-border2);border-radius:9px;background:var(--m-surface)}
+.m-swatchbtn>i{width:9px;height:9px;margin-left:-2px;border-radius:50%;border:1px solid #0d1119}
+.m-swatchbtn>i:first-child{margin-left:0;background:var(--m-accent2)}
+.m-swatchbtn>i:nth-child(2){background:var(--m-accent)}
+.m-swatchbtn>i:nth-child(3){background:var(--m-accent3)}
+.m-themes{width:244px;margin:10px 0 0 auto;padding:9px;border:1px solid var(--m-border2);border-radius:12px;background:#0d1119}
+.m-themegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:7px}
+.m-theme{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--m-border);border-radius:9px;color:var(--m-muted);font:700 10.5px/1.2 Inter,system-ui}
+.m-theme.on{border-color:var(--m-accent);background:var(--m-input);color:var(--m-text)}
+.m-theme>b{display:flex;flex:none}
+.m-theme>b>i{width:11px;height:11px;margin-left:-4px;border-radius:50%;border:1px solid #0d1119}
+.m-theme>b>i:first-child{margin-left:0}
 @media print{figure.mock{background:#fff}}
 </style>
 </head>
@@ -368,7 +381,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.14.0</span>
+  <span class="badge" id="verBadge">v1.15.0</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -491,6 +504,7 @@ local Argon = loadArgon()</code></pre>
 <tr><td><code>PlayerList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable player overlay.</td></tr>
 <tr><td><code>KeybindList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable active-keybind overlay.</td></tr>
 <tr><td><code>OverlaysAlwaysVisible</code></td><td>boolean</td><td><code>false</code></td><td>Keep overlays on screen after the main window is hidden.</td></tr>
+<tr><td><code>ThemePicker</code></td><td>boolean</td><td><code>true</code></td><td>Show the palette button in the topbar.</td></tr>
 <tr><td><code>ToggleUIKeybind</code></td><td>KeyCode</td><td><code>Insert</code></td><td>Key that hides and restores the interface.</td></tr>
 </tbody></table></div>
 <p>Press <kbd>/</kbd> while the window is open to focus the active tab's search field. Drag the window edges to resize; the minimum size is 560×400 and the layout collapses the sidebar on narrow viewports.</p>
@@ -1028,6 +1042,32 @@ Argon:ResetConfiguration()    -- clears stored values and deletes the file</code
 
 <h2 id="themes">Themes</h2>
 <p>Ten built-in palettes: <code>Argon</code>, <code>Amethyst</code>, <code>Midnight</code>, <code>Emerald</code>, <code>Rose</code>, <code>Slate</code>, <code>Ember</code>, <code>Nord</code>, <code>Mono</code>, and <code>Ocean</code>. Theme changes apply live to existing controls.</p>
+
+<h3>The topbar picker <span class="badge">new</span></h3>
+<p>Every window gets a palette button in the topbar. It wears the current theme instead of an icon — three overlapping <code>AccentLight</code> / <code>Accent</code> / <code>AccentDark</code> dots — so it doubles as a readout of what is active. Clicking it opens a grid of every registered theme, each swatch previewing its own palette, with the active one outlined in its accent.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-toprow" style="align-items:center">
+  <div><div class="m-crumb">ARGON / MAIN</div><div class="m-h" style="margin-bottom:0">Main</div></div>
+  <div class="m-topr"><span class="m-chip">SECTIONS</span><span class="m-chip">LIVE</span><span class="m-swatchbtn"><i></i><i></i><i></i></span></div>
+</div>
+<div class="m-themes">
+  <div class="m-navh">THEMES</div>
+  <div class="m-themegrid">
+    <span class="m-theme"><b><i style="background:#d3bcff"></i><i style="background:#a855f7"></i><i style="background:#6b21a8"></i></b>Amethyst</span>
+    <span class="m-theme on"><b><i style="background:#c3aaff"></i><i style="background:#9970ff"></i><i style="background:#5c3db8"></i></b>Argon</span>
+    <span class="m-theme"><b><i style="background:#ffbe96"></i><i style="background:#ff8a4c"></i><i style="background:#be4a1a"></i></b>Ember</span>
+    <span class="m-theme"><b><i style="background:#97f6d3"></i><i style="background:#34d399"></i><i style="background:#0f7658"></i></b>Emerald</span>
+    <span class="m-theme"><b><i style="background:#8ab4ff"></i><i style="background:#5b8def"></i><i style="background:#2d4f9e"></i></b>Midnight</span>
+    <span class="m-theme"><b><i style="background:#ffffff"></i><i style="background:#e2e2e8"></i><i style="background:#8c8c96"></i></b>Mono</span>
+  </div>
+</div>
+</div><figcaption>The palette button sits beside SECTIONS and LIVE; the panel drops beneath it with a swatch per theme</figcaption></figure>
+<pre><button class="copy">Copy</button><code>-- Shown by default. Hide it on a window that owns its own theming UI.
+local Window = Argon:CreateWindow({ Name = "My Hub", ThemePicker = false })
+
+Window:SetThemePickerVisible(true)   -- bring it back
+Window:ToggleThemePicker()           -- open or close the panel; returns the new state</code></pre>
+<div class="note"><strong>It persists on its own.</strong> When <code>CreateLibrarySettings</code> is present the picker writes through that tab's <code>ArgonUITheme</code> flag, so the dropdown stays in step and the choice survives the next <code>LoadConfiguration</code>.</div>
 <pre><button class="copy">Copy</button><code>print(Argon:GetThemes())
 Window:SetTheme("Midnight")
 
@@ -1228,9 +1268,14 @@ local Rayfield = loadstring(game:HttpGet(
 <p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
 <pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
 lune run tests/run.luau</code></pre>
-<p>197 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
+<p>210 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.15.0</h3>
+<ul>
+<li>A theme picker in the topbar: a palette button wearing the active accent, opening a grid of every registered theme with per-theme swatch previews. <code>ThemePicker</code>, <code>SetThemePickerVisible</code>, and <code>ToggleThemePicker</code> control it, and it writes through the <code>ArgonUITheme</code> flag so the choice persists.</li>
+<li>Fixed row layout re-entrancy: <code>relayout</code> writes the row's size and was also listening to that frame's <code>AbsoluteSize</code>, so every write re-entered the handler until Roblox aborted it. One live session logged 212 <em>Maximum event re-entrancy depth exceeded</em> errors; it now logs none.</li>
+</ul>
 <h3>1.14.0</h3>
 <ul>
 <li>Locked controls now show a self-contained padlock badge instead of a plain scrim, collapsing from the full reason to <code>LOCKED</code> to the padlock alone as the column narrows.</li>

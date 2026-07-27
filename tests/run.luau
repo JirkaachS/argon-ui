@@ -38,7 +38,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.14.0", Argon.Version == "1.14.0", Argon.Version)
+check("version is 1.15.0", Argon.Version == "1.15.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -260,6 +260,37 @@ check("a lone control on a line is not stretched", (function()
 	oddRow._balance()
 	-- Line 2 holds only "Three", so its natural height must survive untouched.
 	return three.Root.Size.Y.Offset == 54, three.Root.Size.Y.Offset
+end)())
+check("relayout cannot re-enter itself", (function()
+	-- Regression: relayout writes row.Root.Size and was also connected to that frame's
+	-- AbsoluteSize, so every write re-entered the handler until Roblox bailed out with
+	-- "Maximum event re-entrancy depth exceeded for Object.AbsoluteSizeChanged" — 212 of
+	-- them in one live session. Re-entering must be a no-op, not a chain.
+	local row = rowTab:CreateRow({ Columns = 2 })
+	row:CreateToggle({ Name = "Reentry", CurrentValue = false })
+	row:CreateSlider({ Name = "ReentryB", Range = { 0, 10 }, Increment = 1, CurrentValue = 3 })
+	task.wait(0.1)
+	local depth, deepest, entered = 0, 0, 0
+	local connection = row.Root:GetPropertyChangedSignal("Size"):Connect(function()
+		entered += 1
+		depth += 1
+		if depth > deepest then deepest = depth end
+		row._relayout() -- exactly what the AbsoluteSize listener used to do
+		depth -= 1
+	end)
+	row.Root.Size = UDim2.new(1, 0, 0, 999)
+	connection:Disconnect()
+	return entered > 0 and deepest <= 2, ("entered %d, deepest %d"):format(entered, deepest)
+end)())
+check("repeated relayout passes settle on one size", (function()
+	local row = rowTab:CreateRow({ Columns = 2 })
+	row:CreateToggle({ Name = "Settle", CurrentValue = false })
+	row:CreateSlider({ Name = "SettleB", Range = { 0, 10 }, Increment = 1, CurrentValue = 3 })
+	task.wait(0.1)
+	row._relayout()
+	local settled = row.Root.Size
+	for _ = 1, 6 do row._relayout() end
+	return row.Root.Size == settled, tostring(row.Root.Size)
 end)())
 check("row controls follow a theme switch", (function()
 	Argon:SetTheme("Ocean")
@@ -791,6 +822,63 @@ check("a recoloured control still follows the next theme", (function()
 	end
 	return false, tostring(toggle.Root.BackgroundColor3)
 end)())
+section("the topbar theme picker")
+local themePicker = jsonWindow.Content:FindFirstChild("ThemePicker")
+local themeOptions = themePicker and themePicker:FindFirstChild("ThemeOptions")
+check("the picker panel exists and starts closed", themePicker ~= nil and themePicker.Visible == false)
+check("ToggleThemePicker opens it", (function()
+	Argon:SetTheme("Argon")
+	return jsonWindow:ToggleThemePicker() == true and themePicker.Visible == true
+end)())
+check("it builds one swatch per registered theme", (function()
+	local built = 0
+	for _, child in ipairs(themeOptions:GetChildren()) do
+		if child:IsA("TextButton") then built += 1 end
+	end
+	return built == #Argon:GetThemes(), built .. " of " .. #Argon:GetThemes()
+end)())
+check("each swatch previews its own palette, not the active one", (function()
+	-- Regression guard: a theme binding on these dots would repaint every swatch to the
+	-- live palette, making all ten options look identical.
+	local ocean = themeOptions:FindFirstChild("Ocean")
+	if not ocean then return false, "no Ocean swatch" end
+	for _, dot in ipairs(ocean:GetChildren()) do
+		if dot:IsA("Frame") and dot.BackgroundColor3 == Argon.Themes.Ocean.Accent then return true end
+	end
+	return false, "no dot carried Ocean's accent"
+end)())
+check("picking a swatch switches the theme", (function()
+	themeOptions.Emerald.MouseButton1Click:Fire()
+	task.wait()
+	return Argon.CurrentTheme == "Emerald" and Argon:GetColor("Accent") == Argon.Themes.Emerald.Accent
+end)())
+check("the active swatch is outlined with the accent", (function()
+	local outline = themeOptions.Emerald:FindFirstChildOfClass("UIStroke")
+	return outline ~= nil and outline.Color == Argon.Themes.Emerald.Accent, outline and tostring(outline.Color)
+end)())
+check("a theme switch from elsewhere restyles the picker", (function()
+	Argon:SetTheme("Rose")
+	task.wait()
+	local emerald = themeOptions.Emerald:FindFirstChildOfClass("UIStroke")
+	local rose = themeOptions.Rose:FindFirstChildOfClass("UIStroke")
+	return rose.Color == Argon.Themes.Rose.Accent and emerald.Color ~= Argon.Themes.Rose.Accent
+end)())
+check("ToggleThemePicker closes it again", (function()
+	return jsonWindow:ToggleThemePicker() == false and themePicker.Visible == false
+end)())
+check("SetThemePickerVisible(false) hides the button and panel", (function()
+	jsonWindow:ToggleThemePicker()
+	jsonWindow:SetThemePickerVisible(false)
+	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton")
+	return themePicker.Visible == false and button ~= nil and button.Visible == false
+end)())
+check("SetThemePickerVisible(true) brings it back", (function()
+	jsonWindow:SetThemePickerVisible(true)
+	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton")
+	return button.Visible == true and jsonWindow:ToggleThemePicker() == true
+end)())
+Argon:SetTheme("Argon")
+
 check("Notify runs", (pcall(function() Argon:Notify({ Title = "Test", Content = "hello", Duration = 1 }) end)))
 check("Dialog runs", (pcall(function()
 	jsonWindow:Dialog({ Title = "Confirm", Content = "ok?", Buttons = { { Title = "Cancel" }, { Title = "Ok" } } })
@@ -858,6 +946,17 @@ local exported = overlayWindow:_exportUIPreferences()
 check("preference is exported for persistence", exported.OverlaysAlwaysVisible == false)
 overlayWindow:_applyUIPreferences({ OverlaysAlwaysVisible = true, PlayerListEnabled = true, KeybindListEnabled = true })
 check("preference is restored", overlayWindow:AreOverlaysAlwaysVisible() == true)
+
+section("a window can opt out of the theme picker")
+-- Last, on purpose: CreateWindow resets Argon.Flags and re-gates persistence, so building a
+-- throwaway window earlier would pull the rug out from under the configuration sections.
+check("ThemePicker = false hides the button and refuses to open the panel", (function()
+	local opted = Argon:CreateWindow({ Name = "NoPicker", GuiName = "ArgonNoPicker", ThemePicker = false })
+	local button = opted.Content.TopBar:FindFirstChild("ThemeButton")
+	local hidden = button ~= nil and button.Visible == false
+	local refused = opted:ToggleThemePicker() == false
+	return hidden and refused, ("hidden=%s refused=%s"):format(tostring(hidden), tostring(refused))
+end)())
 
 section("no unexpected runtime warnings")
 local unexpected = {}
