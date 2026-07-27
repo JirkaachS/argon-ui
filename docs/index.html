@@ -6,101 +6,395 @@
 <meta name="description" content="Argon UI is a standalone Roblox UI library with tabs, sections, 18 controls, themes, overlays, dialogs, and verified configuration persistence.">
 <link rel="icon" href="argon-ui-logo.svg">
 <style>
-:root{--bg:#07090e;--panel:#0e131b;--panel2:#141b25;--line:#26303e;--text:#eef4fa;--muted:#98a8b8;--dim:#6d7d8e;--accent:#9970ff;--accent2:#c0a6ff;--cyan:#5de1eb;--green:#63dfa0;--amber:#ffc568;--red:#ff7785;--radius:14px;--sidebar:270px;--mono:"Cascadia Code",ui-monospace,Consolas,monospace}
-*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:80px}
-body{margin:0;background:radial-gradient(1000px 560px at 88% -12%,#1d1836 0,transparent 68%),var(--bg);color:var(--text);font:15px/1.62 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-a{color:var(--accent2);text-decoration:none}a:hover{text-decoration:underline}
-button,input{font:inherit}button{cursor:pointer}
-code{font-family:var(--mono);font-size:.88em}
-:not(pre)>code{padding:2px 6px;border-radius:6px;background:#0a1219;color:#cbe7ee;border:1px solid #1d2937}
-.skip{position:fixed;left:12px;top:-60px;z-index:99;padding:10px 14px;background:#fff;color:#000;border-radius:9px}.skip:focus{top:12px}
-header.top{position:sticky;top:0;z-index:40;border-bottom:1px solid var(--line);background:#070a0fe8;backdrop-filter:blur(16px)}
-.top-in{display:flex;align-items:center;gap:14px;padding:11px 20px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.02em}
-.brand img{width:31px;height:31px}
-.badge{padding:3px 8px;border:1px solid #4a3d7a;border-radius:999px;background:#171432;color:var(--accent2);font-size:11px;font-weight:800}
-.top-links{display:flex;gap:6px;margin-left:auto}
-.top-links a{padding:7px 11px;border-radius:9px;color:var(--muted);font-size:13px}
-.top-links a:hover{color:var(--text);background:#141c26;text-decoration:none}
-.menu-btn{display:none;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#131b24;color:var(--text)}
-.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:34px;max-width:1400px;margin:auto;padding:0 20px}
-nav.side{position:sticky;top:56px;align-self:start;height:calc(100vh - 66px);padding:22px 6px 40px;overflow:auto}
-nav.side input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:#080c12;color:var(--text);outline:0}
-nav.side input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #9970ff22}
-.nav-group{margin-top:18px}
-.nav-group h4{margin:0 0 6px;padding-left:10px;color:var(--dim);font-size:10px;letter-spacing:.14em;text-transform:uppercase}
-nav.side a{display:block;padding:6px 10px;border-left:2px solid transparent;border-radius:0 7px 7px 0;color:var(--muted);font-size:13.5px}
-nav.side a:hover{color:var(--text);background:#111823;text-decoration:none}
-nav.side a.active{color:var(--text);background:#151d2a;border-left-color:var(--accent)}
-main{padding:34px 0 90px;min-width:0}
-.hero{padding:26px 0 10px}
-.hero h1{margin:6px 0 12px;font-size:clamp(38px,6vw,66px);line-height:1;letter-spacing:-.05em}
-.hero p.lede{max-width:760px;color:#b3c1cd;font-size:18px}
-.pillrow{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
-.pill{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:#0f151d;color:var(--muted);font-size:12.5px}
-h2{margin:52px 0 6px;padding-top:6px;font-size:29px;letter-spacing:-.03em;scroll-margin-top:78px}
-h3{margin:30px 0 6px;font-size:19px;scroll-margin-top:78px}
-h4{margin:22px 0 6px;font-size:15px;color:var(--accent2)}
-p{color:#c2ced9}
-.note{margin:16px 0;padding:13px 16px;border-left:3px solid var(--cyan);border-radius:0 11px 11px 0;background:#0d151c;color:#c6d3dd}
-.note.warn{border-color:var(--amber);background:#191408}
+/* ===================== DESIGN TOKENS =====================
+   Chrome colours are themeable. Code blocks and the control mockups stay dark
+   in both themes on purpose: the mockups depict an in-game dark interface, and
+   keeping the syntax palette fixed avoids two sets of token colours. */
+:root{
+ color-scheme:dark;
+ --bg:#06080d;--glow:#221b40;--panel:#0c1117;--panel2:#111a24;--panel3:#0a0e14;
+ --line:#1b2530;--line-soft:#151e28;
+ --text:#e9f0f7;--muted:#94a4b5;--dim:#65778a;
+ --accent:#9970ff;--accent2:#c0a6ff;--accent-soft:#9970ff1f;--accent-bd:#9970ff4d;
+ --cyan:#5de1eb;--green:#63dfa0;--amber:#ffc568;--red:#ff7785;
+ --inline-bg:#0a1219;--inline-fg:#cbe7ee;--inline-bd:#1d2937;
+ --kbd-bg:#101821;--kbd-bd:#28323f;
+ --radius:14px;--r-sm:10px;--sidebar:256px;--tocw:212px;--measure:78ch;
+ --mono:"Cascadia Code",ui-monospace,Consolas,monospace;
+ --sans:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+ --sh:0 20px 55px #00000073;
+ --code-bg:#070b10;--code-bar:#0b1119;--code-bd:#18212c;--code-fg:#d5e3ee;
+ --c-kw:#c792ff;--c-str:#8fe6a9;--c-num:#ffc568;--c-com:#5c6c7d;--c-fn:#6fd8ff;--c-prop:#e0b7ff;--c-punc:#8ba0b3;
+}
+html[data-theme="light"]{
+ color-scheme:light;
+ --bg:#f5f7fb;--glow:#e4dbff;--panel:#ffffff;--panel2:#f2f4f9;--panel3:#fafbfd;
+ --line:#dee4ed;--line-soft:#e8ecf3;
+ --text:#0f1620;--muted:#526070;--dim:#78868f;
+ --accent:#6b3ee0;--accent2:#5729c9;--accent-soft:#6b3ee012;--accent-bd:#6b3ee040;
+ --cyan:#0a7f8f;--green:#0f7a52;--amber:#8a5a00;--red:#c02b44;
+ --inline-bg:#eff2f8;--inline-fg:#5a2fa8;--inline-bd:#dde3ec;
+ --kbd-bg:#eef1f7;--kbd-bd:#d5dce6;
+ --sh:0 14px 38px #1a1f2a1a;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:104px;-webkit-text-size-adjust:100%}
+body{margin:0;background:radial-gradient(1100px 620px at 92% -14%,var(--glow) 0,transparent 66%),var(--bg);color:var(--text);font:15.5px/1.68 var(--sans);font-feature-settings:"cv11","ss01"}
+a{color:var(--accent2);text-decoration:none}
+a:hover{text-decoration:underline;text-underline-offset:2px}
+button,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+code{font-family:var(--mono);font-size:.87em}
+:not(pre)>code{padding:2px 6px;border-radius:6px;background:var(--inline-bg);color:var(--inline-fg);border:1px solid var(--inline-bd);word-break:break-word}
+kbd{padding:2px 7px;border:1px solid var(--kbd-bd);border-bottom-width:2px;border-radius:6px;background:var(--kbd-bg);color:var(--text);font:600 .82em/1.4 var(--mono)}
+.skip{position:fixed;left:12px;top:-60px;z-index:99;padding:10px 14px;background:var(--accent);color:#fff;border-radius:9px;font-weight:700}
+.skip:focus{top:12px}
+::selection{background:#9970ff4d}
+
+/* ===================== HEADER ===================== */
+header.top{position:sticky;top:0;z-index:40;border-bottom:1px solid var(--line);background:var(--bg);background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(18px) saturate(140%)}
+.top-in{display:flex;align-items:center;gap:12px;max-width:1520px;margin:auto;padding:10px 22px}
+.brand{display:flex;align-items:center;gap:9px;color:var(--text);font-weight:800;letter-spacing:-.01em}
+.brand img{width:28px;height:28px}
+.badge{padding:3px 8px;border:1px solid var(--accent-bd);border-radius:999px;background:var(--accent-soft);color:var(--accent2);font:800 11px/1.5 var(--sans);white-space:nowrap}
+#crumb{display:none;padding-left:12px;border-left:1px solid var(--line);color:var(--dim);font:600 12px/1.4 var(--sans);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:30ch}
+#crumb b{color:var(--muted);font-weight:600}
+@media(min-width:900px){#crumb{display:block}}
+.top-links{display:flex;gap:2px;margin-left:auto}
+.top-links a{padding:7px 11px;border-radius:9px;color:var(--muted);font-size:13.5px}
+.top-links a:hover{color:var(--text);background:var(--panel2);text-decoration:none}
+.iconbtn{display:grid;place-items:center;width:34px;height:34px;padding:0;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--muted)}
+.iconbtn:hover{color:var(--text);border-color:var(--accent-bd)}
+.iconbtn svg{width:16px;height:16px}
+html[data-theme="light"] .iconbtn .moon,html:not([data-theme="light"]) .iconbtn .sun{display:none}
+.menu-btn{display:none;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text);font-size:13px;font-weight:600}
+.menu-btn svg{width:15px;height:15px}
+#progress{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:linear-gradient(90deg,var(--accent),var(--cyan));transition:width .12s linear}
+
+/* ===================== SHELL ===================== */
+.shell{display:grid;grid-template-columns:var(--sidebar) minmax(0,1fr);gap:40px;max-width:1520px;margin:auto;padding:0 22px}
+@media(min-width:1280px){.shell{grid-template-columns:var(--sidebar) minmax(0,1fr) var(--tocw)}}
+#backdrop{position:fixed;inset:0;z-index:34;background:#03060ac2;backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .18s}
+#backdrop.on{opacity:1;pointer-events:auto}
+
+/* ===================== SIDEBAR ===================== */
+nav.side{position:sticky;top:53px;align-self:start;height:calc(100vh - 60px);padding:20px 4px 48px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.searchwrap{position:relative;margin-bottom:6px}
+.searchwrap svg{position:absolute;left:11px;top:50%;width:14px;height:14px;margin-top:-7px;color:var(--dim);pointer-events:none}
+nav.side input{width:100%;padding:9px 34px 9px 32px;border:1px solid var(--line);border-radius:10px;background:var(--panel3);color:var(--text);font-size:13.5px;outline:0}
+nav.side input::placeholder{color:var(--dim)}
+nav.side input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.searchwrap kbd{position:absolute;right:8px;top:50%;margin-top:-11px;font-size:10px;pointer-events:none}
+.searchwrap:focus-within kbd{display:none}
+.nav-group{margin-top:20px}
+.nav-group h4{display:flex;align-items:center;gap:7px;margin:0 0 7px;padding-left:11px;color:var(--dim);font:800 10px/1 var(--sans);letter-spacing:.15em;text-transform:uppercase}
+.nav-group h4::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+nav.side a{position:relative;display:block;padding:6px 11px;border-radius:8px;color:var(--muted);font-size:13.5px;line-height:1.5}
+nav.side a:hover{color:var(--text);background:var(--panel2);text-decoration:none}
+nav.side a.active{color:var(--text);background:var(--accent-soft);font-weight:600}
+nav.side a.active::before{content:"";position:absolute;left:-4px;top:7px;bottom:7px;width:2px;border-radius:2px;background:var(--accent)}
+#noresults{display:none;margin-top:10px;padding:10px 11px;border:1px dashed var(--line);border-radius:9px;color:var(--dim);font-size:12.5px}
+
+/* ===================== ON THIS PAGE ===================== */
+aside.toc{display:none;position:sticky;top:53px;align-self:start;height:calc(100vh - 60px);padding:24px 0 48px;overflow-y:auto;scrollbar-width:thin}
+@media(min-width:1280px){aside.toc{display:block}}
+aside.toc h5{margin:0 0 9px;padding-left:12px;color:var(--dim);font:800 10px/1 var(--sans);letter-spacing:.15em;text-transform:uppercase}
+aside.toc a{display:block;padding:4px 12px;border-left:1px solid var(--line);color:var(--dim);font-size:12.5px;line-height:1.5}
+aside.toc a:hover{color:var(--text);text-decoration:none;border-left-color:var(--muted)}
+aside.toc a.sub{padding-left:24px;font-size:12px}
+aside.toc a.active{color:var(--accent2);border-left-color:var(--accent);font-weight:600}
+
+/* ===================== CONTENT ===================== */
+main{padding:30px 0 96px;min-width:0}
+main>p,main>ul,main>.note{max-width:var(--measure)}
+p{color:var(--muted)}
+p strong,li strong{color:var(--text);font-weight:650}
+main>ul{padding-left:22px;color:var(--muted)}
+main>ul li{margin:4px 0}
+
+.hero{margin-bottom:8px;padding:30px 0 6px}
+.hero h1{margin:12px 0 14px;font-size:clamp(40px,6.4vw,68px);line-height:.98;letter-spacing:-.045em;background:linear-gradient(160deg,var(--text) 22%,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lede{max-width:66ch;color:var(--text);font-size:18.5px;line-height:1.58;opacity:.86}
+.pillrow{display:flex;flex-wrap:wrap;gap:7px;margin:22px 0 0}
+.pill{padding:5px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);font-size:12.5px}
+.ctarow{display:flex;flex-wrap:wrap;gap:9px;margin:24px 0 4px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 17px;border:1px solid var(--line);border-radius:11px;background:var(--panel);color:var(--text);font:650 13.5px/1 var(--sans)}
+.btn:hover{border-color:var(--accent-bd);text-decoration:none;background:var(--panel2)}
+.btn.primary{border-color:transparent;background:linear-gradient(135deg,var(--accent),#7048e0);color:#fff;box-shadow:0 8px 24px #9970ff33}
+.btn.primary:hover{filter:brightness(1.08);background:linear-gradient(135deg,var(--accent),#7048e0)}
+.btn svg{width:15px;height:15px}
+
+h2{position:relative;margin:64px 0 10px;padding-top:26px;border-top:1px solid var(--line);font-size:28px;letter-spacing:-.032em;scroll-margin-top:100px}
+h2::after{content:"";position:absolute;left:0;top:-1px;width:44px;height:2px;background:var(--accent)}
+.hero+h2{margin-top:36px}
+h3{margin:34px 0 6px;font-size:18.5px;letter-spacing:-.015em;scroll-margin-top:100px}
+h4{margin:22px 0 6px;font-size:14.5px;color:var(--accent2)}
+h2 .anchor,h3 .anchor{position:absolute;margin-left:8px;padding:0 4px;color:var(--dim);font-weight:400;text-decoration:none;opacity:0;transition:opacity .13s}
+h3{position:relative}
+h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+
+.note{position:relative;max-width:var(--measure);margin:18px 0;padding:14px 17px 14px 44px;border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:0 12px 12px 0;background:var(--panel);color:var(--muted)}
+.note::before{content:"i";position:absolute;left:15px;top:14px;display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--cyan);color:#04222a;font:800 11px/1 var(--sans)}
+.note.warn{border-left-color:var(--amber)}
+.note.warn::before{content:"!";background:var(--amber);color:#241800}
 .note strong{color:var(--text)}
-pre{position:relative;margin:14px 0;padding:16px;overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:#080c11;color:#d9e6ef;line-height:1.55}
+
+/* ===================== CODE ===================== */
+.codewrap{margin:16px 0;border:1px solid var(--code-bd);border-radius:var(--radius);background:var(--code-bg);overflow:hidden}
+.codebar{display:flex;align-items:center;gap:9px;padding:7px 10px 7px 13px;border-bottom:1px solid var(--code-bd);background:var(--code-bar)}
+.codebar .lang{color:#7f93a8;font:700 10.5px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.codebar .dots{display:flex;gap:5px;margin-right:2px}
+.codebar .dots i{width:8px;height:8px;border-radius:50%;background:#232e3c}
+.codewrap pre{margin:0;border:0;border-radius:0;background:transparent}
+pre{margin:16px 0;padding:15px 16px;overflow:auto;border:1px solid var(--code-bd);border-radius:var(--radius);background:var(--code-bg);color:var(--code-fg);font-size:13.5px;line-height:1.62;tab-size:4}
 pre code{color:inherit}
-.copy{position:absolute;right:9px;top:9px;padding:4px 9px;border:1px solid #33404f;border-radius:7px;background:#121a24;color:var(--muted);font:11px/1.2 system-ui}
-.copy:hover{color:var(--text);border-color:var(--accent)}
-table{width:100%;margin:14px 0;border-collapse:collapse;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;font-size:14px}
-th,td{padding:10px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
-th{background:#141c26;color:var(--muted);font-size:11px;letter-spacing:.07em;text-transform:uppercase}
-tr:last-child td{border-bottom:0}
+.copy{margin-left:auto;padding:4px 10px;border:1px solid #2a3746;border-radius:7px;background:#111a25;color:#8ea1b4;font:700 11px/1.3 var(--sans)}
+.copy:hover{color:#fff;border-color:var(--accent)}
+.copy.done{border-color:var(--green);color:var(--green)}
+.tk-kw{color:var(--c-kw)}.tk-str{color:var(--c-str)}.tk-num{color:var(--c-num)}
+.tk-com{color:var(--c-com);font-style:italic}.tk-fn{color:var(--c-fn)}.tk-prop{color:var(--c-prop)}
+.tk-punc{color:var(--c-punc)}.tk-lit{color:var(--c-num)}
+
+/* ===================== TABLES ===================== */
+.tw{max-width:100%;margin:18px 0;overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+table{width:100%;margin:0;border-collapse:collapse;font-size:14px}
+th,td{padding:11px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line-soft)}
+th{position:sticky;top:0;background:var(--panel2);color:var(--muted);font:800 10.5px/1.5 var(--sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+td{color:var(--muted)}
+td:first-child{color:var(--text)}
 td code{white-space:nowrap}
-.tw{overflow-x:auto;border-radius:var(--radius)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(232px,1fr));gap:12px;margin:16px 0}
-.card{padding:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
-.card h4{margin:0 0 5px;color:var(--text)}
-.card p{margin:0;color:var(--muted);font-size:13.5px}
-.card .tag{display:inline-block;margin-bottom:8px;padding:2px 7px;border-radius:999px;background:#1b1636;color:var(--accent2);font-size:10px;font-weight:800;letter-spacing:.06em}
-.card .tag.new{background:#12271d;color:var(--green)}
-.api{margin:16px 0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-.api-head{padding:12px 15px;border-bottom:1px solid var(--line);background:#131a24;font-family:var(--mono);font-size:13.5px;color:var(--cyan)}
-.api-body{padding:14px 15px}
+tbody tr:hover td{background:var(--accent-soft)}
+tr:last-child td{border-bottom:0}
+
+/* ===================== CARDS ===================== */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:12px;margin:18px 0}
+.card{padding:15px 16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--accent-bd);transform:translateY(-2px)}
+.card h4{margin:0 0 4px;color:var(--text);font-size:14.5px}
+.card p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.55}
+.card .tag{display:inline-block;margin-bottom:9px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent2);font:800 10px/1.6 var(--sans);letter-spacing:.07em}
+.card .tag.new{background:#63dfa01f;color:var(--green)}
+a.card{display:block;color:inherit}
+a.card:hover{text-decoration:none}
+a.card .go{display:block;margin-top:9px;color:var(--accent2);font:700 12px/1 var(--sans)}
+
+/* ===================== API BLOCKS ===================== */
+.api{margin:14px 0;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden}
+.api-head{padding:11px 15px;border-bottom:1px solid var(--line);background:var(--panel2);font-family:var(--mono);font-size:13px;color:var(--cyan);word-break:break-word}
+.api-body{padding:13px 15px}
+.api-body p{max-width:var(--measure);color:var(--muted);font-size:14px}
 .api-body p:first-child{margin-top:0}
 .api-body p:last-child{margin-bottom:0}
-footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);color:var(--dim);font-size:13px}
+
+/* ===================== BACK TO TOP + FOOTER ===================== */
+#totop{position:fixed;right:20px;bottom:20px;z-index:30;display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--muted);box-shadow:var(--sh);opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;transform:translateY(6px)}
+#totop.on{opacity:1;pointer-events:auto;transform:none}
+#totop:hover{color:var(--text);border-color:var(--accent-bd)}
+#totop svg{width:17px;height:17px}
+footer{margin-top:68px;padding:24px 0 60px;border-top:1px solid var(--line);color:var(--dim);font-size:13.5px}
+footer p{color:var(--dim)}
 [hidden]{display:none!important}
-#noresults{display:none;padding:12px;color:var(--muted);font-size:13px}
+
+@media(max-width:1279px){
+ .shell{gap:34px}
+}
 @media(max-width:1000px){
  .shell{grid-template-columns:1fr;gap:0}
- nav.side{position:fixed;inset:52px 0 auto 0;z-index:35;height:auto;max-height:72vh;padding:16px;border-bottom:1px solid var(--line);background:#080c12f5;backdrop-filter:blur(16px);display:none}
- nav.side.open{display:block}
- .menu-btn{display:block}
- .top-links{display:none}
+ nav.side{position:fixed;left:0;top:52px;bottom:0;z-index:36;width:min(320px,86vw);height:auto;padding:18px 12px 40px;border-right:1px solid var(--line);background:var(--bg);box-shadow:var(--sh);transform:translateX(-102%);transition:transform .2s ease;display:block}
+ nav.side.open{transform:none}
+ .menu-btn{display:inline-flex}
+ .top-links a:not(.keep){display:none}
+ h2{margin-top:52px}
 }
-@media(max-width:560px){.hero h1{font-size:37px}h2{font-size:24px}.top-in{padding:10px 14px}.shell{padding:0 14px}}
-@media print{header.top,nav.side,.copy{display:none}.shell{display:block}body{background:#fff;color:#111}pre,table,.card,.api{background:#fff;border-color:#bbb}p,td,.card p{color:#333}}
+@media(max-width:560px){
+ .hero{padding-top:18px}
+ .hero h1{font-size:38px}
+ h2{font-size:23px}
+ .top-in{padding:9px 14px}
+ .shell{padding:0 15px}
+ .btn{flex:1;justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+@media print{
+ header.top,nav.side,aside.toc,.copy,#totop,#backdrop,.codebar{display:none}
+ .shell{display:block;max-width:none;padding:0}
+ body{background:#fff;color:#111}
+ pre,.codewrap{background:#f6f7f9;color:#111;border-color:#bbb}
+ table,.card,.api,.note{background:#fff;border-color:#bbb}
+ p,td,.card p,.api-body p{color:#333}
+ h2{page-break-after:avoid}
+ .codewrap,figure.mock,.tw{page-break-inside:avoid}
+}
+
+/* ============================ MOCKUPS ============================
+   Static HTML replicas of the real controls, using the Argon palette and the
+   library's own metrics (54px toggle rows, 44x24 tracks, 8px slider grooves,
+   10px row radius). They are decorative: every mock is aria-hidden and the code
+   block beside it carries the same information for a screen reader. */
+:root{
+ --m-surface:#131721;--m-hover:#181d29;--m-input:#0e121b;--m-bg:#080a10;
+ --m-border:#1f2431;--m-border2:#2c3141;--m-text:#f1f3f9;--m-muted:#969db1;--m-dim:#626a80;
+ --m-accent:#9970ff;--m-accent2:#c3aaff;--m-accent3:#5c3db8;--m-warn:#f7be4f;--m-danger:#ff657c;--m-ok:#4adea2;
+}
+figure.mock{margin:18px 0;padding:0;border:1px solid #1b2330;border-radius:var(--radius);background:linear-gradient(180deg,#0b0f16,#080b11);box-shadow:var(--sh);overflow:hidden}
+figure.mock>.mock-body{padding:15px}
+figure.mock>figcaption{padding:9px 15px;border-top:1px solid #161e29;background:#080c12;color:#8595a6;font:400 12px/1.5 var(--sans)}
+figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bccb}
+.mock *{box-sizing:border-box}
+.m-sec{display:flex;align-items:center;gap:9px;margin:0 0 9px;color:var(--m-muted);font:800 10px/1 Inter,system-ui;letter-spacing:.14em}
+.m-sec::before{content:"";width:3px;height:10px;border-radius:3px;background:var(--m-accent)}
+.m-body{padding:8px;border:1px solid var(--m-border);border-radius:13px;background:#0a0d14a8;display:flex;flex-direction:column;gap:7px}
+.m-row{position:relative;display:flex;align-items:center;gap:10px;min-height:54px;padding:0 14px;border:1px solid var(--m-border);border-radius:10px;background:var(--m-surface)}
+.m-row.hov{background:var(--m-hover)}
+.m-row.tall{min-height:72px;align-items:stretch;flex-direction:column;justify-content:center;gap:8px;padding:12px 14px}
+.m-t{flex:1;min-width:0;color:var(--m-text);font:500 13px/1.35 Inter,system-ui;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.m-lbl{color:var(--m-muted);font:500 11px/1 Inter,system-ui}
+.m-desc{color:var(--m-dim);font:400 10px/1.4 Inter,system-ui}
+.m-cols{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+@media(max-width:620px){.m-cols{grid-template-columns:1fr}}
+.m-cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+@media(max-width:620px){.m-cols3{grid-template-columns:1fr}}
+/* toggle */
+.m-tr{position:relative;flex:0 0 44px;width:44px;height:24px;border-radius:12px;background:var(--m-input)}
+.m-tr>i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:var(--m-muted)}
+.m-tr.on{background:var(--m-accent)}
+.m-tr.on>i{left:23px;background:#fff}
+/* slider */
+.m-sl{position:relative;height:8px;border-radius:4px;background:var(--m-bg);border:1px solid var(--m-border)}
+.m-sl>b{position:absolute;inset:0 auto 0 0;border-radius:4px;background:linear-gradient(90deg,var(--m-accent2),var(--m-accent))}
+.m-sl>i{position:absolute;top:50%;width:16px;height:16px;margin-top:-8px;margin-left:-8px;border-radius:8px;background:#fff;border:2px solid var(--m-accent)}
+.m-val{flex:0 0 auto;min-width:59px;padding:5px 9px;border:1px solid var(--m-border);border-radius:8px;background:var(--m-input);color:var(--m-accent2);text-align:center;font:800 10px/1.4 var(--mono)}
+/* input + dropdown */
+.m-fld{padding:8px 11px;border:1px solid var(--m-border);border-radius:9px;background:var(--m-input);color:var(--m-text);font:400 11px/1.35 Inter,system-ui}
+.m-fld.ph{color:var(--m-dim)}
+.m-sel{display:flex;align-items:center;gap:8px;flex:0 0 55%;padding:9px 11px;border:1px solid var(--m-border);border-radius:9px;background:var(--m-input);color:var(--m-text);font:500 10.5px/1.3 Inter,system-ui}
+.m-sel>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m-sel::after{content:"";width:7px;height:7px;border-right:1.6px solid var(--m-dim);border-bottom:1.6px solid var(--m-dim);transform:rotate(45deg) translateY(-2px)}
+/* segmented */
+.m-seg{display:flex;gap:3px;padding:3px;border-radius:9px;background:var(--m-input)}
+.m-seg>b{flex:1;padding:7px 0;border-radius:7px;background:#131721;color:var(--m-muted);text-align:center;font:800 10px/1.2 Inter,system-ui}
+.m-seg>b.on{background:var(--m-accent);color:#fff}
+/* stepper */
+.m-step{display:flex;align-items:center;gap:3px;flex:0 0 auto;padding:3px;border:1px solid var(--m-border);border-radius:9px;background:var(--m-input)}
+.m-step>b{width:26px;height:24px;border-radius:7px;background:#1a1f2b;color:var(--m-accent2);text-align:center;font:800 14px/24px Inter,system-ui}
+.m-step>span{min-width:50px;color:var(--m-text);text-align:center;font:800 11px/24px var(--mono)}
+/* keybind + swatch + arrow */
+.m-key{flex:0 0 auto;min-width:77px;padding:7px 10px;border:1px solid var(--m-border);border-radius:8px;background:var(--m-input);color:var(--m-accent2);text-align:center;font:800 10px/1.3 Inter,system-ui}
+.m-sw{flex:0 0 80px;height:30px;border-radius:9px;border:1px solid var(--m-border2);background:#5de1eb;color:#03222a;text-align:center;font:800 9px/30px var(--mono)}
+.m-go{flex:0 0 32px;height:32px;border-radius:9px;background:#9970ff2b;color:var(--m-accent2);text-align:center;font:800 15px/32px Inter,system-ui}
+/* label / paragraph / card */
+.m-info{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border:1px solid var(--m-border);border-radius:10px;background:#131721a8}
+.m-info>b{flex:0 0 24px;height:24px;border-radius:8px;background:#9970ff2b;color:var(--m-accent2);text-align:center;font:800 12px/24px Inter,system-ui}
+.m-info>p{margin:0;color:var(--m-muted);font:400 11px/1.5 Inter,system-ui}
+.m-card{padding:12px 14px;border:1px solid var(--m-border);border-radius:10px;background:var(--m-surface)}
+.m-card .hd{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+.m-card .hd b{flex:1;color:var(--m-text);font:600 12.5px/1.2 Inter,system-ui}
+.m-stat{padding:3px 9px;border-radius:999px;background:#4adea226;color:var(--m-ok);font:800 9px/1.4 Inter,system-ui;letter-spacing:.08em}
+.m-stat.b{background:#5de1eb22;color:var(--cyan)}
+/* progress */
+.m-pg{height:8px;border-radius:4px;background:var(--m-bg);border:1px solid var(--m-border);overflow:hidden}
+.m-pg>b{display:block;height:100%;border-radius:4px;background:var(--m-accent)}
+/* divider */
+.m-div{display:flex;align-items:center;gap:12px;padding:6px 4px;color:var(--m-dim);font:800 9px/1 Inter,system-ui;letter-spacing:.14em}
+.m-div::before,.m-div::after{content:"";flex:1;height:1px;background:var(--m-border2)}
+/* list */
+.m-list{padding:6px;border:1px solid var(--m-border);border-radius:10px;background:#0a0d14a8;display:flex;flex-direction:column;gap:5px}
+.m-li{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:var(--m-surface)}
+.m-li>div{flex:1;min-width:0}
+.m-li .n{color:var(--m-text);font:500 11px/1.3 Inter,system-ui}
+.m-li .d{color:var(--m-dim);font:400 9px/1.4 Inter,system-ui}
+.m-act{padding:5px 10px;border-radius:7px;background:#9970ff2b;color:var(--m-accent2);font:800 9px/1.3 Inter,system-ui}
+.m-act.warn{background:#f7be4f26;color:var(--m-warn)}
+.m-act.dang{background:#ff657c26;color:var(--m-danger)}
+/* tooltip marker + panel */
+.m-q{flex:0 0 14px;width:14px;height:14px;border-radius:7px;background:#9970ff38;color:var(--m-accent2);text-align:center;font:800 9px/14px Inter,system-ui}
+.m-tip{position:relative;max-width:300px;padding:8px 11px 9px;border:1px solid var(--m-border2);border-radius:8px;background:#0e131b;color:var(--m-muted);font:500 10px/1.5 Inter,system-ui}
+.m-tip::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px;background:var(--m-accent)}
+.m-tipwrap{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* lock */
+.m-row.locked>.m-t,.m-row.locked>.m-tr,.m-row.locked>.m-seg,.m-row.locked>.m-step,.m-row.locked>.m-q{opacity:.34}
+.m-lock{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:7px;height:24px;padding:0 10px 0 8px;border:1px solid #f7be4f73;border-radius:8px;background:#f7be4f24;color:var(--m-warn);font:800 9px/1 Inter,system-ui}
+.m-lock svg{width:12px;height:12px;flex:0 0 12px}
+/* window chrome */
+.m-win{display:grid;grid-template-columns:190px minmax(0,1fr);border:1px solid var(--m-border2);border-radius:14px;background:#0d1119;overflow:hidden}
+@media(max-width:620px){.m-win{grid-template-columns:1fr}.m-win .m-side{display:none}}
+.m-side{padding:14px 11px;border-right:1px solid var(--m-border);background:#0a0d14}
+.m-brand{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+.m-brand>b{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--m-accent2),var(--m-accent3));color:#fff;text-align:center;font:800 14px/28px Inter,system-ui}
+.m-brand div{line-height:1.2}
+.m-brand .n{color:var(--m-text);font:700 12px/1.2 Inter,system-ui}
+.m-brand .s{color:var(--m-dim);font:600 8px/1.2 Inter,system-ui;letter-spacing:.12em}
+.m-search{margin-bottom:12px;padding:7px 10px;border:1px solid var(--m-border);border-radius:9px;background:var(--m-bg);color:var(--m-dim);font:400 10.5px/1.3 Inter,system-ui}
+.m-navh{margin:0 0 6px 2px;color:var(--m-dim);font:800 8px/1 Inter,system-ui;letter-spacing:.14em}
+.m-tab{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;color:var(--m-muted);font:500 11px/1.2 Inter,system-ui}
+.m-tab.on{background:#9970ff1f;color:var(--m-text)}
+.m-tab .c{margin-left:auto;color:var(--m-dim);font:700 9px/1 var(--mono)}
+.m-tab svg{width:14px;height:14px;flex:0 0 14px}
+.m-main{padding:14px 16px}
+.m-crumb{color:var(--m-dim);font:800 8.5px/1 Inter,system-ui;letter-spacing:.14em}
+.m-h{margin:5px 0 13px;color:var(--m-text);font:600 20px/1.1 Inter,system-ui;letter-spacing:-.02em}
+.m-chip{padding:5px 11px;border:1px solid var(--m-border2);border-radius:999px;color:var(--m-muted);font:700 9px/1 Inter,system-ui;letter-spacing:.08em}
+.m-topr{display:flex;gap:7px;align-items:center;margin-left:auto}
+.m-toprow{display:flex;align-items:flex-start;gap:10px}
+/* dialog */
+.m-dlgwrap{position:relative;padding:26px 14px;border-radius:12px;background:#05070b}
+.m-dlg{max-width:380px;margin:auto;padding:15px 20px 17px;border:1px solid var(--m-border2);border-radius:15px;background:#0e131b;box-shadow:0 22px 60px #000000a8}
+.m-dlg .t{color:var(--m-text);font:700 15px/1.3 Inter,system-ui}
+.m-dlg .b{margin:8px 0 16px;color:var(--m-muted);font:400 11px/1.55 Inter,system-ui}
+.m-dlg .f{display:flex;justify-content:flex-end;gap:8px}
+.m-btn{padding:9px 16px;border:1px solid var(--m-border2);border-radius:9px;background:#131721;color:var(--m-muted);font:800 10px/1.2 Inter,system-ui}
+.m-btn.pri{border-color:var(--m-accent);background:var(--m-accent);color:#fff}
+.m-btn.dang{border-color:var(--m-danger);background:var(--m-danger);color:#fff}
+/* notification */
+.m-note{display:flex;gap:11px;max-width:330px;padding:12px 14px;border:1px solid var(--m-border2);border-radius:12px;background:#0e131b}
+.m-note>b{flex:0 0 26px;height:26px;border-radius:9px;background:#9970ff2b;color:var(--m-accent2);text-align:center;font:800 12px/26px Inter,system-ui}
+.m-note .n{color:var(--m-text);font:700 11.5px/1.3 Inter,system-ui}
+.m-note .d{margin-top:2px;color:var(--m-muted);font:400 10px/1.45 Inter,system-ui}
+/* helpers: stacked title+description, and a horizontal line inside a tall row */
+.m-line{display:flex;align-items:center;gap:10px}
+.m-tt{flex:1;min-width:0}
+.m-tt>.n{color:var(--m-text);font:500 13px/1.35 Inter,system-ui}
+.m-tt>.d{margin-top:1px;color:var(--m-dim);font:400 10px/1.4 Inter,system-ui}
+.m-row.two{min-height:62px}
+.m-fld.ta{min-height:78px;border-radius:10px}
+.m-scroll{max-height:132px;overflow:hidden}
+.m-grow{flex:1;min-width:220px}
+.m-dlg .b>em{font-style:normal;color:var(--m-text)}
+@media print{figure.mock{background:#fff}}
 </style>
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="top"><div class="top-in">
-  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
-  <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
+  <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
+  <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
   <span class="badge" id="verBadge">v1.14.0</span>
+  <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
-    <a href="#getting-started">Start</a><a href="#rows">Rows</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
-    <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
+    <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
+    <a class="keep" href="preview.html">Preview</a><a class="keep" href="https://github.com/JirkaachS/argon-ui">GitHub</a>
   </span>
+  <button class="iconbtn" id="themeBtn" title="Switch colour scheme" aria-label="Switch colour scheme">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+  <div id="progress"></div>
 </div></header>
+<div id="backdrop"></div>
 
 <div class="shell">
 <nav class="side" id="side" aria-label="Documentation">
-  <input id="navSearch" type="search" placeholder="Filter docs…" aria-label="Filter documentation">
+  <div class="searchwrap">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="navSearch" type="search" placeholder="Filter docs…" aria-label="Filter documentation">
+    <kbd>/</kbd>
+  </div>
   <div id="noresults">No matching section.</div>
   <div class="nav-group"><h4>Overview</h4>
-    <a href="#getting-started">Getting started</a><a href="#installation">Installation</a><a href="#window">Windows</a><a href="#tabs">Tabs &amp; sections</a>
+    <a href="#getting-started">Getting started</a><a href="#installation">Installation</a><a href="#window">Windows</a><a href="#tabs">Tabs &amp; sections</a><a href="#rows">Rows</a>
   </div>
   <div class="nav-group"><h4>Components</h4>
-    <a href="#components">All components</a><a href="#input-controls">Input controls</a><a href="#choice-controls">Choice controls</a><a href="#numeric-controls">Numeric controls</a><a href="#display-controls">Display &amp; data</a><a href="#layout-controls">Layout</a>
+    <a href="#mockups">What it looks like</a><a href="#components">All components</a><a href="#input-controls">Input controls</a><a href="#choice-controls">Choice controls</a><a href="#numeric-controls">Numeric controls</a><a href="#display-controls">Display &amp; data</a><a href="#layout-controls">Layout</a>
   </div>
   <div class="nav-group"><h4>Behavior</h4>
     <a href="#element-api">Element methods</a><a href="#persistence">Configuration</a><a href="#themes">Themes</a><a href="#overlays">Overlays &amp; dialogs</a><a href="#notifications">Notifications</a>
@@ -118,11 +412,23 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
   <span class="badge">Standalone Roblox UI library</span>
   <h1>Argon UI</h1>
   <p class="lede">Build a complete interface in a few lines: tabbed navigation, 18 controls, themes, draggable overlays, modal dialogs, and configuration persistence that actually reapplies your settings on load.</p>
+  <div class="ctarow">
+    <a class="btn primary" href="#getting-started"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Get started</a>
+    <a class="btn" href="#mockups"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M3 9h6"/></svg>See what it looks like</a>
+    <a class="btn" href="preview.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Browser preview</a>
+  </div>
   <div class="pillrow">
     <span class="pill">No dependencies</span><span class="pill">Single file</span><span class="pill">18 controls</span>
-    <span class="pill">5 themes</span><span class="pill">Verified saves</span><span class="pill">Rayfield-style API</span>
+    <span class="pill">10 themes</span><span class="pill">Verified saves</span><span class="pill">Rayfield-style API</span>
   </div>
 </section>
+
+<div class="grid">
+  <a class="card" href="#getting-started"><span class="tag">1 · START HERE</span><h4>Load it and build a window</h4><p>One <code>loadstring</code>, a window, a tab, a control. Nine lines to a working menu.</p><span class="go">Getting started →</span></a>
+  <a class="card" href="#mockups"><span class="tag">2 · ORIENT</span><h4>See every control</h4><p>Static replicas of the real rows, so you can pick a control by sight before reading its options.</p><span class="go">Mockups →</span></a>
+  <a class="card" href="#rows"><span class="tag">3 · LAY OUT</span><h4>Stop the endless single column</h4><p>Rows split a section into columns and collapse back to a stack when the window is narrow.</p><span class="go">Rows →</span></a>
+  <a class="card" href="#persistence"><span class="tag">4 · PERSIST</span><h4>Saves that actually reapply</h4><p>Flagged controls round-trip to disk, every write is read back, and callbacks always refire on load.</p><span class="go">Configuration →</span></a>
+</div>
 
 <h2 id="getting-started">Getting started</h2>
 <p>Argon UI is one self-contained Luau file. It needs no host script, no folder layout, and no globals of your own. Load it, create a window, add a tab, and add controls.</p>
@@ -212,33 +518,100 @@ row:CreateSlider({ Flag = "ChamsOpacity", Name = "Opacity %", Range = { 5, 100 }
 row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })</code></pre>
 <p><code>Columns</code> accepts 1 to 4 and may be passed bare (<code>Tab:CreateRow(2)</code>). <code>Spacing</code> sets the gap and <code>MinColumnWidth</code> (default 200) is the width below which columns collapse back into a single stack, so a resized window and a phone get a readable layout from the same calls.</p>
 <p>Rows carry the same shorthands as sections, their controls join the owning section for search and the control count, and a row hides itself when everything in it is filtered out. Best suited to compact controls — toggles, sliders, steppers, keybinds, colour pickers, buttons. Dropdowns, inputs, segmented pickers, lists and text areas want the full width.</p>
+<p>The <a href="#mockups">mockups below</a> show a two- and three-column group side by side with a full-width row.</p>
+
+<h2 id="mockups">What it looks like</h2>
+<p>Static replicas of the interface, built from the library's own palette and metrics. They exist so you can pick a control by sight instead of by name — each mockup sits beside the call that produces it in the sections below.</p>
+
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-win">
+  <div class="m-side">
+    <div class="m-brand"><b>A</b><div><div class="n">My Hub</div><div class="s">ARGON UI</div></div></div>
+    <div class="m-search">Search this tab…</div>
+    <div class="m-navh">NAVIGATION</div>
+    <div class="m-tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Main<span class="c">12</span></div>
+    <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Combat<span class="c">8</span></div>
+    <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/></svg>Items<span class="c">5</span></div>
+    <div class="m-tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Settings<span class="c">6</span></div>
+  </div>
+  <div class="m-main">
+    <div class="m-toprow">
+      <div><div class="m-crumb">MAIN</div><div class="m-h">Farming</div></div>
+      <div class="m-topr"><span class="m-chip">ARGON</span><span class="m-chip">INSERT</span></div>
+    </div>
+    <div class="m-sec">HARVESTING</div>
+    <div class="m-body">
+      <div class="m-row"><span class="m-t">Auto farm</span><span class="m-q">?</span><span class="m-tr on"><i></i></span></div>
+      <div class="m-cols">
+        <div class="m-row"><span class="m-t">Auto sell</span><span class="m-tr on"><i></i></span></div>
+        <div class="m-row tall">
+          <div class="m-line"><span class="m-t">Sell at %</span><span class="m-val">85</span></div>
+          <div class="m-sl"><b style="width:85%"></b><i style="left:85%"></i></div>
+        </div>
+      </div>
+      <div class="m-row"><span class="m-t">Target</span><span class="m-sel"><span>Nearest ore</span></span></div>
+      <div class="m-row hov"><span class="m-t">Panic</span><span class="m-key">P</span></div>
+    </div>
+  </div>
+</div>
+</div><figcaption>Window shell: sidebar with brand, per-tab search, control counts, and a section of rows</figcaption></figure>
+
+<p>The sidebar collapses on narrow viewports and the section body reflows to a single column, which is the same behaviour <code>MinColumnWidth</code> drives for rows.</p>
+
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-sec">STREAM-PROOF ESP</div>
+<div class="m-body">
+  <div class="m-div">TARGETS</div>
+  <div class="m-cols3">
+    <div class="m-row"><span class="m-t">Players</span><span class="m-tr on"><i></i></span></div>
+    <div class="m-row"><span class="m-t">NPCs</span><span class="m-tr"><i></i></span></div>
+    <div class="m-row"><span class="m-t">Chests</span><span class="m-tr on"><i></i></span></div>
+  </div>
+  <div class="m-div">BOXES &amp; LINES</div>
+  <div class="m-cols">
+    <div class="m-row tall">
+      <div class="m-line"><span class="m-t">Box thickness</span><span class="m-val">2 px</span></div>
+      <div class="m-sl"><b style="width:22%"></b><i style="left:22%"></i></div>
+    </div>
+    <div class="m-row"><span class="m-t">Tracers</span><span class="m-tr on"><i></i></span></div>
+  </div>
+</div>
+</div><figcaption>Rows and dividers: a three-column group, a caption rule, then a two-column pair on one line</figcaption></figure>
+
+<p>Every control on a visual line is grown to the height of the tallest, so a slider next to a toggle does not leave a step in the edge of the section.</p>
 
 <h2 id="components">All components</h2>
-<p>Eighteen controls, grouped by what they do. Anything that holds a value accepts a <code>Flag</code> and participates in configuration saving.</p>
+<p>Eighteen controls, grouped by what they do. Anything that holds a value accepts a <code>Flag</code> and participates in configuration saving. Every card jumps to that control's reference.</p>
 <div class="grid">
-  <div class="card"><span class="tag">stateful</span><h4>Toggle</h4><p>Boolean switch with animated knob.</p></div>
-  <div class="card"><span class="tag">stateful</span><h4>Slider</h4><p>Ranged number with drag and typed entry.</p></div>
-  <div class="card"><span class="tag new">new · stateful</span><h4>Stepper</h4><p>Precise numeric field with minus and plus buttons.</p></div>
-  <div class="card"><span class="tag">stateful</span><h4>Input</h4><p>Single-line text field.</p></div>
-  <div class="card"><span class="tag new">new · stateful</span><h4>TextArea</h4><p>Multi-line text with line helpers.</p></div>
-  <div class="card"><span class="tag">stateful</span><h4>Dropdown</h4><p>Single or multi select with filtering.</p></div>
-  <div class="card"><span class="tag new">new · stateful</span><h4>Segmented</h4><p>Inline pill row for small option sets.</p></div>
-  <div class="card"><span class="tag">stateful</span><h4>Keybind</h4><p>Key capture with overlay integration.</p></div>
-  <div class="card"><span class="tag">stateful</span><h4>ColorPicker</h4><p>HSV square, hue rail, and hex entry.</p></div>
-  <div class="card"><span class="tag">action</span><h4>Button</h4><p>One-shot action row.</p></div>
-  <div class="card"><span class="tag new">new · display</span><h4>ProgressBar</h4><p>Determinate progress with custom formatting.</p></div>
-  <div class="card"><span class="tag new">new · display</span><h4>List</h4><p>Scrollable rows with optional row actions.</p></div>
-  <div class="card"><span class="tag">display</span><h4>TelemetryCard</h4><p>Live status card with state colors.</p></div>
-  <div class="card"><span class="tag">display</span><h4>Label</h4><p>Short informational line.</p></div>
-  <div class="card"><span class="tag">display</span><h4>Paragraph</h4><p>Title plus wrapped body copy.</p></div>
-  <div class="card"><span class="tag">layout</span><h4>Divider</h4><p>Rule with an optional caption.</p></div>
-  <div class="card"><span class="tag">layout</span><h4>Space</h4><p>Explicit vertical gap.</p></div>
-  <div class="card"><span class="tag">layout</span><h4>Section</h4><p>Titled group with its own builders.</p></div>
+  <a class="card" href="#c-toggle"><span class="tag">stateful</span><h4>Toggle</h4><p>Boolean switch with animated knob.</p></a>
+  <a class="card" href="#c-slider"><span class="tag">stateful</span><h4>Slider</h4><p>Ranged number with drag and typed entry.</p></a>
+  <a class="card" href="#c-stepper"><span class="tag new">new · stateful</span><h4>Stepper</h4><p>Precise numeric field with minus and plus buttons.</p></a>
+  <a class="card" href="#c-input"><span class="tag">stateful</span><h4>Input</h4><p>Single-line text field.</p></a>
+  <a class="card" href="#c-textarea"><span class="tag new">new · stateful</span><h4>TextArea</h4><p>Multi-line text with line helpers.</p></a>
+  <a class="card" href="#c-dropdown"><span class="tag">stateful</span><h4>Dropdown</h4><p>Single or multi select with filtering.</p></a>
+  <a class="card" href="#c-segmented"><span class="tag new">new · stateful</span><h4>Segmented</h4><p>Inline pill row for small option sets.</p></a>
+  <a class="card" href="#c-keybind"><span class="tag">stateful</span><h4>Keybind</h4><p>Key capture with overlay integration.</p></a>
+  <a class="card" href="#c-colorpicker"><span class="tag">stateful</span><h4>ColorPicker</h4><p>HSV square, hue rail, and hex entry.</p></a>
+  <a class="card" href="#c-button"><span class="tag">action</span><h4>Button</h4><p>One-shot action row.</p></a>
+  <a class="card" href="#c-progressbar"><span class="tag new">new · display</span><h4>ProgressBar</h4><p>Determinate progress with custom formatting.</p></a>
+  <a class="card" href="#c-list"><span class="tag new">new · display</span><h4>List</h4><p>Scrollable rows with optional row actions.</p></a>
+  <a class="card" href="#c-telemetrycard"><span class="tag">display</span><h4>TelemetryCard</h4><p>Live status card with state colors.</p></a>
+  <a class="card" href="#c-label"><span class="tag">display</span><h4>Label</h4><p>Short informational line.</p></a>
+  <a class="card" href="#c-label"><span class="tag">display</span><h4>Paragraph</h4><p>Title plus wrapped body copy.</p></a>
+  <a class="card" href="#layout-controls"><span class="tag">layout</span><h4>Divider</h4><p>Rule with an optional caption.</p></a>
+  <a class="card" href="#layout-controls"><span class="tag">layout</span><h4>Space</h4><p>Explicit vertical gap.</p></a>
+  <a class="card" href="#tabs"><span class="tag">layout</span><h4>Section</h4><p>Titled group with its own builders.</p></a>
 </div>
 
 <h2 id="input-controls">Input controls</h2>
 
-<h3>Toggle</h3>
+<h3 id="c-toggle">Toggle</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row two"><div class="m-tt"><div class="n">God mode</div><div class="d">Reapplies automatically on respawn.</div></div><span class="m-tr on"><i></i></span></div>
+  <div class="m-row hov"><span class="m-t">Auto farm</span><span class="m-tr"><i></i></span></div>
+</div>
+</div><figcaption>Toggle — on with a description line, and off with the row hovered</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local toggle = Tab:CreateToggle({
     Flag = "GodMode",
     Name = "God mode",
@@ -250,7 +623,19 @@ row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })</code><
 toggle:Set(true)          -- fires the callback
 print(toggle.CurrentValue) -- true</code></pre>
 
-<h3>Input</h3>
+<h3 id="c-input">Input</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Webhook URL</span></div>
+    <div class="m-fld ph">https://…</div>
+  </div>
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Player name</span></div>
+    <div class="m-fld">jirkaachs</div>
+  </div>
+</div>
+</div><figcaption>Input — empty with placeholder, and holding a value</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Tab:CreateInput({
     Flag = "Webhook",
     Name = "Webhook URL",
@@ -259,8 +644,16 @@ print(toggle.CurrentValue) -- true</code></pre>
     Callback = function(value) saveWebhook(value) end,
 })</code></pre>
 
-<h3>TextArea <span class="badge">new</span></h3>
+<h3 id="c-textarea">TextArea <span class="badge">new</span></h3>
 <p>Multi-line entry for lists, notes, and payloads. <code>GetLines</code> returns non-empty lines, which suits “one item per line” input.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Item filter</span><span class="m-lbl">3 lines · 34 chars</span></div>
+    <div class="m-fld ta">Iron Ore<br>Copper Ore<br>Sapphire</div>
+  </div>
+</div>
+</div><figcaption>TextArea — one item per line, with a live line and character readout</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local notes = Tab:CreateTextArea({
     Flag = "ItemFilter",
     Name = "Item filter",
@@ -280,7 +673,13 @@ end</code></pre>
 <tr><td><code>CurrentValue</code></td><td>string</td><td>Initial text.</td></tr>
 </tbody></table></div>
 
-<h3>Keybind</h3>
+<h3 id="c-keybind">Keybind</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-cols">
+  <div class="m-row"><span class="m-t">Panic</span><span class="m-key">P</span></div>
+  <div class="m-row hov"><span class="m-t">Toggle UI</span><span class="m-key">…</span></div>
+</div>
+</div><figcaption>Keybind — bound to a key, and listening for the next press</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local bind = Tab:CreateKeybind({
     Flag = "PanicKey",
     Name = "Panic",
@@ -294,9 +693,35 @@ bind:SetActive(true)
 bind:SetOverlayVisible(false)</code></pre>
 <p>Click the control, then press a key. <kbd>Escape</kbd> or <kbd>Backspace</kbd> clears it to <code>None</code>.</p>
 
+<h3 id="c-button">Button</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-cols">
+  <div class="m-row"><span class="m-t">Start scan</span><span class="m-go">›</span></div>
+  <div class="m-row hov"><span class="m-t">Rejoin server</span><span class="m-go">›</span></div>
+</div>
+</div><figcaption>Button — a one-shot action row; the whole row is the hit target</figcaption></figure>
+<pre><button class="copy">Copy</button><code>Tab:CreateButton({
+    Name = "Rejoin server",
+    Tooltip = "Teleports you back into the same place instance.",
+    Callback = function() rejoin() end,
+})</code></pre>
+<p>Holds no value, so it takes no <code>Flag</code>. Pair a destructive button with <a href="#overlays"><code>Window:Confirm</code></a> rather than firing on the first click.</p>
+
 <h2 id="choice-controls">Choice controls</h2>
 
-<h3>Dropdown</h3>
+<h3 id="c-dropdown">Dropdown</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row"><span class="m-t">Target</span><span class="m-sel"><span>Nearest</span></span></div>
+  <div class="m-row"><span class="m-t">Ignore list</span><span class="m-sel"><span>3 selected</span></span></div>
+</div>
+<div class="m-list">
+  <div class="m-fld ph">Filter options…</div>
+  <div class="m-li"><div><div class="n">Nearest</div></div><span class="m-act">✓</span></div>
+  <div class="m-li"><div><div class="n">Lowest health</div></div></div>
+  <div class="m-li"><div><div class="n">Random</div></div></div>
+</div>
+</div><figcaption>Dropdown — single select, multi select, and the filterable option popup</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local dropdown = Tab:CreateDropdown({
     Flag = "Target",
     Name = "Target",
@@ -311,8 +736,16 @@ dropdown:Set({ "Random" })
 print(dropdown.CurrentOption)</code></pre>
 <div class="note"><strong>Dynamic option lists are safe.</strong> A restored value whose option does not exist yet is remembered, then applied automatically the moment <code>Refresh</code> introduces that option.</div>
 
-<h3>Segmented <span class="badge">new</span></h3>
+<h3 id="c-segmented">Segmented <span class="badge">new</span></h3>
 <p>A compact pill row for two to four mutually exclusive choices. Cheaper to read than a dropdown and requires no popup.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Farm mode</span></div>
+    <div class="m-seg"><b>SAFE</b><b class="on">BALANCED</b><b>FAST</b></div>
+  </div>
+</div>
+</div><figcaption>Segmented — three options, the middle one selected</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local mode = Tab:CreateSegmented({
     Flag = "FarmMode",
     Name = "Farm mode",
@@ -326,7 +759,13 @@ mode:Refresh({ "Safe", "Fast" })   -- rebuilds the strip
 print(mode.CurrentValue)           -- "Fast"</code></pre>
 <p>The callback receives a plain string, unlike <code>Dropdown</code> which returns a table.</p>
 
-<h3>ColorPicker</h3>
+<h3 id="c-colorpicker">ColorPicker</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-cols">
+  <div class="m-row"><span class="m-t">Highlight color</span><span class="m-sw">#5DE1EB</span></div>
+  <div class="m-row"><span class="m-t">Box color</span><span class="m-sw" style="background:#9970ff;color:#fff">#9970FF</span></div>
+</div>
+</div><figcaption>ColorPicker — the swatch shows the hex; clicking opens an HSV square with a hue rail</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local accent = Tab:CreateColorPicker({
     Flag = "HighlightColor",
     Name = "Highlight color",
@@ -338,7 +777,19 @@ accent:Set("#5DE1EB")   -- hex strings and Color3 both work</code></pre>
 
 <h2 id="numeric-controls">Numeric controls</h2>
 
-<h3>Slider</h3>
+<h3 id="c-slider">Slider</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Fly speed</span><span class="m-val">60 studs</span></div>
+    <div class="m-sl"><b style="width:11%"></b><i style="left:11%"></i></div>
+  </div>
+  <div class="m-row tall hov">
+    <div class="m-line"><span class="m-t">Opacity %</span><span class="m-val">72</span></div>
+    <div class="m-sl"><b style="width:72%"></b><i style="left:72%"></i></div>
+  </div>
+</div>
+</div><figcaption>Slider — a recessed groove, the fill ending under the knob, and a typed-entry readout</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Tab:CreateSlider({
     Flag = "FlySpeed",
     Name = "Fly speed",
@@ -349,8 +800,14 @@ accent:Set("#5DE1EB")   -- hex strings and Color3 both work</code></pre>
     Callback = function(value) CFG.FlySpeed = value end,
 })</code></pre>
 
-<h3>Stepper <span class="badge">new</span></h3>
+<h3 id="c-stepper">Stepper <span class="badge">new</span></h3>
 <p>Better than a slider when the exact number matters or when touch dragging is awkward. Values are rounded to <code>Increment</code> and clamped to <code>Range</code>.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-cols">
+  <div class="m-row"><span class="m-t">Charge time</span><span class="m-step"><b>−</b><span>0.45s</span><b>+</b></span></div>
+  <div class="m-row"><span class="m-t">Horse gait</span><span class="m-step"><b>−</b><span>3</span><b>+</b></span></div>
+</div>
+</div><figcaption>Stepper — exact values from a fractional increment and from a small integer range</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local charge = Tab:CreateStepper({
     Flag = "ChargeTime",
     Name = "Charge time",
@@ -365,8 +822,20 @@ charge:Set(1.2)</code></pre>
 
 <h2 id="display-controls">Display and data</h2>
 
-<h3>ProgressBar <span class="badge">new</span></h3>
+<h3 id="c-progressbar">ProgressBar <span class="badge">new</span></h3>
 <p>Determinate progress for long jobs such as scans, exports, or queues.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Export progress</span><span class="m-val">120 / 500</span></div>
+    <div class="m-pg"><b style="width:24%"></b></div>
+  </div>
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Container scan</span><span class="m-val">100%</span></div>
+    <div class="m-pg"><b style="width:100%;background:#4adea2"></b></div>
+  </div>
+</div>
+</div><figcaption>ProgressBar — a custom <code>Format</code> readout, and a completed bar recoloured with <code>SetColor</code></figcaption></figure>
 <pre><button class="copy">Copy</button><code>local progress = Tab:CreateProgressBar({
     Name = "Export progress",
     Minimum = 0,
@@ -389,8 +858,20 @@ progress:SetColor(Color3.fromRGB(99, 223, 160))</code></pre>
 <tr><td><code>Format(value, max, ratio)</code></td><td>Optional function returning the readout text. Defaults to a percentage.</td></tr>
 </tbody></table></div>
 
-<h3>List <span class="badge">new</span></h3>
+<h3 id="c-list">List <span class="badge">new</span></h3>
 <p>A scrollable data region with an item counter, an empty state, and optional per-row buttons. Good for saved profiles, queues, discovered players, or scan results.</p>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">Saved profiles</span><span class="m-lbl">3 items</span></div>
+    <div class="m-list m-scroll">
+      <div class="m-li"><div><div class="n">Default</div></div><span class="m-act">Load</span></div>
+      <div class="m-li"><div><div class="n">Farming</div><div class="d">Mining + auto sell</div></div><span class="m-act">Load</span><span class="m-act warn">Rename</span><span class="m-act dang">Delete</span></div>
+      <div class="m-li"><div><div class="n">Combat</div><div class="d">PvP preset</div></div><span class="m-act">Load</span><span class="m-act warn">Rename</span><span class="m-act dang">Delete</span></div>
+    </div>
+  </div>
+</div>
+</div><figcaption>List — an item counter, description lines, and up to three per-row actions with warning and danger tints</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local profiles = Tab:CreateList({
     Name = "Saved profiles",
     Height = 170,
@@ -417,7 +898,13 @@ profiles:Clear()</code></pre>
 <tr><td><code>Color</code></td><td>Color3</td><td>Overrides the title color, handy for status rows.</td></tr>
 </tbody></table></div>
 
-<h3>TelemetryCard</h3>
+<h3 id="c-telemetrycard">TelemetryCard</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-cols">
+  <div class="m-card"><div class="hd"><b>Session</b><span class="m-stat">LIVE</span></div><div class="m-desc">Uptime 4m · 128 items</div></div>
+  <div class="m-card"><div class="hd"><b>Stockpile</b><span class="m-stat b">IDLE</span></div><div class="m-desc">Last sweep 41s ago</div></div>
+</div>
+</div><figcaption>TelemetryCard — <code>SetStatus</code> drives the pill text and colour, <code>SetContent</code> the body line</figcaption></figure>
 <pre><button class="copy">Copy</button><code>local status = Tab:CreateTelemetryCard({
     Title = "Session",
     Content = "Waiting for data…",
@@ -427,7 +914,16 @@ profiles:Clear()</code></pre>
 status:SetContent("Uptime 4m · 128 items")
 status:SetStatus("LIVE", Color3.fromRGB(99, 223, 160))</code></pre>
 
-<h3>Label and Paragraph</h3>
+<h3 id="c-label">Label and Paragraph</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-info"><b>i</b><p>Autosave runs a third of a second after each change.</p></div>
+  <div class="m-row tall">
+    <div class="m-line"><span class="m-t">How targeting works</span></div>
+    <div class="m-desc">Nearest uses straight-line distance and ignores players behind walls.</div>
+  </div>
+</div>
+</div><figcaption>Label with its icon, and a Paragraph with a title above wrapped body copy</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Tab:CreateLabel("Autosave runs a third of a second after each change.")
 
 local details = Tab:CreateParagraph({
@@ -437,6 +933,13 @@ local details = Tab:CreateParagraph({
 details:SetContent("Updated copy.")</code></pre>
 
 <h2 id="layout-controls">Layout</h2>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row"><span class="m-t">Auto sell</span><span class="m-tr on"><i></i></span></div>
+  <div class="m-div">ADVANCED</div>
+  <div class="m-row"><span class="m-t">Bypass safety checks</span><span class="m-tr"><i></i></span></div>
+</div>
+</div><figcaption>Divider — a captioned rule splitting a section body into labelled groups</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Tab:CreateDivider("Advanced")   -- caption optional
 Tab:CreateSpace(16)             -- 4–80 pixels</code></pre>
 
@@ -451,7 +954,7 @@ Tab:CreateSpace(16)             -- 4–80 pixels</code></pre>
 <tr><td><code>Flag</code></td><td>Configuration key, when one was supplied.</td></tr>
 <tr><td><code>SetTitle(text)</code> / <code>SetDesc(text)</code></td><td>Retitles the control or sets its secondary line.</td></tr>
 <tr><td><code>SetTooltip(text)</code></td><td>Hover tooltip. <code>Tooltip</code> is an alias.</td></tr>
-<tr><td><code>Lock(reason)</code> / <code>Unlock()</code></td><td>Blocks interaction with a labeled scrim.</td></tr>
+<tr><td><code>Lock(reason)</code> / <code>Unlock()</code></td><td>Blocks interaction, dims the row, and shows a padlock badge carrying the reason.</td></tr>
 <tr><td><code>SetVisible(bool)</code></td><td>Shows or hides the row.</td></tr>
 <tr><td><code>Destroy()</code></td><td>Removes the control and unregisters its bookkeeping.</td></tr>
 </tbody></table></div>
@@ -460,6 +963,27 @@ premium:SetDesc("Requires an account")
 premium:SetTooltip("Available in the paid tier")
 premium:Lock("Premium")
 premium:Unlock()</code></pre>
+
+<h3 id="c-tooltips">Tooltips</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-tipwrap">
+  <div class="m-body m-grow">
+    <div class="m-row hov"><span class="m-t">Cloud sync</span><span class="m-q">?</span><span class="m-tr"><i></i></span></div>
+  </div>
+  <div class="m-tip">Available in the paid tier. Uploads your configuration after every verified save.</div>
+</div>
+</div><figcaption>Tooltip — the <code>?</code> marker makes it discoverable, and the panel anchors beside the row instead of following the cursor</figcaption></figure>
+<p>A tooltip costs no row height, which is why the marker exists: without it there is nothing to tell you hovering would say more. The panel wraps to its content, opens after a short delay, and flips to the other side or below the row rather than covering it.</p>
+
+<h3 id="c-locks">Locks</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-body">
+  <div class="m-row"><span class="m-t">Stream-proof ESP</span><span class="m-tr"><i></i></span></div>
+  <div class="m-row locked"><span class="m-t">Label size</span><span class="m-step"><b>−</b><span>14</span><b>+</b></span><span class="m-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>ENABLE STREAM-PROOF ESP</span></div>
+  <div class="m-row locked"><span class="m-t">Chams</span><span class="m-tr"><i></i></span><span class="m-lock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>LOCKED</span></div>
+</div>
+</div><figcaption>Lock — the row dims and a padlock badge states the precondition, collapsing to <code>LOCKED</code> and then to the padlock alone as the column narrows</figcaption></figure>
+<p>A lock states the precondition up front instead of letting the click fail. Use it for dependent settings and for pairs that cannot run together.</p>
 
 <h2 id="persistence">Configuration and persistence</h2>
 <p>Give a control a <code>Flag</code> and it becomes part of the saved configuration. Values are written to <code>FolderName/FileName</code> about a third of a second after a change, and every write is read back and verified.</p>
@@ -536,7 +1060,16 @@ Window:SetOverlaysAlwaysVisible(true)
 Window:ToggleOverlaysAlwaysVisible()
 print(Window:AreOverlaysAlwaysVisible())</code></pre>
 <p>Pass <code>OverlaysAlwaysVisible = true</code> to <code>CreateWindow</code> to start pinned. The preference is saved with the configuration, and <code>CreateLibrarySettings</code> adds a <em>Keep Overlays On Screen</em> toggle plus hotkeys that toggle each overlay while the menu is closed.</p>
-<h3>Dialogs</h3>
+<h3 id="c-dialogs">Dialogs</h3>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-dlgwrap">
+  <div class="m-dlg">
+    <div class="t">Delete profile?</div>
+    <div class="b">“Farming” and its saved settings will be removed. This cannot be undone.</div>
+    <div class="f"><span class="m-btn">CANCEL</span><span class="m-btn dang">DELETE</span></div>
+  </div>
+</div>
+</div><figcaption>Confirm dialog — cancel is the default and the destructive action is tinted, over a dimmed interface</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Window:Dialog({
     Title = "Delete profile?",
     Content = "This cannot be undone.",
@@ -544,13 +1077,28 @@ print(Window:AreOverlaysAlwaysVisible())</code></pre>
         { Title = "Cancel" },
         { Title = "Delete", Variant = "Danger", Callback = function() deleteProfile() end },
     },
+})
+
+-- Shorthand for the two-button destructive case.
+Window:Confirm({
+    Title = "Delete profile?",
+    Content = "“Farming” and its saved settings will be removed.",
+    ConfirmText = "Delete",
+    OnConfirm = function() deleteProfile("Farming") end,
 })</code></pre>
+<p><code>Confirm</code> defaults to cancel, tints the confirm button as a danger, guards against a double click, and destroys the overlay once a choice is made. Worth wiring to anything that deletes, withdraws everything, or resets state.</p>
 <h3>Built-in settings tab</h3>
 <p>One call adds theme, overlay, logo, and transition controls, all flagged and persisted for you.</p>
 <pre><button class="copy">Copy</button><code>local Settings = Window:CreateTab("Settings", "settings")
 Window:CreateLibrarySettings(Settings)</code></pre>
 
 <h2 id="notifications">Notifications</h2>
+<figure class="mock" aria-hidden="true"><div class="mock-body">
+<div class="m-tipwrap">
+  <div class="m-note"><b>✓</b><div><div class="n">Saved</div><div class="d">Configuration written.</div></div></div>
+  <div class="m-note"><b style="background:#ff657c26;color:#ff657c">!</b><div><div class="n">Save failed</div><div class="d">Executor refused writefile.</div></div></div>
+</div>
+</div><figcaption>Notifications — the accent follows the title text, so a failure reads red without extra arguments</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Argon:Notify({ Title = "Saved", Content = "Configuration written.", Duration = 4 })</code></pre>
 <p>The accent color follows the title text: titles containing <em>error</em> or <em>failed</em> turn red, <em>warn</em> or <em>wait</em> amber, and <em>success</em> or <em>complete</em> green.</p>
 
@@ -679,9 +1227,45 @@ local Rayfield = loadstring(game:HttpGet(
 <p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
 <pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
 lune run tests/run.luau</code></pre>
-<p>113 checks cover every control, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
+<p>197 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.14.0</h3>
+<ul>
+<li>Locked controls now show a self-contained padlock badge instead of a plain scrim, collapsing from the full reason to <code>LOCKED</code> to the padlock alone as the column narrows.</li>
+<li>Rows balance line heights: every control on a visual line grows to the tallest, so a slider beside a toggle no longer leaves a step in the section edge.</li>
+</ul>
+<h3>1.13.1</h3>
+<ul>
+<li>A <code>?</code> marker after the title makes tooltip-bearing controls discoverable, and <code>element.HasTooltip</code> exposes the same fact to code.</li>
+<li>Tooltips anchor beside the control instead of following the cursor, flipping side or dropping below the row rather than covering it.</li>
+</ul>
+<h3>1.13.0</h3>
+<ul>
+<li><code>SetTooltip</code> and the <code>Tooltip</code> option: hover help that costs no row height.</li>
+<li><code>Window:Confirm</code> for destructive actions, plus a <code>Danger</code> dialog variant and body text that measures its own wrapping.</li>
+<li><code>Lock</code>, <code>Unlock</code>, and <code>SetLocked</code> state a precondition up front instead of letting the click fail.</li>
+</ul>
+<h3>1.12.0</h3>
+<ul>
+<li>List rows accept several <code>Actions</code> with <code>danger</code> and <code>warning</code> tints, not just one.</li>
+<li>Fixed descriptions and state colours: a control restored from configuration now paints its active colour, not only its value.</li>
+</ul>
+<h3>1.11.0</h3>
+<ul>
+<li><code>CreateRow</code> and <code>Section:Row</code> put several controls on one line, round-robin across equal columns, collapsing to a stack below <code>MinColumnWidth</code>.</li>
+</ul>
+<h3>1.10.0</h3>
+<ul>
+<li><code>SetTheme</code> repaints every bound property unconditionally, so hovered or mid-tween controls no longer stay on the previous palette.</li>
+<li>New palette API: <code>Argon.Palette</code>, <code>GetColor</code>, <code>GetPalette</code>, and <code>OnThemeChanged</code> for GUIs the library does not own.</li>
+<li>Sliders and progress bars got a recessed groove with a soft border, a fill that terminates under the knob, and corrected drag mapping.</li>
+</ul>
+<h3>1.9.0</h3>
+<ul>
+<li>Real Lucide icons, sharper text rendering, and ten built-in themes.</li>
+<li>Fixed control descriptions and the active-keybind overlay.</li>
+</ul>
 <h3>1.8.1</h3>
 <ul>
 <li>Overlays can stay on screen while the main window is hidden, with <code>SetOverlaysAlwaysVisible</code>, <code>ToggleOverlaysAlwaysVisible</code>, <code>AreOverlaysAlwaysVisible</code>, and an <code>OverlaysAlwaysVisible</code> window option.</li>
@@ -706,16 +1290,163 @@ lune run tests/run.luau</code></pre>
   <p>Argon UI is a standalone Roblox UI library. Source and issues on <a href="https://github.com/JirkaachS/argon-ui">GitHub</a>.</p>
 </footer>
 </main>
+<aside class="toc" id="toc" aria-label="On this page"><h5>On this page</h5></aside>
 </div>
+<button id="totop" title="Back to top" aria-label="Back to top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
 <script>
-const nav=document.querySelector('#side'),menuBtn=document.querySelector('#menuBtn'),search=document.querySelector('#navSearch'),noresults=document.querySelector('#noresults'),links=[...document.querySelectorAll('nav.side a')];
-menuBtn.addEventListener('click',()=>{const open=nav.classList.toggle('open');menuBtn.setAttribute('aria-expanded',String(open))});
-links.forEach(link=>link.addEventListener('click',()=>{nav.classList.remove('open');menuBtn.setAttribute('aria-expanded','false')}));
-search.addEventListener('input',()=>{const q=search.value.trim().toLowerCase();let shown=0;links.forEach(link=>{const match=!q||link.textContent.toLowerCase().includes(q);link.hidden=!match;if(match)shown++});document.querySelectorAll('.nav-group h4').forEach(head=>{const group=head.parentElement;head.hidden=![...group.querySelectorAll('a')].some(a=>!a.hidden)});noresults.style.display=shown?'none':'block'});
-document.addEventListener('click',async event=>{const button=event.target.closest('.copy');if(!button)return;const code=button.parentElement.querySelector('code');try{await navigator.clipboard.writeText(code.innerText);button.textContent='Copied';}catch{button.textContent='Select manually';}setTimeout(()=>button.textContent='Copy',1400)});
-const targets=[...document.querySelectorAll('main [id]')];
-const spy=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(!entry.isIntersecting)return;const id=entry.target.id;links.forEach(link=>link.classList.toggle('active',link.getAttribute('href')==='#'+id))})},{rootMargin:'-84px 0px -70% 0px'});
-targets.forEach(target=>spy.observe(target));
+/* ---------- colour scheme ---------- */
+const root=document.documentElement,themeBtn=document.querySelector('#themeBtn');
+const storedTheme=(()=>{try{return localStorage.getItem('argon-docs-theme')}catch{return null}})();
+if(storedTheme==='light'||storedTheme==='dark')root.dataset.theme=storedTheme;
+else if(window.matchMedia('(prefers-color-scheme: light)').matches)root.dataset.theme='light';
+else root.dataset.theme='dark';
+themeBtn.addEventListener('click',()=>{
+  const next=root.dataset.theme==='light'?'dark':'light';
+  root.dataset.theme=next;
+  try{localStorage.setItem('argon-docs-theme',next)}catch{}
+});
+
+/* ---------- headings: ids + anchor links ---------- */
+const main=document.querySelector('main'),used=new Set([...document.querySelectorAll('[id]')].map(n=>n.id));
+const slug=text=>text.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'section';
+const headings=[...main.querySelectorAll('h2,h3')];
+headings.forEach(heading=>{
+  if(!heading.id){let base=slug(heading.textContent),id=base,n=2;while(used.has(id))id=base+'-'+n++;heading.id=id;used.add(id)}
+  const anchor=document.createElement('a');
+  anchor.className='anchor';anchor.href='#'+heading.id;anchor.textContent='#';
+  anchor.setAttribute('aria-label','Link to this section');
+  heading.appendChild(anchor);
+});
+
+/* ---------- on this page ---------- */
+const toc=document.querySelector('#toc');
+headings.forEach(heading=>{
+  const link=document.createElement('a');
+  link.href='#'+heading.id;
+  link.textContent=heading.firstChild&&heading.firstChild.nodeType===3?heading.firstChild.textContent.trim():heading.textContent.replace(/#$/,'').trim();
+  if(heading.tagName==='H3')link.className='sub';
+  toc.appendChild(link);
+});
+const tocLinks=[...toc.querySelectorAll('a')];
+
+/* ---------- code: language tag, chrome bar, syntax colours ---------- */
+const KEYWORDS=/^(and|break|continue|do|else|elseif|end|export|for|function|if|in|local|not|or|repeat|return|then|type|until|while)$/;
+const LITERALS=/^(true|false|nil|self)$/;
+const esc=text=>text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const wrap=(cls,text)=>'<span class="tk-'+cls+'">'+esc(text)+'</span>';
+function highlightLuau(source){
+  const token=/(--\[\[[\s\S]*?\]\]|--[^\n]*)|(\[\[[\s\S]*?\]\]|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*')|(\b\d[\w.]*\b)|([A-Za-z_]\w*)|(\s+)|([^\s\w])/g;
+  let out='',match,prev='';
+  while((match=token.exec(source))){
+    const [all,comment,string,number,word,space,punct]=match;
+    if(comment)out+=wrap('com',comment);
+    else if(string)out+=wrap('str',string);
+    else if(number)out+=wrap('num',number);
+    else if(word){
+      const after=source.slice(match.index+all.length).match(/^\s*\(/);
+      if(KEYWORDS.test(word))out+=wrap('kw',word);
+      else if(LITERALS.test(word))out+=wrap('lit',word);
+      else if(after)out+=wrap('fn',word);
+      else if(prev==='.'||prev===':')out+=wrap('prop',word);
+      else out+=esc(word);
+    }
+    else if(space)out+=esc(space);
+    else out+=wrap('punc',punct);
+    if(!space)prev=punct||word||'';
+  }
+  return out;
+}
+function highlightShell(source){
+  return source.split('\n').map(line=>{
+    const at=line.indexOf('#');
+    if(at===0)return wrap('com',line);
+    return esc(line);
+  }).join('\n');
+}
+document.querySelectorAll('pre').forEach(pre=>{
+  const code=pre.querySelector('code');if(!code)return;
+  const source=code.textContent;
+  const shell=/^\s*#|^\s*lune run/.test(source)&&!/\bfunction\b|\blocal\b/.test(source);
+  code.innerHTML=shell?highlightShell(source):highlightLuau(source);
+  const wrapper=document.createElement('div');wrapper.className='codewrap';
+  const bar=document.createElement('div');bar.className='codebar';
+  bar.innerHTML='<span class="dots"><i></i><i></i><i></i></span><span class="lang">'+(shell?'shell':'luau')+'</span>';
+  const existing=pre.querySelector('.copy');
+  const copy=existing||document.createElement('button');
+  copy.className='copy';copy.type='button';copy.textContent='Copy';
+  bar.appendChild(copy);
+  pre.parentNode.insertBefore(wrapper,pre);
+  wrapper.appendChild(bar);wrapper.appendChild(pre);
+  copy.addEventListener('click',async()=>{
+    try{await navigator.clipboard.writeText(source);copy.textContent='Copied';copy.classList.add('done')}
+    catch{copy.textContent='Select manually'}
+    setTimeout(()=>{copy.textContent='Copy';copy.classList.remove('done')},1500);
+  });
+});
+
+/* ---------- sidebar drawer ---------- */
+const nav=document.querySelector('#side'),menuBtn=document.querySelector('#menuBtn'),backdrop=document.querySelector('#backdrop');
+const setDrawer=open=>{nav.classList.toggle('open',open);backdrop.classList.toggle('on',open);menuBtn.setAttribute('aria-expanded',String(open))};
+menuBtn.addEventListener('click',()=>setDrawer(!nav.classList.contains('open')));
+backdrop.addEventListener('click',()=>setDrawer(false));
+
+/* ---------- filter ---------- */
+const search=document.querySelector('#navSearch'),noresults=document.querySelector('#noresults');
+const navLinks=[...document.querySelectorAll('nav.side a')];
+navLinks.forEach(link=>link.addEventListener('click',()=>setDrawer(false)));
+const applyFilter=()=>{
+  const query=search.value.trim().toLowerCase();let shown=0;
+  navLinks.forEach(link=>{const match=!query||link.textContent.toLowerCase().includes(query);link.hidden=!match;if(match)shown++});
+  document.querySelectorAll('.nav-group h4').forEach(head=>{head.hidden=![...head.parentElement.querySelectorAll('a')].some(a=>!a.hidden)});
+  noresults.style.display=shown?'none':'block';
+};
+search.addEventListener('input',applyFilter);
+search.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){search.value='';applyFilter();search.blur()}
+  if(event.key==='Enter'){const first=navLinks.find(link=>!link.hidden);if(first){first.click();search.blur()}}
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&nav.classList.contains('open'))setDrawer(false);
+  const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+  if(((event.key==='k'||event.key==='K')&&(event.metaKey||event.ctrlKey))||(event.key==='/'&&!typing&&!event.metaKey&&!event.ctrlKey)){
+    event.preventDefault();setDrawer(window.innerWidth<=1000);search.focus();search.select();
+  }
+});
+
+/* ---------- scroll spy, breadcrumb, progress, back to top ---------- */
+const crumb=document.querySelector('#crumb'),totop=document.querySelector('#totop'),progress=document.querySelector('#progress');
+const sections=[...main.querySelectorAll('h2')];
+let lastSection='',lastHeading='';
+const nearest=list=>{let found=list[0];for(const node of list){if(node.getBoundingClientRect().top<=132)found=node;else break}return found};
+const onScroll=()=>{
+  const scrolled=window.scrollY,limit=document.documentElement.scrollHeight-window.innerHeight;
+  progress.style.width=(limit>0?Math.min(100,scrolled/limit*100):0)+'%';
+  totop.classList.toggle('on',scrolled>700);
+
+  const section=sections.length?nearest(sections):null;
+  const sectionId=section&&section.getBoundingClientRect().top<=132?section.id:'';
+  if(sectionId!==lastSection){
+    lastSection=sectionId;
+    navLinks.forEach(link=>link.classList.toggle('active',link.getAttribute('href')==='#'+sectionId));
+    crumb.innerHTML=section&&sectionId?'<b>'+section.firstChild.textContent.trim()+'</b>':'';
+  }
+
+  const heading=headings.length?nearest(headings):null;
+  const headingId=heading?heading.id:'';
+  if(headingId!==lastHeading){
+    lastHeading=headingId;
+    tocLinks.forEach(link=>link.classList.toggle('active',link.getAttribute('href')==='#'+headingId));
+    const active=toc.querySelector('a.active');
+    if(active&&toc.scrollHeight>toc.clientHeight+8){
+      toc.scrollTo({top:Math.max(0,active.offsetTop-toc.clientHeight/2),behavior:'smooth'});
+    }
+  }
+};
+let queued=false;
+window.addEventListener('scroll',()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;onScroll()})},{passive:true});
+window.addEventListener('resize',onScroll);
+totop.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+onScroll();
 </script>
 </body>
 </html>

@@ -2,7 +2,7 @@
 
 Argon UI is a standalone Roblox UI library in a single Luau file. No dependencies, no host script: load it, create a window, add controls.
 
-**Documentation: https://jirkaachs.github.io/argon-ui/**
+**Documentation: https://jirkaachs.github.io/argon-ui/** — every control is shown as a [mockup](https://jirkaachs.github.io/argon-ui/#mockups) next to the call that produces it.
 
 ```luau
 local Argon = loadstring(game:HttpGet(
@@ -32,7 +32,7 @@ Keep a copy of `argon-ui.luau` beside your script if you want an offline fallbac
 - Tabbed window with sections, per-tab search, and a `SECTIONS` navigator for long pages
 - 18 controls, including progress bars, steppers, segmented pickers, text areas, and data lists
 - Configuration persistence with verified writes, deferred flag hydration, and change listeners
-- Five built-in themes plus custom palettes, applied live
+- Ten built-in themes plus custom palettes, applied live
 - Draggable player and keybind overlays that can stay on screen while the window is hidden
 - Modal dialogs, notifications, tooltips, descriptions, locked states, and element visibility
 - Drag-resizable window with a `560 x 400` minimum and responsive sidebar collapse
