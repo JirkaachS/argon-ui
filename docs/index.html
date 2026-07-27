@@ -85,7 +85,7 @@ footer{margin-top:60px;padding:22px 0 50px;border-top:1px solid var(--line);colo
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side">Menu</button>
   <span class="brand"><img src="argon-ui-logo.svg" alt="">Argon UI</span>
-  <span class="badge" id="verBadge">v1.9.0</span>
+  <span class="badge" id="verBadge">v1.10.0</span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
     <a href="preview.html">Preview</a><a href="https://github.com/JirkaachS/argon-ui">GitHub</a>
@@ -504,6 +504,12 @@ Argon:AddTheme("Slate", {
 })
 Argon:SetTheme("Slate")</code></pre>
 <p>A palette may define any of <code>Background</code>, <code>Window</code>, <code>Sidebar</code>, <code>Surface</code>, <code>Hover</code>, <code>Active</code>, <code>Input</code>, <code>Border</code>, <code>BorderSoft</code>, <code>Text</code>, <code>Muted</code>, <code>Dim</code>, <code>Accent</code>, <code>AccentLight</code>, <code>AccentDark</code>, <code>Success</code>, <code>Warning</code>, and <code>Danger</code>. Missing keys inherit the default theme.</p>
+<p>Controls repaint even when they were hovered or mid-animation at the moment the theme changed. Frames your own script builds sit outside the library, so read the live palette rather than baking colours in.</p>
+<pre><button class="copy">Copy</button><code>row.BackgroundColor3 = Argon:GetColor("Surface")
+
+local unbind = Argon:OnThemeChanged(function(palette, themeName)
+    row.BackgroundColor3 = palette.Surface
+end)</code></pre>
 
 <h2 id="overlays">Overlays, dialogs, and the settings tab</h2>
 <h3>Overlays</h3>
@@ -543,6 +549,9 @@ Window:CreateLibrarySettings(Settings)</code></pre>
 <div class="api"><div class="api-head">Argon:SetTheme(name) → ok, err</div><div class="api-body"><p>Applies a built-in name or palette table to every live control.</p></div></div>
 <div class="api"><div class="api-head">Argon:GetThemes() → table</div><div class="api-body"><p>Sorted list of registered theme names.</p></div></div>
 <div class="api"><div class="api-head">Argon:AddTheme(name, palette)</div><div class="api-body"><p>Registers a custom palette. Unspecified keys inherit defaults.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetColor(key, fallback) → Color3</div><div class="api-body"><p>Reads one key from the active palette. Returns <code>fallback</code> when the key is unknown.</p></div></div>
+<div class="api"><div class="api-head">Argon:GetPalette() → table</div><div class="api-body"><p>Detached snapshot of the active palette. <code>Argon.Palette</code> is the live table.</p></div></div>
+<div class="api"><div class="api-head">Argon:OnThemeChanged(callback) → unbind</div><div class="api-body"><p>Calls <code>callback(palette, themeName)</code> after every theme change, for GUIs the library does not own. Call the returned function to unbind.</p></div></div>
 <div class="api"><div class="api-head">Argon:SaveConfiguration() → ok, pathOrReason</div><div class="api-body"><p>Writes and verifies the configuration file immediately.</p></div></div>
 <div class="api"><div class="api-head">Argon:LoadConfiguration() → ok, warningOrReason</div><div class="api-body"><p>Restores values, reapplies callbacks, and enables autosave. Returns a warning string when some flags failed or are unknown.</p></div></div>
 <div class="api"><div class="api-head">Argon:DeleteConfiguration() → ok, pathOrReason</div><div class="api-body"><p>Removes the configuration file if the executor exposes <code>delfile</code>.</p></div></div>

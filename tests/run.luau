@@ -34,7 +34,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.9.0", Argon.Version == "1.9.0", Argon.Version)
+check("version is 1.10.0", Argon.Version == "1.10.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -288,6 +288,43 @@ check("SetTheme applies", (Argon:SetTheme("Midnight")))
 check("AddTheme + SetTheme custom", (function()
 	Argon:AddTheme("TestTheme", { Accent = sandbox.environment.Color3.fromRGB(1, 2, 3) })
 	return (Argon:SetTheme("TestTheme"))
+end)())
+check("GetColor reads the live palette", (function()
+	Argon:SetTheme("Ember")
+	local ember = Argon.Themes.Ember
+	return Argon:GetColor("Accent") == ember.Accent and Argon:GetColor("Hover") == ember.Hover
+end)())
+check("GetColor falls back for unknown keys", Argon:GetColor("NotAKey") ~= nil)
+check("GetPalette snapshot is detached", (function()
+	local snapshot = Argon:GetPalette()
+	local before = snapshot.Accent
+	Argon:SetTheme("Ocean")
+	return snapshot.Accent == before and Argon:GetColor("Accent") == Argon.Themes.Ocean.Accent
+end)())
+check("OnThemeChanged fires with the new palette", (function()
+	local seenTheme, seenAccent
+	local unbind = Argon:OnThemeChanged(function(palette, themeName)
+		seenTheme, seenAccent = themeName, palette.Accent
+	end)
+	Argon:SetTheme("Emerald")
+	unbind()
+	local wasCalled = seenTheme == "Emerald" and seenAccent == Argon.Themes.Emerald.Accent
+	seenTheme = nil
+	Argon:SetTheme("Rose")
+	return wasCalled and seenTheme == nil
+end)())
+check("a recoloured control still follows the next theme", (function()
+	-- Regression: SetTheme only repainted a bound property when it still equalled the OLD
+	-- palette entry, so anything a hover/press had recoloured stayed on the previous theme.
+	Argon:SetTheme("Midnight")
+	local toggle = jsonTab:CreateToggle({ Name = "ThemeRepaint", CurrentValue = false })
+	toggle.Root.BackgroundColor3 = sandbox.environment.Color3.fromRGB(123, 45, 67)
+	Argon:SetTheme("Ember")
+	for _ = 1, 40 do
+		if toggle.Root.BackgroundColor3 == Argon.Themes.Ember.Surface then return true end
+		task.wait()
+	end
+	return false, tostring(toggle.Root.BackgroundColor3)
 end)())
 check("Notify runs", (pcall(function() Argon:Notify({ Title = "Test", Content = "hello", Duration = 1 }) end)))
 check("Dialog runs", (pcall(function()

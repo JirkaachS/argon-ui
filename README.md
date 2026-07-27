@@ -98,6 +98,19 @@ Open `argon-ui-preview.html`, or the hosted [preview](https://jirkaachs.github.i
 
 Ten built-in palettes: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`, `Slate`, `Ember`, `Nord`, `Mono`, `Ocean`. Register your own with `Argon:AddTheme(name, palette)` and apply it using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
 
+Every control the library builds re-themes itself, including ones that were hovered or mid-animation when the theme changed. If your script builds its own frames outside the library, read the live palette instead of baking in colours:
+
+```luau
+local rowColour = Argon:GetColor("Surface")
+local hoverColour = Argon:GetColor("Hover")
+
+local unbind = Argon:OnThemeChanged(function(palette, themeName)
+    row.BackgroundColor3 = palette.Surface
+end)
+```
+
+`Argon:GetColor(key, fallback)` resolves a single palette key, `Argon:GetPalette()` returns a detached snapshot, and `Argon.Palette` is the live table. Keys: `Background`, `Window`, `Sidebar`, `Surface`, `Hover`, `Active`, `Input`, `Border`, `BorderSoft`, `Text`, `Muted`, `Dim`, `Accent`, `AccentLight`, `AccentDark`, `Success`, `Warning`, `Danger`.
+
 ## Icons
 
 Icons come from the official [Lucide](https://lucide.dev) set, fetched once and cached on disk, with a bundled atlas as an offline fallback.

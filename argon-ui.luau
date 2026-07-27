@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.9.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.10.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -159,8 +159,18 @@ local function connect(signal,callback)
     return connection
 end
 
+-- Key lookup order matters: pairs() over C is unordered, so a palette where two keys
+-- share a colour (several themes reuse Warning/Danger) could resolve to whichever key
+-- came out first and then re-theme to the wrong slot. Walking a fixed list makes the
+-- resolution deterministic and puts the structural keys ahead of the semantic ones.
+local THEME_KEY_ORDER={
+    "Background","Window","Sidebar","Surface","Hover","Active","Input",
+    "Border","BorderSoft","Text","Muted","Dim",
+    "Accent","AccentLight","AccentDark","Success","Warning","Danger",
+}
 local function themeKeyForColor(value)
     if typeof(value)~="Color3" then return nil end
+    for _,key in ipairs(THEME_KEY_ORDER) do if C[key]==value then return key end end
     for key,color in pairs(C) do if value==color then return key end end
     return nil
 end
@@ -454,7 +464,6 @@ end
 function Argon:SetTheme(name)
     local nextTheme=type(name)=="table" and name or self.Themes[tostring(name)]
     if not nextTheme then return false,"Unknown theme: "..tostring(name) end
-    local oldTheme=copy(C)
     for key,value in pairs(nextTheme) do if typeof(value)=="Color3" then C[key]=value end end
     self.CurrentTheme=type(name)=="string" and name or "Custom"
     self._themeToken+=1
@@ -471,17 +480,56 @@ function Argon:SetTheme(name)
                     local points={}
                     for _,point in ipairs(binding.Points) do points[#points+1]=ColorSequenceKeypoint.new(point.Time,point.Key and nextTheme[point.Key] or point.Color) end
                     pcall(function() object[binding.Property]=ColorSequence.new(points) end)
-                elseif binding.Key and oldTheme[binding.Key] then
-                    pcall(function()
-                        if object[binding.Property]==oldTheme[binding.Key] then object[binding.Property]=nextTheme[binding.Key] end
-                    end)
+                elseif binding.Key and nextTheme[binding.Key] then
+                    -- Repaint unconditionally. The previous version only wrote when the
+                    -- property still equalled the OLD palette entry, so anything that was
+                    -- mid-tween, hovered, or pressed at the moment of the switch failed the
+                    -- comparison and stayed stranded on the previous theme for good. That is
+                    -- what produced rows and action badges in one theme's accent while the
+                    -- rest of the window used another.
+                    pcall(function() object[binding.Property]=nextTheme[binding.Key] end)
                 end
             end
             if readIndex%350==0 then task.wait() end
         end
         for index=writeIndex,#self._themeBindings do self._themeBindings[index]=nil end
     end)
+    Argon:_fireThemeListeners()
     return true
+end
+
+-- Host scripts build their own overlays and panels with raw Color3 values, which is why
+-- those windows kept their build-time colours after a theme switch. Palette/GetColor read
+-- the live table, and OnThemeChanged lets a host repaint whatever the library does not own.
+Argon.Palette=C
+function Argon:GetColor(key,fallback)
+    local value=C[tostring(key)]
+    if typeof(value)=="Color3" then return value end
+    return fallback or C.Text
+end
+
+function Argon:GetPalette()
+    local snapshot={}
+    for key,value in pairs(C) do snapshot[key]=value end
+    return snapshot
+end
+
+function Argon:OnThemeChanged(callback)
+    if type(callback)~="function" then return function() end end
+    self._themeListeners=self._themeListeners or {}
+    table.insert(self._themeListeners,callback)
+    return function()
+        for index,entry in ipairs(self._themeListeners or {}) do
+            if entry==callback then table.remove(self._themeListeners,index) break end
+        end
+    end
+end
+
+function Argon:_fireThemeListeners()
+    for _,callback in ipairs(self._themeListeners or {}) do
+        local ok,err=pcall(callback,C,self.CurrentTheme)
+        if not ok then warn("[Argon UI] Theme listener error: "..tostring(err)) end
+    end
 end
 
 local function contains(list,value)
@@ -559,9 +607,22 @@ local function scheduleSave()
     end)
 end
 
+-- normal/over are Color3 snapshots taken at call time (Color3 is a value type), so
+-- baking them straight into the tween would freeze the button on whatever theme was
+-- active when it was built -- SetTheme mutates the C table in place afterwards, and
+-- these closures would never look at it again. Instead, resolve each snapshot back
+-- to its theme key (if it matches a current C[key]) and re-read C[key] live on every
+-- hover event, so a later theme switch is reflected immediately.
 local function hover(button,normal,over)
-    connect(button.MouseEnter,function() tween(button,.14,{BackgroundColor3=over or C.Hover}) end)
-    connect(button.MouseLeave,function() tween(button,.18,{BackgroundColor3=normal or C.Surface}) end)
+    -- Accepts either a palette key name ("Surface") or a Color3. Keys are always preferred
+    -- because they survive a theme switch; a Color3 is only used verbatim when it is not a
+    -- palette colour at all (a caller-specific tint).
+    local normalKey=type(normal)=="string" and normal or (normal==nil and "Surface" or themeKeyForColor(normal))
+    local overKey=type(over)=="string" and over or (over==nil and "Hover" or themeKeyForColor(over))
+    local normalColor=typeof(normal)=="Color3" and normal or nil
+    local overColor=typeof(over)=="Color3" and over or nil
+    connect(button.MouseEnter,function() tween(button,.14,{BackgroundColor3=(overKey and C[overKey]) or overColor or C.Hover}) end)
+    connect(button.MouseLeave,function() tween(button,.18,{BackgroundColor3=(normalKey and C[normalKey]) or normalColor or C.Surface}) end)
 end
 
 local applyFlagValue
@@ -881,15 +942,28 @@ function Argon:Notify(options)
     elseif lower:find("success") or lower:find("complete") then accent=C.Success end
     local toast=create("Frame",{BackgroundColor3=C.Window,BackgroundTransparency=.03,BorderSizePixel=0,Size=UDim2.fromOffset(338,0),ClipsDescendants=true,ZIndex=100,Parent=window.Notifications})
     corner(toast,13) stroke(toast,C.Border,.12,1)
-    local bar=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Size=UDim2.fromOffset(3,86),ZIndex=101,Parent=toast}) corner(bar,3)
+    -- ClipsDescendants clips to the toast's RECTANGLE, not its 13px UICorner, so any
+    -- child flush against an edge draws straight across the rounded corners and looks
+    -- like a stray misplaced line. Keep edge decorations inset past the corner radius
+    -- and size them relative to the toast so they track its open/close animation.
+    local bar=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.new(0,3,1,-26),ZIndex=101,Parent=toast}) corner(bar,2)
     local icon=create("Frame",{BackgroundColor3=accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.fromOffset(15,16),Size=UDim2.fromOffset(34,34),ZIndex=101,Parent=toast}) corner(icon,10)
     local toastIcon=drawIcon(icon,"activity",accent) toastIcon.Size=UDim2.fromOffset(17,17)
-    text(toast,titleValue,13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(60,13),Size=UDim2.new(1,-84,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=101})
-    text(toast,body,12,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(60,35),Size=UDim2.new(1,-78,0,39),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101})
+    -- Title stops short of the close button (its left edge sits at 338-27=311) instead
+    -- of truncating underneath it; body keeps a matching 16px right margin.
+    text(toast,titleValue,13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(60,13),Size=UDim2.new(1,-96,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=101})
+    text(toast,body,12,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(60,35),Size=UDim2.new(1,-76,0,39),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101})
     local close=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Position=UDim2.new(1,-27,0,9),Size=UDim2.fromOffset(18,18),Text="",ZIndex=102,Parent=toast})
     local closeIcon=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(13,13),ZIndex=103,Parent=close})
-    iconLine(closeIcon,{4,4},{20,20},C.Dim,1.7) iconLine(closeIcon,{20,4},{4,20},C.Dim,1.7)
-    local progress=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,3,1,-2),Size=UDim2.new(1,-3,0,2),ZIndex=102,Parent=toast})
+    -- iconLine positions each segment with absolute pixel offsets from this frame's
+    -- corner (it doesn't scale/clip to the parent), so the points must be chosen
+    -- within this frame's own 13x13 box -- not a generic 24x24 icon grid -- or the X
+    -- renders shoved into a corner instead of centered.
+    iconLine(closeIcon,{2,2},{11,11},C.Dim,1.7) iconLine(closeIcon,{11,2},{2,11},C.Dim,1.7)
+    -- Inset past the 13px corner radius on both sides and lifted 3px off the bottom
+    -- edge, so the timer bar reads as part of the card instead of a line cutting
+    -- through its rounded bottom corners.
+    local progress=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,14,1,-5),Size=UDim2.new(1,-28,0,2),ZIndex=102,Parent=toast}) corner(progress,2)
     local closed=false
     local function dismiss()
         if closed or not toast.Parent then return end
@@ -1371,9 +1445,13 @@ function Argon:CreateWindow(options)
             local range=config.Range or {0,100} local minimum=tonumber(range[1]) or 0 local maximum=tonumber(range[2]) or 100 local increment=tonumber(config.Increment) or 1
             local root,element=base(config.Name,72,config) element._title=title(root,config.Name or "Slider",-100,-13)
             local valueBox=create("TextBox",{BackgroundColor3=C.Input,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.GothamBold,Position=UDim2.new(1,-73,0,9),Size=UDim2.fromOffset(59,26),Text="0",TextColor3=C.AccentLight,TextSize=10,Parent=root}) corner(valueBox,8) stroke(valueBox,C.BorderSoft,.25,1)
-            local bar=create("Frame",{Active=true,BackgroundColor3=C.Input,BorderSizePixel=0,Position=UDim2.fromOffset(14,51),Size=UDim2.new(1,-28,0,5),Parent=root}) corner(bar,4)
-            local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(0,0,1,0),Parent=bar}) corner(fill,4) gradient(fill,C.AccentLight,C.AccentDark,0)
-            local handle=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Position=UDim2.fromScale(0,.5),Size=UDim2.fromOffset(13,13),Parent=bar}) corner(handle,7) stroke(handle,C.Accent,0,2)
+            -- The track used to be a 5px C.Input strip, which is within a couple of RGB
+            -- steps of the row it sits on: the groove was invisible, so all you saw was a
+            -- bare coloured line and a dot floating near the bottom edge of the row. It is
+            -- now a real groove (darker fill + soft border) with the handle kept inside it.
+            local bar=create("Frame",{Active=true,BackgroundColor3=C.Background,BorderSizePixel=0,Position=UDim2.fromOffset(14,47),Size=UDim2.new(1,-28,0,8),Parent=root}) corner(bar,4) stroke(bar,C.BorderSoft,.25,1)
+            local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(0,0,1,0),Parent=bar}) corner(fill,4) gradient(fill,C.AccentLight,C.Accent,0)
+            local handle=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Position=UDim2.new(0,8,.5,0),Size=UDim2.fromOffset(16,16),ZIndex=3,Parent=bar}) corner(handle,8) stroke(handle,C.Accent,0,2)
             element.Type="Slider" element.CurrentValue=tonumber(config.CurrentValue) or minimum
             local function round(value)
                 value=math.clamp(value,minimum,maximum) value=math.floor((value-minimum)/increment+.5)*increment+minimum
@@ -1382,7 +1460,11 @@ function Argon:CreateWindow(options)
             end
             local function render()
                 local ratio=maximum==minimum and 0 or (element.CurrentValue-minimum)/(maximum-minimum)
-                fill.Size=UDim2.new(ratio,0,1,0) handle.Position=UDim2.new(ratio,0,.5,0) valueBox.Text=tostring(element.CurrentValue)..(config.Suffix or "")
+                -- Half the handle width is added back at 0 and taken away at 1 so the knob
+                -- always sits fully on the track instead of hanging off either end, and the
+                -- fill stops exactly under the knob's centre.
+                local inset=(.5-ratio)*16
+                fill.Size=UDim2.new(ratio,inset,1,0) handle.Position=UDim2.new(ratio,inset,.5,0) valueBox.Text=tostring(element.CurrentValue)..(config.Suffix or "")
             end
             function element:Set(value,silent)
                 local parsed=tonumber(value) or tonumber(tostring(value):match("[-%d%.]+")) if not parsed then render() return end
@@ -1390,7 +1472,13 @@ function Argon:CreateWindow(options)
                 if didChange and not silent then changed(self) safeCall(config.Callback,self.CurrentValue) end
             end
             local draggingSlider=false
-            local function fromX(x) local ratio=math.clamp((x-bar.AbsolutePosition.X)/math.max(1,bar.AbsoluteSize.X),0,1) element:Set(minimum+(maximum-minimum)*ratio) end
+            -- Travel is measured between the handle's extreme centres (the track inset by
+            -- half a handle) so the knob lands under the cursor instead of lagging it by 8px.
+            local function fromX(x)
+                local usable=math.max(1,bar.AbsoluteSize.X-16)
+                local ratio=math.clamp((x-(bar.AbsolutePosition.X+8))/usable,0,1)
+                element:Set(minimum+(maximum-minimum)*ratio)
+            end
             connect(bar.InputBegan,function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSlider=true fromX(input.Position.X) end end)
             connect(UserInputService.InputChanged,function(input) if draggingSlider and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then fromX(input.Position.X) end end)
             connect(UserInputService.InputEnded,function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then draggingSlider=false end end)
@@ -1610,7 +1698,9 @@ function Argon:CreateWindow(options)
             local root,element=base(config.Name,64,config)
             element._title=text(root,config.Name or "Progress",12,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,7),Size=UDim2.new(1,-96,0,20),TextTruncate=Enum.TextTruncate.AtEnd})
             local readout=text(root,"0%",10,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.new(1,-80,0,7),Size=UDim2.fromOffset(66,20),TextXAlignment=Enum.TextXAlignment.Right,TextTruncate=Enum.TextTruncate.AtEnd})
-            local rail=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,38),Size=UDim2.new(1,-28,0,8),Parent=root}) corner(rail,4)
+            -- Same groove treatment as the slider: C.Input alone is indistinguishable from
+            -- the row, which left an unfilled bar looking like nothing was drawn at all.
+            local rail=create("Frame",{BackgroundColor3=C.Background,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,38),Size=UDim2.new(1,-28,0,8),Parent=root}) corner(rail,4) stroke(rail,C.BorderSoft,.25,1)
             local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(0,1),Parent=rail}) corner(fill,4)
             element.Type="ProgressBar" element.Minimum=tonumber(config.Minimum) or 0 element.Maximum=tonumber(config.Maximum) or 100
             element.CurrentValue=tonumber(config.CurrentValue) or element.Minimum
