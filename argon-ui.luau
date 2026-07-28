@@ -7,6 +7,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
@@ -17,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.16.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -980,7 +981,10 @@ function Argon:Destroy()
     pcall(function() self:SaveConfiguration() end)
     self._destroyed=true
     for _,connection in ipairs(self._connections) do pcall(function() connection:Disconnect() end) end
-    for _,window in ipairs(self._windows) do pcall(function() window.ScreenGui:Destroy() end) end
+    for _,window in ipairs(self._windows) do
+        pcall(function() window.ScreenGui:Destroy() end)
+        pcall(function() if window.CursorGui then window.CursorGui:Destroy() end end)
+    end
     table.clear(self._connections) table.clear(self._windows) table.clear(self.Flags)
     table.clear(self._pendingFlags) table.clear(self._flagListeners)
     self._librarySettingsCreated=nil
@@ -1085,6 +1089,9 @@ function Argon:CreateWindow(options)
     local guiName=tostring(options.GuiName or options.ScreenGuiName or "ArgonUI")
     local existing=guiParent:FindFirstChild(guiName)
     if existing and existing:GetAttribute("ArgonUI") then pcall(function() existing:Destroy() end) end
+    -- The cursor layer is a second ScreenGui, so a reload has to take it with the first one.
+    local existingCursor=guiParent:FindFirstChild(guiName.."Cursor")
+    if existingCursor and existingCursor:GetAttribute("ArgonUI") then pcall(function() existingCursor:Destroy() end) end
     local gui=create("ScreenGui",{Name=guiName,DisplayOrder=100,IgnoreGuiInset=false,ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling})
     pcall(function() gui:SetAttribute("ArgonUI",true) end)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
@@ -1182,8 +1189,17 @@ function Argon:CreateWindow(options)
     local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,(options.PlayerList~=false or options.KeybindList~=false) and -304 or -16,0,16),Size=UDim2.fromOffset(NOTIFY_WIDTH,600),ZIndex=100,Parent=gui})
     create("UIListLayout",{HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=notifications})
 
+    -- Games that draw their own cursor (Lionhearts is one) set UserInputService.MouseIconEnabled
+    -- to false and render an ImageLabel in PlayerGui instead. PlayerGui sits below CoreGui, so
+    -- that cursor disappears behind this window and you end up clicking blind. When the engine
+    -- cursor is off we draw our own on a layer above everything we own.
+    local cursorGui=create("ScreenGui",{Name=guiName.."Cursor",DisplayOrder=2147483647,IgnoreGuiInset=true,ResetOnSpawn=false,ZIndexBehavior=Enum.ZIndexBehavior.Sibling,Parent=guiParent})
+    pcall(function() cursorGui:SetAttribute("ArgonUI",true) end)
+    pcall(function() if syn and syn.protect_gui then syn.protect_gui(cursorGui) end end)
+    local cursorIcon=create("ImageLabel",{BackgroundTransparency=1,Image="rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png",ResampleMode=Enum.ResamplerMode.Default,Size=UDim2.fromOffset(20,20),Visible=false,ZIndex=10,Parent=cursorGui})
+
     local savedPreferences=self._uiPreferences or {}
-    local window={ScreenGui=gui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
+    local window={ScreenGui=gui,CursorGui=cursorGui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
@@ -2901,6 +2917,34 @@ function Argon:CreateWindow(options)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end
     responsive()
 
+    -- Cursor layer driver. Only runs while the window is up and only when the engine cursor is
+    -- off, so a game that leaves the normal pointer alone never gets two arrows.
+    window._cursorMode=options.Cursor==nil and "auto" or options.Cursor
+    local function cursorWanted()
+        if window._cursorMode==false then return false end
+        if not window._visible or not gui.Enabled then return false end
+        if window._cursorMode==true then return true end
+        local ok,enabled=pcall(function() return UserInputService.MouseIconEnabled end)
+        return ok and enabled==false
+    end
+    connect(RunService.RenderStepped,function()
+        local wanted=cursorWanted()
+        if not wanted then
+            if cursorIcon.Visible then cursorIcon.Visible=false end
+            return
+        end
+        local ok,location=pcall(function() return UserInputService:GetMouseLocation() end)
+        if not ok or not location then cursorIcon.Visible=false return end
+        cursorIcon.Visible=true
+        cursorIcon.Position=UDim2.fromOffset(location.X,location.Y)
+    end)
+    function window:SetCursorVisible(value)
+        self._cursorMode=value==nil and "auto" or value
+        if self._cursorMode==false then cursorIcon.Visible=false end
+        return self
+    end
+    function window:IsCursorDrawn() return cursorIcon.Visible end
+
     local expandedSize=main.Size
     -- Rounded to match the window. Without this the loader covered the whole frame with a
     -- square, so the window's corners were visibly square for the first second of every launch.
@@ -2914,26 +2958,69 @@ function Argon:CreateWindow(options)
     local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,28),Size=UDim2.new(1,-72,0,17),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,58,1,-7),Size=UDim2.new(1,-72,0,3),ZIndex=124,Parent=splash}) corner(progressRail,3)
     local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.08,1),ZIndex=125,Parent=progressRail}) corner(progressFill,3) gradient(progressFill,C.AccentLight,C.AccentDark,0)
-    tween(progressFill,.42,{Size=UDim2.fromScale(.72,1)},Enum.EasingStyle.Quint)
-    task.delay(.38,function()
-        if not splash.Parent then return end
-        loadingStatus.Text="OPENING CONTROL CENTER"
-        tween(progressFill,.3,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
-        tween(main,.52,{Size=expandedSize},Enum.EasingStyle.Quint)
-        tween(shadow,.52,{Size=UDim2.fromOffset(expandedSize.X.Offset+22,expandedSize.Y.Offset+22)},Enum.EasingStyle.Quint)
-    end)
-    task.delay(.93,function()
-        if not splash.Parent then return end
+    -- The loader used to run on two fixed timers and dismiss itself 0.93s in, whether or not the
+    -- host had finished building. A menu with hundreds of controls is still constructing at that
+    -- point, so you watched a half-built window assemble itself and the client froze while it
+    -- did. SetLoadingProgress lets the host drive the bar and hold the cover in place until it
+    -- calls FinishLoading; a watchdog still opens the window if the host never reports, so a
+    -- script that never calls either keeps the old behaviour.
+    local loadingDone=false
+    local function openWindow()
+        if loadingDone or not splash.Parent then return end
+        loadingDone=true
+        window._loading=false
         shadow.Visible=true sidebar.Visible=true content.Visible=true glowTop.Visible=true glowBottom.Visible=true
         sidebar.Position=UDim2.fromOffset(-12,0) content.Position=UDim2.fromOffset(content.Position.X.Offset+12,0)
         tween(sidebar,.3,{Position=UDim2.fromOffset(0,0)},Enum.EasingStyle.Quint)
         tween(content,.3,{Position=UDim2.fromOffset(content.Position.X.Offset-12,0)},Enum.EasingStyle.Quint)
+        tween(progressFill,.2,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
         tween(splash,.28,{GroupTransparency=1},Enum.EasingStyle.Quint)
-        task.delay(.3,function()
+        task.delay(.32,function()
             if splash then splash:Destroy() end
             window:_refreshOverlayVisibility()
         end)
+    end
+
+    local function expandShell()
+        if window._loadingExpanded then return end
+        window._loadingExpanded=true
+        tween(main,.52,{Size=expandedSize},Enum.EasingStyle.Quint)
+        tween(shadow,.52,{Size=UDim2.fromOffset(expandedSize.X.Offset+22,expandedSize.Y.Offset+22)},Enum.EasingStyle.Quint)
+    end
+
+    window._loading=true
+    window._loadingManual=false
+
+    -- Reported progress is monotonic: a host that builds out of order should never make the bar
+    -- jump backwards, which looks like a stall.
+    function window:SetLoadingProgress(fraction,status)
+        self._loadingManual=true
+        if loadingDone then return self end
+        local value=math.clamp(tonumber(fraction) or 0,0,1)
+        self._loadingProgress=math.max(self._loadingProgress or .08,value)
+        tween(progressFill,.18,{Size=UDim2.fromScale(math.max(.06,self._loadingProgress),1)},Enum.EasingStyle.Quad)
+        if status~=nil and status~="" then loadingStatus.Text=tostring(status):upper() end
+        expandShell()
+        return self
+    end
+    function window:FinishLoading() openWindow() return self end
+    function window:IsLoading() return not loadingDone end
+
+    tween(progressFill,.42,{Size=UDim2.fromScale(.72,1)},Enum.EasingStyle.Quint)
+    task.delay(.38,function()
+        if loadingDone or not splash.Parent then return end
+        if window._loadingManual then return end
+        loadingStatus.Text="OPENING CONTROL CENTER"
+        tween(progressFill,.3,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
+        expandShell()
     end)
+    task.delay(.93,function()
+        -- A host that drives the loader itself keeps the cover; everyone else opens on time.
+        if window._loadingManual then return end
+        openWindow()
+    end)
+    -- Watchdog: never leave a host stranded behind a cover it forgot to dismiss.
+    task.delay(30,openWindow)
     return window
 end
 

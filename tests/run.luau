@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.16.0", Argon.Version == "1.16.0", Argon.Version)
+check("version is 1.17.0", Argon.Version == "1.17.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -1173,6 +1173,59 @@ check("buttons built outside the text helper get it too", (function()
 		if child.ClassName == "TextLabel" and child.FontFace then face = child.FontFace end
 	end
 	return face ~= nil and tostring(face.Family):find("BuilderSans", 1, true) ~= nil, face and tostring(face.Family)
+end)())
+
+section("the loader waits for the host instead of a timer")
+-- The cover used to dismiss itself 0.93s in whether or not the host had finished building, so a
+-- menu with hundreds of controls was watched assembling itself. A host that reports progress
+-- keeps the cover until it says otherwise.
+local loadWindow = Argon:CreateWindow({ Name = "Loader", GuiName = "ArgonLoaderTest" })
+check("a new window starts covered", loadWindow:IsLoading() == true)
+check("SetLoadingProgress keeps it covered past the old timer", (function()
+	loadWindow:SetLoadingProgress(0.2, "BUILDING COMBAT")
+	sandbox.advance(2)
+	return loadWindow:IsLoading() == true
+end)())
+check("progress never runs backwards", (function()
+	loadWindow:SetLoadingProgress(0.8, "BUILDING VISUALS")
+	loadWindow:SetLoadingProgress(0.3, "LATE STAGE")
+	return loadWindow._loadingProgress >= 0.8, loadWindow._loadingProgress
+end)())
+check("FinishLoading uncovers it", (function()
+	loadWindow:FinishLoading()
+	return loadWindow:IsLoading() == false
+end)())
+check("FinishLoading twice is harmless", (pcall(function() loadWindow:FinishLoading() end)))
+check("a host that never reports still opens on the old timer", (function()
+	local silent = Argon:CreateWindow({ Name = "Silent", GuiName = "ArgonSilentTest" })
+	sandbox.advance(2)
+	return silent:IsLoading() == false
+end)())
+
+section("the window draws its own cursor when the game hides the engine one")
+-- Games that draw their own pointer set MouseIconEnabled false and render it in PlayerGui, which
+-- sits under CoreGui: the pointer vanishes behind the menu and you click blind.
+local cursorWindow = Argon:CreateWindow({ Name = "Cursor", GuiName = "ArgonCursorTest" })
+cursorWindow:FinishLoading()
+check("the cursor lives on its own ScreenGui", cursorWindow.CursorGui ~= nil
+	and cursorWindow.CursorGui ~= cursorWindow.ScreenGui)
+check("it sits above every layer we own", (function()
+	return cursorWindow.CursorGui.DisplayOrder > cursorWindow.ScreenGui.DisplayOrder,
+		cursorWindow.CursorGui.DisplayOrder .. " vs " .. cursorWindow.ScreenGui.DisplayOrder
+end)())
+check("it ignores the GUI inset so it can track the real pointer", cursorWindow.CursorGui.IgnoreGuiInset == true)
+check("Cursor = false opts out", (function()
+	local bare = Argon:CreateWindow({ Name = "NoCursor", GuiName = "ArgonNoCursorTest", Cursor = false })
+	bare:FinishLoading()
+	return bare:IsCursorDrawn() == false
+end)())
+check("SetCursorVisible(false) turns it off at runtime", (function()
+	cursorWindow:SetCursorVisible(false)
+	return cursorWindow:IsCursorDrawn() == false and cursorWindow._cursorMode == false
+end)())
+check("SetCursorVisible() restores automatic detection", (function()
+	cursorWindow:SetCursorVisible()
+	return cursorWindow._cursorMode == "auto"
 end)())
 
 section("a window can opt out of the theme picker")

@@ -30,6 +30,8 @@ Keep a copy of `argon-ui.luau` beside your script if you want an offline fallbac
 ## Features
 
 - Tabbed window with sections, per-tab search, and a scrollable section jump rail for long pages
+- A loader that waits for your script to finish building instead of uncovering a half-built window
+- Draws its own cursor when the game has hidden the engine one, so the pointer never disappears behind the menu
 - 18 controls, including progress bars, steppers, segmented pickers, text areas, and data lists
 - Configuration persistence with verified writes, deferred flag hydration, and change listeners
 - Ten built-in themes plus custom palettes, applied live
@@ -116,6 +118,36 @@ Tab:CreateList({ Name = "Profiles", Items = {
 ```
 
 `Style` accepts `danger` and `warning`, or pass an explicit `Color`. A single `Action = "Load"` with a row-level `Callback` still works.
+
+## Loading a big interface
+
+Building several hundred controls is thousands of instances in one uninterrupted run, and Roblox cannot render a frame while that happens. Report progress and the loader waits for you instead of uncovering a window that is still assembling itself.
+
+```luau
+local Window = Argon:CreateWindow({ Name = "My Hub" })
+
+for index, spec in ipairs(tabsToBuild) do
+    Window:SetLoadingProgress(index / #tabsToBuild, "Building " .. spec.Name)
+    buildTab(spec)
+    task.wait()   -- one frame, so the client stays responsive
+end
+
+Argon:LoadConfiguration()
+Window:FinishLoading()
+```
+
+Progress is monotonic, so a lower value than the last is ignored. A window that never reports keeps the original timed behaviour, and one that reports but forgets `FinishLoading` is opened by a watchdog after 30 seconds.
+
+## Cursor
+
+Some games draw their own pointer: they set `UserInputService.MouseIconEnabled` to `false` and render an image in `PlayerGui`, which sits below `CoreGui`. That pointer disappears behind the menu and you click blind. When the engine cursor is off, Argon draws its own above everything it owns.
+
+```luau
+Argon:CreateWindow({ Name = "My Hub", Cursor = "auto" })  -- default
+Window:SetCursorVisible(false)   -- never
+Window:SetCursorVisible(true)    -- always
+Window:SetCursorVisible()        -- automatic again
+```
 
 ## Notifications
 

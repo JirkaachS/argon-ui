@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.16.0</span>
+  <span class="badge" id="verBadge">v1.17.0</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -511,9 +511,39 @@ local Argon = loadArgon()</code></pre>
 <tr><td><code>KeybindList</code></td><td>boolean</td><td><code>true</code></td><td>Show the draggable active-keybind overlay.</td></tr>
 <tr><td><code>OverlaysAlwaysVisible</code></td><td>boolean</td><td><code>false</code></td><td>Keep overlays on screen after the main window is hidden.</td></tr>
 <tr><td><code>ThemePicker</code></td><td>boolean</td><td><code>true</code></td><td>Show the palette button in the topbar.</td></tr>
+<tr><td><code>Cursor</code></td><td>boolean or <code>"auto"</code></td><td><code>"auto"</code></td><td>Draw a pointer above the interface. <code>"auto"</code> only does so when the game has hidden the engine cursor.</td></tr>
 <tr><td><code>ToggleUIKeybind</code></td><td>KeyCode</td><td><code>Insert</code></td><td>Key that hides and restores the interface.</td></tr>
 </tbody></table></div>
 <p>Press <kbd>/</kbd> while the window is open to focus the active tab's search field. Drag the window edges to resize; the minimum size is 560×400 and the layout collapses the sidebar on narrow viewports.</p>
+
+<h3>Loading a big interface <span class="badge">new</span></h3>
+<p>Building several hundred controls is thousands of instances in one uninterrupted run, and Roblox cannot render a frame while that happens: the client freezes, and a loader on a fixed timer uncovers a window that is still assembling itself. Report progress instead and the cover stays until you dismiss it.</p>
+<pre><button class="copy">Copy</button><code>local Window = Argon:CreateWindow({ Name = "My Hub" })
+
+for index, spec in ipairs(tabsToBuild) do
+    Window:SetLoadingProgress(index / #tabsToBuild, "Building " .. spec.Name)
+    buildTab(spec)
+    task.wait()   -- one frame, so the client stays responsive while you build
+end
+
+Argon:LoadConfiguration()
+Window:FinishLoading()   -- nothing is shown until the restored values are on screen</code></pre>
+<div class="tw"><table>
+<thead><tr><th>Member</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>SetLoadingProgress(fraction, status)</code></td><td>Moves the bar and sets the status line. Calling it once takes the loader off its timer, so it waits for you. Progress is monotonic: a lower value than the last is ignored, because a bar that jumps backwards reads as a stall.</td></tr>
+<tr><td><code>FinishLoading()</code></td><td>Expands and reveals the window. Safe to call more than once.</td></tr>
+<tr><td><code>IsLoading()</code></td><td><code>true</code> until the window has been revealed.</td></tr>
+</tbody></table></div>
+<div class="note"><strong>You cannot strand yourself.</strong> A window that never reports progress keeps the original timed behaviour, and one that reports but never calls <code>FinishLoading</code> is opened by a watchdog after 30 seconds.</div>
+
+<h3>Cursor <span class="badge">new</span></h3>
+<p>Some games draw their own pointer: they set <code>UserInputService.MouseIconEnabled</code> to <code>false</code> and render an image in <code>PlayerGui</code>. <code>PlayerGui</code> sits below <code>CoreGui</code>, so that pointer disappears behind this window and you end up clicking blind. When the engine cursor is off, Argon draws its own on a layer above everything it owns.</p>
+<pre><button class="copy">Copy</button><code>Argon:CreateWindow({ Name = "My Hub", Cursor = "auto" })  -- default
+Window:SetCursorVisible(false)   -- never draw one
+Window:SetCursorVisible(true)    -- always draw one
+Window:SetCursorVisible()        -- back to automatic detection
+print(Window:IsCursorDrawn())</code></pre>
 
 <h2 id="tabs">Tabs and sections</h2>
 <p>Tabs hold sections, and sections group controls. If you add a control before creating a section, Argon UI creates a <code>General</code> section for you.</p>
@@ -1279,9 +1309,14 @@ local Rayfield = loadstring(game:HttpGet(
 <p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
 <pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
 lune run tests/run.luau</code></pre>
-<p>246 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
+<p>258 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.17.0</h3>
+<ul>
+<li><strong>The loader waits for the host.</strong> <code>SetLoadingProgress</code>, <code>FinishLoading</code> and <code>IsLoading</code> let a script that builds hundreds of controls hold the cover in place and report real progress. It used to dismiss itself 0.93 seconds in whether or not the host had finished, so a large menu was watched assembling itself. A window that never reports keeps the old timed behaviour, and a watchdog opens one that reports but never finishes.</li>
+<li><strong>The window draws its own cursor</strong> when the game has hidden the engine one. Games that render their own pointer put it in <code>PlayerGui</code>, which sits below <code>CoreGui</code>, so it vanished behind the interface and you clicked blind. Controlled with the <code>Cursor</code> option and <code>SetCursorVisible</code>.</li>
+</ul>
 <h3>1.16.0</h3>
 <ul>
 <li><strong>Typography.</strong> The whole interface renders in BuilderSans, Roblox's own modern UI family. Measured in a live client it draws the same string about 13% narrower than GothamSSm at the same size, so titles fit where they used to truncate. TextButtons and TextBoxes get the font face too; before, only labels did, so half the interface used the legacy raster face.</li>
