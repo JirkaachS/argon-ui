@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.18.1", Argon.Version == "1.18.1", Argon.Version)
+check("version is 1.18.2", Argon.Version == "1.18.2", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -1317,7 +1317,7 @@ section("restoring a configuration reports its own progress")
 -- Restoring is where a big host spends most of its startup and it used to report nothing: one
 -- status line before the call, the next only after it returned. Measured in isolation the library
 -- costs 0.08ms per flag, so the time is all in host callbacks -- the loader has to say so.
-check("the loader is stepped once per restored flag", (function()
+check("the loader is stepped through the restore, not left on one line", (function()
 	Argon._uiPreferences = {}
 	local restoreWindow = Argon:CreateWindow({
 		Name = "Restore",

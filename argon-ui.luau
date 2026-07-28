@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.2",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1013,15 +1013,24 @@ function Argon:LoadConfiguration()
         end
         local base=loader and math.clamp(loader._loadingProgress or .8,0,.99) or 0
         local span=math.max(.995-base,0)
+        -- Report about forty times over the whole restore rather than once per flag. Each report
+        -- starts three tweens, so one per flag meant ~850 tweens for a large host: enough to cost
+        -- more than the thing it was reporting on.
+        local reportEvery=math.max(1,math.floor(#flags/40))
+        -- 45ms, not 12ms. Every yield costs a whole frame, so slicing too finely spends more time
+        -- waiting for frames than doing work -- at 12ms a restore was paying a frame for every 12ms
+        -- of progress, which roughly doubled it. 45ms keeps the client above 20fps while adding
+        -- only about one frame per 45ms of real work.
         local sliceStart=os.clock()
+        local slowest={}
         for index,flag in ipairs(flags) do
-            if loader then
+            if loader and (index%reportEvery==0 or index==#flags) then
                 loader:SetLoadingProgress(base+span*(index/#flags),("RESTORING CONFIGURATION %d/%d"):format(index,#flags))
-                -- Yield when this thread has held the frame for too long. A host callback that
-                -- does real work without yielding would otherwise freeze the client solid, and
-                -- the progress that was just reported would never be drawn.
-                if os.clock()-sliceStart>.012 then task.wait() sliceStart=os.clock() end
             end
+            -- A host callback that does real work without yielding would otherwise freeze the
+            -- client solid, and the progress just reported would never be drawn.
+            if os.clock()-sliceStart>.045 then task.wait() sliceStart=os.clock() end
+            local flagStarted=os.clock()
             local element=self.Flags[flag]
             if element and element.Set then
                 self._pendingFlags[flag]=nil
@@ -1033,10 +1042,19 @@ function Argon:LoadConfiguration()
                 self._pendingFlags[flag]=copy(data[flag])
                 missing[#missing+1]=tostring(flag)
             end
+            -- Restoring is dominated by host callbacks, so name the expensive ones instead of
+            -- leaving "the restore is slow" as an unattributable feeling.
+            local cost=(os.clock()-flagStarted)*1000
+            if cost>=25 then slowest[#slowest+1]={flag=tostring(flag),ms=cost} end
         end
+        table.sort(slowest,function(left,right) return left.ms>right.ms end)
+        local report={}
+        for position=1,math.min(#slowest,8) do report[position]=("%s %.0fms"):format(slowest[position].flag,slowest[position].ms) end
+        self._lastRestoreCost=#report>0 and table.concat(report,", ") or nil
     end,function(err) return debug.traceback(tostring(err),2) end)
     self._loadingConfig=false
-    self._lastConfigStats={path=path,total=totalFlags,applied=applied,missing=#missing,failed=#failures}
+    self._lastConfigStats={path=path,total=totalFlags,applied=applied,missing=#missing,failed=#failures,slowest=self._lastRestoreCost}
+    if self._lastRestoreCost then warn("[Argon UI] Slowest restore callbacks: "..self._lastRestoreCost) end
     -- Hydration finished, so autosave can safely take over. Hosts that never call
     -- SetPersistenceReady still get working persistence from here on.
     self._persistenceReady=true
@@ -3118,75 +3136,58 @@ function Argon:CreateWindow(options)
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
     main.Size=UDim2.fromOffset(SPLASH_W,SPLASH_H)
 
-    -- Accent blooms behind the mark and off the far corner, so the pill reads as lit from its own
-    -- logo rather than as a flat rectangle with text on it.
-    local splashBloom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.new(0,44,.5,0),Size=UDim2.fromOffset(160,160),ZIndex=121,Parent=splash}) corner(splashBloom,80)
-    local splashBloomFar=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.92,BorderSizePixel=0,Position=UDim2.new(1,-46,1,16),Size=UDim2.fromOffset(210,210),ZIndex=121,Parent=splash}) corner(splashBloomFar,105)
-    -- A specular sweep that travels across the pill on a loop. Rotated and taller than the pill so
-    -- it crosses as a diagonal band; ClipsDescendants keeps it inside the rounded edge.
-    local splashSweep=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.new(0,-70,.5,0),Rotation=16,Size=UDim2.fromOffset(64,240),ZIndex=122,Parent=splash})
-    gradient(splashSweep,Color3.new(1,1,1),Color3.new(1,1,1),0).Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.5,0),NumberSequenceKeypoint.new(1,1)})
-    -- A hairline along the top edge whose gradient slides. Cheap, and it tells you the interface is
-    -- alive even in the moments when nothing else is changing.
-    local splashEdge=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(1,0,0,2),ZIndex=127,Parent=splash})
-    local splashEdgeGradient=gradient(splashEdge,C.AccentLight,C.Accent,0)
-    splashEdgeGradient.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.35,.25),NumberSequenceKeypoint.new(.5,0),NumberSequenceKeypoint.new(.65,.25),NumberSequenceKeypoint.new(1,1)})
+    -- Nothing decorative behind the content any more. A Frame corner cannot fall off softly, so the
+    -- two accent "blooms" were really two hard-edged discs stamped across the pill -- clearly
+    -- visible behind the text. The travelling diagonal band and the pulsing top hairline are gone
+    -- with them: they were motion for its own sake on a panel that already carries a progress bar,
+    -- a counting percentage and a working indicator. The pill is the window's own colour with the
+    -- same vertical shade the window itself uses.
 
-    -- The mark sits on a rounded plate with two dots orbiting it in opposite phase. Rotating the
-    -- orbit host carries the dots with it, so the whole thing is one looping Rotation tween and no
-    -- per-frame work.
-    local splashPlate=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Surface,BackgroundTransparency=.1,BorderSizePixel=0,Position=UDim2.new(0,22,.5,0),Size=UDim2.fromOffset(58,58),ZIndex=123,Parent=splash})
-    corner(splashPlate,18) local splashPlateStroke=stroke(splashPlate,C.Accent,.55,1) shadeGradient(splashPlate,135,.2)
-    local splashOrbit=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(78,78),ZIndex=122,Parent=splashPlate})
-    local splashOrbitRing=create("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=splashOrbit}) corner(splashOrbitRing,39)
-    local splashOrbitStroke=stroke(splashOrbitRing,C.Border,.72,1)
-    local orbitDots={}
-    for index=0,1 do
-        local host=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Rotation=index*180,Size=UDim2.fromScale(1,1),Parent=splashOrbit})
-        local halo=create("Frame",{Name="Halo",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.62,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(14,14),Parent=host}) corner(halo,14)
-        local dot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=index==0 and C.Accent or C.AccentLight,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(6,6),ZIndex=2,Parent=host}) corner(dot,6)
-        orbitDots[#orbitDots+1]=dot
-    end
+    -- The mark sits on a rounded plate whose accent border breathes. There were two dots orbiting
+    -- it on a 78px ring: because the ring itself was drawn at .72 transparency they read as two
+    -- stray grey blobs floating in the pill rather than as an orbit, so they are gone. The motion
+    -- that reads as "working" belongs next to the words that say what is being worked on.
+    local splashPlate=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Surface,BackgroundTransparency=.08,BorderSizePixel=0,Position=UDim2.new(0,24,.5,0),Size=UDim2.fromOffset(60,60),ZIndex=123,Parent=splash})
+    corner(splashPlate,19) local splashPlateStroke=stroke(splashPlate,C.Accent,.5,1) shadeGradient(splashPlate,135,.2)
+    local splashPlateGlow=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(60,60),ZIndex=122,Parent=splashPlate}) corner(splashPlateGlow,20)
     local splashMark=mountLogo(splashPlate,34,window._logo,125) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.5)
 
     local splashTitle=text(splash,window._title,17,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(96,24),Size=UDim2.new(1,-172,0,24),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local splashSub=text(splash,window._subtitle:upper(),8,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(96,47),Size=UDim2.new(1,-172,0,13),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
-    -- A pulsing dot in front of the status line: the one part of the loader that keeps moving even
-    -- when a single host callback holds the thread for a second.
-    local statusDot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(96,72),Size=UDim2.fromOffset(6,6),ZIndex=124,Parent=splash}) corner(statusDot,6)
-    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8.5,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(108,65),Size=UDim2.new(1,-184,0,14),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    -- Three dots pulsing in sequence in front of the status line. This is the part that has to keep
+    -- moving when one host callback holds the thread for a second, and it reads unmistakably as
+    -- "still working" in a way a single dot does not.
+    local statusDots=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundTransparency=1,Position=UDim2.fromOffset(96,72),Size=UDim2.fromOffset(26,6),ZIndex=124,Parent=splash})
+    local statusDotList={}
+    for index=1,3 do
+        local pip=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.6,BorderSizePixel=0,Position=UDim2.new(0,(index-1)*9,.5,0),Size=UDim2.fromOffset(5,5),Parent=statusDots}) corner(pip,5)
+        statusDotList[index]=pip
+    end
+    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8.5,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(130,65),Size=UDim2.new(1,-206,0,14),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     -- A number to watch. A bar alone gives no sense of whether a long build is progressing, and it
     -- counts up smoothly rather than jumping, so a stage that lands 20 flags at once still reads
     -- as motion. The tween runs on a NumberValue so no per-frame thread is needed.
     local loadingPercent=text(splash,"0%",15,C.Text,Enum.Font.GothamBlack,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-24,0,26),Size=UDim2.fromOffset(64,22),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=124})
     local percentValue=create("NumberValue",{Value=0,Parent=splash})
     connect(percentValue:GetPropertyChangedSignal("Value"),function() loadingPercent.Text=math.floor(percentValue.Value+.5).."%" end)
-    -- Flush to the bottom edge and full width. Inset, it read as a small widget inside a card; edge
-    -- to edge it reads as the loader's own progress.
-    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,4),ZIndex=124,Parent=splash})
-    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.06,1),ZIndex=125,Parent=progressRail}) shadeGradient(progressFill,0,.18)
-    -- A shimmer travelling inside the filled part, driven by the gradient's own Offset, plus a
-    -- brighter head so the leading edge reads as motion instead of as a hard stop.
-    local progressShimmer=create("Frame",{BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.72,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=126,Parent=progressFill})
-    local shimmerGradient=gradient(progressShimmer,Color3.new(1,1,1),Color3.new(1,1,1),0)
-    shimmerGradient.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.42,1),NumberSequenceKeypoint.new(.5,.15),NumberSequenceKeypoint.new(.58,1),NumberSequenceKeypoint.new(1,1)})
-    local progressHead=create("Frame",{AnchorPoint=Vector2.new(1,.5),BackgroundColor3=C.AccentLight,BorderSizePixel=0,Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(18,4),ZIndex=127,Parent=progressFill})
+    -- Inset by the corner radius and rounded. Run edge to edge it was clipped to the pill's
+    -- RECTANGLE, not to its 16px UICorner, so its square ends filled the two bottom corners and
+    -- the pill looked broken along the bottom.
+    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,20,1,-11),Size=UDim2.new(1,-40,0,4),ZIndex=124,Parent=splash}) corner(progressRail,4)
+    -- The fill sweeps AccentDark to AccentLight across its own width, so the bar reads as a bar and
+    -- not as a flat block. The travelling white shimmer that used to sit on top of it is gone: a
+    -- 4px bar washed with white at .72 transparency stopped looking accent-coloured at all -- in a
+    -- screenshot it read as a plain white strip along the bottom of the pill.
+    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.06,1),ZIndex=125,Parent=progressRail}) corner(progressFill,4)
+    gradient(progressFill,C.AccentDark,C.AccentLight,0)
 
     -- Looping tweens, all owned by TweenService: nothing to clean up, and they stop the moment the
     -- cover is destroyed.
-    TweenService:Create(splashOrbit,TweenInfo.new(3.2,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1),{Rotation=360}):Play()
-    TweenService:Create(splashBloom,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.93,Size=UDim2.fromOffset(205,205)}):Play()
-    TweenService:Create(splashSweep,TweenInfo.new(2.1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.4),{Position=UDim2.new(1,70,.5,0)}):Play()
-    TweenService:Create(splashEdgeGradient,TweenInfo.new(1.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.2),{Offset=Vector2.new(1,0)}):Play()
-    TweenService:Create(shimmerGradient,TweenInfo.new(1.1,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1,false,.2),{Offset=Vector2.new(1,0)}):Play()
-    TweenService:Create(statusDot,TweenInfo.new(.66,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.72,Size=UDim2.fromOffset(4,4)}):Play()
-    TweenService:Create(splashPlateStroke,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{Transparency=.2}):Play()
-    for index,dot in ipairs(orbitDots) do
-        TweenService:Create(dot,TweenInfo.new(.9,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true,index*.2),{Size=UDim2.fromOffset(4,4)}):Play()
+    TweenService:Create(splashPlateStroke,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{Transparency=.16}):Play()
+    TweenService:Create(splashPlateGlow,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.97,Size=UDim2.fromOffset(76,76)}):Play()
+    for index,pip in ipairs(statusDotList) do
+        TweenService:Create(pip,TweenInfo.new(.42,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true,(index-1)*.16),{BackgroundTransparency=0,Size=UDim2.fromOffset(7,7)}):Play()
     end
-    splashEdgeGradient.Offset=Vector2.new(-1,0)
-    shimmerGradient.Offset=Vector2.new(-1,0)
-
     -- Staggered entrance. The pill used to simply exist, fully drawn, on the first frame; the parts
     -- now rise into place in the order you read them.
     local function nudged(position,dy)

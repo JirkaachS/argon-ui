@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.18.1</span>
+  <span class="badge" id="verBadge">v1.18.2</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -1313,6 +1313,10 @@ lune run tests/run.luau</code></pre>
 <p>262 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.18.2</h3>
+<ul>
+<li><strong>The loader stops decorating itself.</strong> The travelling diagonal band and the pulsing hairline along the top edge are gone, and so are the two accent "blooms" behind the content: a <code>Frame</code> corner cannot fall off softly, so what was meant as a glow rendered as two hard-edged discs stamped across the pill. The white shimmer that travelled inside the progress bar went with them — washing a 4&nbsp;px accent bar with white at .72 transparency stopped it looking accent-coloured at all, and in a screenshot it read as a plain white strip. The bar now carries a single <code>AccentDark</code>&nbsp;→&nbsp;<code>AccentLight</code> sweep across its own width. What is left is what carries information: the mark on its lit plate, the name and subtitle, the working indicator, the status line, the counting percentage and the bar.</li>
+</ul>
 <h3>1.18.1</h3>
 <ul>
 <li><strong>Fixed: the loader looked stuck on the configuration restore.</strong> One status line went up before <code>LoadConfiguration</code> and the next only after it returned, so a host with hundreds of saved flags sat on the same frozen line for as long as the restore took. Measured in isolation the library's own cost is 0.08&nbsp;ms per flag — 19&nbsp;ms for 240 — so the time is all in host callbacks, and the fix is to report through them: the bar and the status line now step once per restored flag, with a running count. The apply loop also yields when it has held the frame for more than 12&nbsp;ms, so a callback that does real work without yielding can no longer freeze the client through the whole restore.</li>
