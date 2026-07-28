@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1097,17 +1097,42 @@ function Argon:CreateWindow(options)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
     gui.Parent=guiParent
 
-    local shadow=create("ImageLabel",{BackgroundTransparency=1,Image="rbxassetid://1316045217",ImageColor3=Color3.new(),ImageTransparency=.28,ScaleType=Enum.ScaleType.Slice,SliceCenter=Rect.new(10,10,118,118),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(1002,682),ZIndex=1,Parent=gui})
-    local main=create("Frame",{Name="ArgonWindow",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(980,660),ZIndex=2,Parent=gui})
-    corner(main,16) stroke(main,C.Border,.08,1) gradient(main,Color3.fromRGB(17,20,31),Color3.fromRGB(10,12,20),115)
-    -- ClipsDescendants clips children to the window's RECTANGLE, not to its 16px UICorner, so
-    -- the decorative glows painted straight into the rounded corners and the window read as a
-    -- square with a rounded outline sitting on top of it -- worst at the top right, where the
-    -- larger glow sits. A CanvasGroup composites its children first and then applies its own
-    -- UICorner to the result, so the glow layer now genuinely stops at the rounded edge.
-    local glowLayer=create("CanvasGroup",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=2,Parent=main}) corner(glowLayer,16)
-    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),Parent=glowLayer}) corner(glowTop,155)
-    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),Parent=glowLayer}) corner(glowBottom,180)
+    -- The shadow is a stack, not a single 9-slice. A sliced shadow asset only ever has the
+    -- falloff its border strip holds -- about 10px here -- and stretching one copy 40px out from
+    -- the window just stretches the opaque middle, which is why every single-layer attempt read
+    -- as a hard grey rectangle tracing the frame instead of as depth. Six copies at growing
+    -- spreads and rising transparency add up to a real gradient: near the window most layers
+    -- overlap, and further out only the wide faint ones remain. Each is nudged down a few pixels
+    -- so the light reads as coming from above. The container keeps the main+22 size every
+    -- existing resize site already writes; the layers spread from it on their own.
+    local shadow=create("Frame",{Name="ArgonShadow",BackgroundTransparency=1,AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(1002,682),ZIndex=1,Parent=gui})
+    for _,layer in ipairs({
+        {Name="Contact",spread=-22,drop=2,alpha=.72,z=6},
+        {Name="Near",spread=-8,drop=4,alpha=.78,z=5},
+        {Name="Mid",spread=6,drop=7,alpha=.84,z=4},
+        {Name="Soft",spread=26,drop=11,alpha=.88,z=3},
+        {Name="Wide",spread=52,drop=16,alpha=.92,z=2},
+        {Name="Ambient",spread=86,drop=22,alpha=.95,z=1},
+    }) do
+        create("ImageLabel",{Name=layer.Name,BackgroundTransparency=1,Image="rbxassetid://1316045217",ImageColor3=Color3.new(),ImageTransparency=layer.alpha,ScaleType=Enum.ScaleType.Slice,SliceCenter=Rect.new(10,10,118,118),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,.5,layer.drop),Size=UDim2.new(1,layer.spread,1,layer.spread),ZIndex=layer.z,Parent=shadow})
+    end
+
+    -- A CanvasGroup, not a Frame. ClipsDescendants on a Frame clips children to the RECTANGLE,
+    -- not to the 16px UICorner, so the sidebar's own square corners painted straight over the
+    -- window's rounded ones and the edges kept reading as square however many times the
+    -- decorative layers were fixed. A CanvasGroup composites its children first and applies the
+    -- corner to the result, which is the only way to round a container that has backgrounds
+    -- inside it. It also makes the separate glow layer redundant, so that nested group is gone.
+    local main=create("CanvasGroup",{Name="ArgonWindow",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(980,660),ZIndex=2,Parent=gui})
+    corner(main,16) stroke(main,C.Border,.08,1)
+    -- The window fill lives on a child, not on `main`. A UIGradient on a Frame tints only that
+    -- frame's background, but on a CanvasGroup it multiplies the whole composited group -- so
+    -- putting it on `main` painted every child, and all the text, with a near-black colour and
+    -- the whole window rendered dark. The backdrop keeps the C.Window theme binding.
+    local backdrop=create("Frame",{Name="Backdrop",BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=0,Parent=main})
+    gradient(backdrop,Color3.fromRGB(17,20,31),Color3.fromRGB(10,12,20),115)
+    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),ZIndex=2,Parent=main}) corner(glowTop,155)
+    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),ZIndex=2,Parent=main}) corner(glowBottom,180)
 
     local sidebar=create("Frame",{BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Size=UDim2.new(0,232,1,0),ZIndex=3,Parent=main})
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),Parent=sidebar})
@@ -1199,7 +1224,11 @@ function Argon:CreateWindow(options)
     local cursorIcon=create("ImageLabel",{BackgroundTransparency=1,Image="rbxasset://textures/Cursors/KeyboardMouse/ArrowFarCursor.png",ResampleMode=Enum.ResamplerMode.Default,Size=UDim2.fromOffset(20,20),Visible=false,ZIndex=10,Parent=cursorGui})
 
     local savedPreferences=self._uiPreferences or {}
-    local window={ScreenGui=gui,CursorGui=cursorGui,Main=main,Shadow=shadow,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
+    -- _loading has to be true from the moment the window table exists, not from the splash block
+    -- at the end of CreateWindow: _refreshOverlayVisibility and _applyUIPreferences both run in
+    -- between, and with the flag still nil they pushed the player and keybind overlays onto the
+    -- screen while the loader was still covering the window.
+    local window={ScreenGui=gui,CursorGui=cursorGui,Main=main,Shadow=shadow,_loading=true,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
@@ -1268,6 +1297,14 @@ function Argon:CreateWindow(options)
     -- Overlays can stay on screen while the main window is hidden. Pinning is a
     -- separate preference from each overlay's own enabled state.
     function window:_refreshOverlayVisibility()
+        -- Nothing comes out from behind the loader. Restoring a saved configuration calls
+        -- SetPlayerListVisible/SetKeybindListVisible while the host is still building, which
+        -- otherwise popped both overlays onto the screen in front of the loading cover.
+        if self._loading then
+            playerOverlay.Root.Visible=false
+            keybindOverlay.Root.Visible=false
+            return self
+        end
         local shellVisible=self._visible or self._overlaysAlwaysVisible==true
         playerOverlay.Root.Visible=shellVisible and self._playerListEnabled==true
         keybindOverlay.Root.Visible=shellVisible and self._keybindListEnabled==true
@@ -2728,31 +2765,12 @@ function Argon:CreateWindow(options)
         tab:CreateSlider({Flag="ArgonUIOverlayScale",Name="Overlay Scale",Range={75,140},Increment=1,CurrentValue=math.round(self._overlayScale*100),Callback=function(value) self:SetOverlayScale(value/100) end})
         tab:CreateInput({Flag="ArgonUICustomLogo",Name="Custom Logo Asset",PlaceholderText="rbxassetid://... or asset ID",CurrentValue=self._logo or "",Callback=function(value) self:SetLogo(value) end})
         tab:CreateButton({Name="Reset Overlay Positions",Callback=function() self:ResetOverlayPositions() end})
-        tab:CreateSection("Configuration")
-        local statusCard=tab:CreateTelemetryCard({Title="Persistence",Icon="settings",Status="IDLE",Content="Checking configuration state..."})
-        local function refreshStatus()
-            local stats=Argon:GetConfigurationStats()
-            if not stats.Enabled then
-                statusCard:SetStatus("OFF",C.Dim)
-                statusCard:Set("Configuration saving is disabled for this window.")
-                return
-            end
-            local problem=stats.LastError or stats.LastAutosaveError
-            statusCard:SetStatus(problem and "ERROR" or (stats.Ready and "READY" or "WAITING"),problem and C.Danger or (stats.Ready and C.Success or C.Warning))
-            statusCard:Set(("%s\n%d flag(s) registered, %d pending.%s"):format(tostring(stats.Path),stats.RegisteredFlags,stats.PendingFlags,problem and ("\n"..tostring(problem)) or ""))
-        end
-        refreshStatus()
-        tab:CreateButton({Name="Save Configuration Now",Callback=function()
-            local ok,info=Argon:SaveConfiguration()
-            refreshStatus()
-            Argon:Notify({Title=ok and "Configuration Saved" or "Save Failed",Content=tostring(info),Duration=ok and 3 or 7})
-        end})
-        tab:CreateButton({Name="Reload Configuration",Callback=function()
-            local ok,info=Argon:LoadConfiguration()
-            refreshStatus()
-            Argon:Notify({Title=ok and "Configuration Loaded" or "Load Failed",Content=info and tostring(info) or "Restored saved values.",Duration=ok and 3 or 7})
-        end})
-        tab:CreateButton({Name="Refresh Persistence Status",Callback=refreshStatus})
+        -- The Configuration section that used to live here (a Persistence status card plus Save
+        -- Configuration Now, Reload Configuration and Refresh Persistence Status) is gone.
+        -- Autosave is automatic and verified, so those buttons were manual controls for something
+        -- that needs no manual control, and the status card duplicated whatever the host already
+        -- shows. Argon:SaveConfiguration, LoadConfiguration and GetConfigurationStats are all
+        -- still public, so a host that wants those buttons can add them itself.
         return tab
     end
 
@@ -2915,6 +2933,10 @@ function Argon:CreateWindow(options)
     end
     connect(workspace:GetPropertyChangedSignal("CurrentCamera"),responsive)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end
+    -- Deliberately NOT driven from main's own AbsoluteSize: responsive() *writes* main.Size when
+    -- the user has not resized by hand, so listening to that size would have it fight anything
+    -- else that sets it -- including the loader's collapsed pill, which it immediately snapped
+    -- back to full width. The loader re-runs this itself once it has finished expanding.
     responsive()
 
     -- Cursor layer driver. Only runs while the window is up and only when the engine cursor is
@@ -2965,31 +2987,50 @@ function Argon:CreateWindow(options)
     -- calls FinishLoading; a watchdog still opens the window if the host never reports, so a
     -- script that never calls either keeps the old behaviour.
     local loadingDone=false
-    local function openWindow()
-        if loadingDone or not splash.Parent then return end
-        loadingDone=true
-        window._loading=false
+
+    local function expandShell(duration)
+        if window._loadingExpanded then return end
+        window._loadingExpanded=true
+        tween(main,duration or .52,{Size=expandedSize},Enum.EasingStyle.Quint)
+        tween(shadow,duration or .52,{Size=UDim2.fromOffset(expandedSize.X.Offset+22,expandedSize.Y.Offset+22)},Enum.EasingStyle.Quint)
+    end
+
+    local function reveal()
         shadow.Visible=true sidebar.Visible=true content.Visible=true glowTop.Visible=true glowBottom.Visible=true
         sidebar.Position=UDim2.fromOffset(-12,0) content.Position=UDim2.fromOffset(content.Position.X.Offset+12,0)
         tween(sidebar,.3,{Position=UDim2.fromOffset(0,0)},Enum.EasingStyle.Quint)
         tween(content,.3,{Position=UDim2.fromOffset(content.Position.X.Offset-12,0)},Enum.EasingStyle.Quint)
-        tween(progressFill,.2,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
         tween(splash,.28,{GroupTransparency=1},Enum.EasingStyle.Quint)
         task.delay(.32,function()
             if splash then splash:Destroy() end
+            -- Re-run the layout now the shell is at its final size. The loader shrank the window
+            -- to a pill and grew it back, and responsive() had no way of knowing, so the sidebar
+            -- and topbar were still laid out for the pill's width -- which is what needed a
+            -- close-and-reopen to shake out.
+            responsive()
             window:_refreshOverlayVisibility()
         end)
     end
 
-    local function expandShell()
-        if window._loadingExpanded then return end
-        window._loadingExpanded=true
-        tween(main,.52,{Size=expandedSize},Enum.EasingStyle.Quint)
-        tween(shadow,.52,{Size=UDim2.fromOffset(expandedSize.X.Offset+22,expandedSize.Y.Offset+22)},Enum.EasingStyle.Quint)
+    local function openWindow()
+        if loadingDone or not splash.Parent then return end
+        loadingDone=true
+        window._loading=false
+        loadingStatus.Text="OPENING CONTROL CENTER"
+        tween(progressFill,.2,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
+        -- Expand first and reveal underneath the cover. Expanding DURING the build was the
+        -- mistake: the loader is laid out for the compact 286x58 pill, so stretching it to the
+        -- full window turned it into a big black rectangle with a sliver of text in the corner
+        -- for however long the host took to build, which is what "a black silhouette" was.
+        if window._loadingExpanded then reveal() else expandShell(.42) task.delay(.34,reveal) end
     end
 
     window._loading=true
-    window._loadingManual=false
+    -- A host that says it will drive the loader is trusted from this moment on. Deciding that
+    -- from the first SetLoadingProgress call was too late: the 0.93s fallback fires during tab
+    -- construction (icon fetches yield, so timers get to run), and it uncovered a window that
+    -- was only a few tabs in. That is the bug behind "the loader never popped up".
+    window._loadingManual=options.Loading=="manual" or options.ManualLoading==true
 
     -- Reported progress is monotonic: a host that builds out of order should never make the bar
     -- jump backwards, which looks like a stall.
@@ -3000,13 +3041,14 @@ function Argon:CreateWindow(options)
         self._loadingProgress=math.max(self._loadingProgress or .08,value)
         tween(progressFill,.18,{Size=UDim2.fromScale(math.max(.06,self._loadingProgress),1)},Enum.EasingStyle.Quad)
         if status~=nil and status~="" then loadingStatus.Text=tostring(status):upper() end
-        expandShell()
+        -- Deliberately does NOT expand the shell. The loader stays the compact pill for the
+        -- whole build and only grows into the window as it hands over.
         return self
     end
     function window:FinishLoading() openWindow() return self end
     function window:IsLoading() return not loadingDone end
 
-    tween(progressFill,.42,{Size=UDim2.fromScale(.72,1)},Enum.EasingStyle.Quint)
+    tween(progressFill,.42,{Size=UDim2.fromScale(window._loadingManual and .12 or .72,1)},Enum.EasingStyle.Quint)
     task.delay(.38,function()
         if loadingDone or not splash.Parent then return end
         if window._loadingManual then return end

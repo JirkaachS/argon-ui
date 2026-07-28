@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.17.0", Argon.Version == "1.17.0", Argon.Version)
+check("version is 1.17.1", Argon.Version == "1.17.1", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -926,6 +926,9 @@ check("autosaved value is current", autosaved.J_Toggle == true, tostring(autosav
 
 section("overlays can stay on screen while the window is hidden")
 local overlayWindow = Argon:CreateWindow({ Name = "Overlays", GuiName = "ArgonUIOverlays" })
+-- Overlays are deliberately held back while the loading cover is up, so this window has to
+-- finish loading before its overlay visibility means anything.
+overlayWindow:FinishLoading()
 overlayWindow:CreateTab("Main", "zap")
 overlayWindow:SetPlayerListVisible(true)
 overlayWindow:SetKeybindListVisible(true)
@@ -1200,6 +1203,53 @@ check("a host that never reports still opens on the old timer", (function()
 	local silent = Argon:CreateWindow({ Name = "Silent", GuiName = "ArgonSilentTest" })
 	sandbox.advance(2)
 	return silent:IsLoading() == false
+end)())
+check("Loading = manual survives the fallback timer with no progress reported at all", (function()
+	-- The reported bug: creating tabs yields (icon fetches), so the 0.93s fallback got to run
+	-- before the host had reported anything, and it uncovered a window that was a few tabs in.
+	-- Declaring manual up front has to hold the cover even if nothing is ever reported.
+	local manual = Argon:CreateWindow({ Name = "Manual", GuiName = "ArgonManualTest", Loading = "manual" })
+	sandbox.advance(3)
+	local held = manual:IsLoading()
+	manual:FinishLoading()
+	return held == true and manual:IsLoading() == false, "held=" .. tostring(held)
+end)())
+check("the loader does not expand the shell while it is still building", (function()
+	-- Expanding during the build stretched a loader laid out for a 286x58 pill across the whole
+	-- window, which is what read as a black silhouette for the length of the build.
+	local pill = Argon:CreateWindow({ Name = "Pill", GuiName = "ArgonPillTest", Loading = "manual" })
+	pill:SetLoadingProgress(0.5, "BUILDING")
+	local widthDuringBuild = pill.Main.Size.X.Offset
+	pill:FinishLoading()
+	return widthDuringBuild < 400, widthDuringBuild
+end)())
+check("overlays stay behind the cover until loading finishes", (function()
+	local held = Argon:CreateWindow({ Name = "Held", GuiName = "ArgonHeldTest", Loading = "manual" })
+	-- Restoring a configuration calls this while the host is still building.
+	held:SetPlayerListVisible(true)
+	held:SetKeybindListVisible(true)
+	local hiddenWhileLoading = held._playerOverlayVisible == nil
+	local playerRoot, keybindRoot
+	for _, child in ipairs(held.ScreenGui:GetChildren()) do
+		if child.Name == "PlayerOverlay" then playerRoot = child end
+		if child.Name == "KeybindOverlay" then keybindRoot = child end
+	end
+	local hidden = (playerRoot == nil or playerRoot.Visible == false)
+		and (keybindRoot == nil or keybindRoot.Visible == false)
+	held:FinishLoading()
+	return hidden, "hiddenWhileLoading=" .. tostring(hidden) .. " " .. tostring(hiddenWhileLoading)
+end)())
+check("the shell is back at full width once loading finishes", (function()
+	-- The loader shrinks the window to a pill and grows it back. responsive() owns main.Size when
+	-- the user has not resized by hand, so it is re-run after the expand rather than being driven
+	-- from the window's own size, which would have snapped the pill straight back to full width.
+	local sized = Argon:CreateWindow({ Name = "Sized", GuiName = "ArgonSizedTest", Loading = "manual" })
+	sized:CreateTab("Main", "zap")
+	local pillWidth = sized.Main.Size.X.Offset
+	sized:FinishLoading()
+	sandbox.advance(1.5)
+	return pillWidth < 400 and sized.Main.Size.X.Offset > 400,
+		("pill %d -> open %d"):format(pillWidth, sized.Main.Size.X.Offset)
 end)())
 
 section("the window draws its own cursor when the game hides the engine one")

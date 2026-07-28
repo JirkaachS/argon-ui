@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.17.0</span>
+  <span class="badge" id="verBadge">v1.17.1</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -517,8 +517,9 @@ local Argon = loadArgon()</code></pre>
 <p>Press <kbd>/</kbd> while the window is open to focus the active tab's search field. Drag the window edges to resize; the minimum size is 560×400 and the layout collapses the sidebar on narrow viewports.</p>
 
 <h3>Loading a big interface <span class="badge">new</span></h3>
-<p>Building several hundred controls is thousands of instances in one uninterrupted run, and Roblox cannot render a frame while that happens: the client freezes, and a loader on a fixed timer uncovers a window that is still assembling itself. Report progress instead and the cover stays until you dismiss it.</p>
-<pre><button class="copy">Copy</button><code>local Window = Argon:CreateWindow({ Name = "My Hub" })
+<p>Building several hundred controls is thousands of instances in one uninterrupted run, and Roblox cannot render a frame while that happens: the client freezes, and a loader on a fixed timer uncovers a window that is still assembling itself. Pass <code>Loading = "manual"</code> and the cover stays, as a compact pill with a progress bar, until you call <code>FinishLoading</code>.</p>
+<div class="note warn"><strong>Declare it in the options, not by calling <code>SetLoadingProgress</code>.</strong> Creating tabs yields (icons are fetched on demand), which gives the fallback timer a chance to run. If the library only learns you are driving the loader from your first progress call, that timer can uncover the window before you get there — you see the overlays appear and a dark, half-built shell.</div>
+<pre><button class="copy">Copy</button><code>local Window = Argon:CreateWindow({ Name = "My Hub", Loading = "manual" })
 
 for index, spec in ipairs(tabsToBuild) do
     Window:SetLoadingProgress(index / #tabsToBuild, "Building " .. spec.Name)
@@ -531,7 +532,7 @@ Window:FinishLoading()   -- nothing is shown until the restored values are on sc
 <div class="tw"><table>
 <thead><tr><th>Member</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>SetLoadingProgress(fraction, status)</code></td><td>Moves the bar and sets the status line. Calling it once takes the loader off its timer, so it waits for you. Progress is monotonic: a lower value than the last is ignored, because a bar that jumps backwards reads as a stall.</td></tr>
+<tr><td><code>SetLoadingProgress(fraction, status)</code></td><td>Moves the bar and sets the status line. Progress is monotonic: a lower value than the last is ignored, because a bar that jumps backwards reads as a stall.</td></tr>
 <tr><td><code>FinishLoading()</code></td><td>Expands and reveals the window. Safe to call more than once.</td></tr>
 <tr><td><code>IsLoading()</code></td><td><code>true</code> until the window has been revealed.</td></tr>
 </tbody></table></div>
@@ -1309,9 +1310,15 @@ local Rayfield = loadstring(game:HttpGet(
 <p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
 <pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
 lune run tests/run.luau</code></pre>
-<p>258 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
+<p>262 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.17.1</h3>
+<ul>
+<li><strong>Fixed: the window opened as a black silhouette</strong> with the overlays already on screen, and needed a close and reopen to lay out properly. Three separate causes. The loading flag was set at the end of <code>CreateWindow</code>, after the overlay gate had already run, so the player list and keybind panel came up in front of the cover. The cover expanded to full window size on the first progress report while it was still laid out for the compact pill, which is the black rectangle. And the fallback timer could fire mid-build, because icon fetches yield. <code>Loading = "manual"</code> now hands the cover to the host up front, expanding and revealing happen together, and the layout is re-run once the shell is at its final size.</li>
+<li><strong>All four window corners are round.</strong> <code>ClipsDescendants</code> on a <code>Frame</code> clips to the rectangle, not to the <code>UICorner</code>, so the sidebar's own square corners painted over the window's rounded ones however many times the decorative layers were fixed. The window frame is a <code>CanvasGroup</code>: it composites its children first, then rounds the result. The separate glow layer is gone with it.</li>
+<li><strong>Reworked window shadow.</strong> One stretched 9-slice only ever has the falloff its border strip holds, so spreading it read as a hard grey rectangle tracing the frame. Six copies at growing spreads and rising transparency, each nudged down a few pixels, add up to a real gradient with the light coming from above.</li>
+</ul>
 <h3>1.17.0</h3>
 <ul>
 <li><strong>The loader waits for the host.</strong> <code>SetLoadingProgress</code>, <code>FinishLoading</code> and <code>IsLoading</code> let a script that builds hundreds of controls hold the cover in place and report real progress. It used to dismiss itself 0.93 seconds in whether or not the host had finished, so a large menu was watched assembling itself. A window that never reports keeps the old timed behaviour, and a watchdog opens one that reports but never finishes.</li>
