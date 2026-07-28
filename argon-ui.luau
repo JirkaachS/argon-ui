@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -1002,7 +1002,26 @@ function Argon:LoadConfiguration()
             if leftBoolean~=rightBoolean then return not leftBoolean end
             return tostring(left)<tostring(right)
         end)
-        for _,flag in ipairs(flags) do
+        -- Restoring is where a big host spends most of its startup, and it used to report nothing:
+        -- one status line went up before the call and the next one only after it returned, so a
+        -- restore that fires hundreds of host callbacks looked like the loader had hung. Measured
+        -- in isolation the library's own cost is 0.08ms per flag -- 19ms for 240 -- so the time is
+        -- all in the callbacks, and the only honest fix is to report progress through them.
+        local loader
+        for _,candidate in ipairs(self._windows) do
+            if candidate._loading and candidate.SetLoadingProgress then loader=candidate end
+        end
+        local base=loader and math.clamp(loader._loadingProgress or .8,0,.99) or 0
+        local span=math.max(.995-base,0)
+        local sliceStart=os.clock()
+        for index,flag in ipairs(flags) do
+            if loader then
+                loader:SetLoadingProgress(base+span*(index/#flags),("RESTORING CONFIGURATION %d/%d"):format(index,#flags))
+                -- Yield when this thread has held the frame for too long. A host callback that
+                -- does real work without yielding would otherwise freeze the client solid, and
+                -- the progress that was just reported would never be drawn.
+                if os.clock()-sliceStart>.012 then task.wait() sliceStart=os.clock() end
+            end
             local element=self.Flags[flag]
             if element and element.Set then
                 self._pendingFlags[flag]=nil
@@ -3092,46 +3111,96 @@ function Argon:CreateWindow(options)
     -- GroupTransparency in one tween, but a CanvasGroup rescales a stale buffer when it is
     -- resized, and the cover is resized -- it grows from a pill into the window. Each element is
     -- faded on its own instead, which is a few more tweens and no soft text.
-    local SPLASH_W,SPLASH_H=328,76
+    local SPLASH_W,SPLASH_H=392,108
     local splash=create("Frame",{Name="Loader",BackgroundColor3=C.Window,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
     shadeGradient(splash,105,.24)
     sidebar.Visible=false content.Visible=false glowLayer.Visible=false shadow.Visible=false
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
     main.Size=UDim2.fromOffset(SPLASH_W,SPLASH_H)
 
-    -- An accent bloom behind the mark, so the pill reads as lit from its own logo rather than as
-    -- a flat rectangle with text on it.
-    local splashBloom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.86,BorderSizePixel=0,Position=UDim2.new(0,34,.5,0),Size=UDim2.fromOffset(150,150),ZIndex=121,Parent=splash}) corner(splashBloom,75)
-    local splashBloomFar=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.93,BorderSizePixel=0,Position=UDim2.new(1,-40,1,10),Size=UDim2.fromOffset(190,190),ZIndex=121,Parent=splash}) corner(splashBloomFar,95)
+    -- Accent blooms behind the mark and off the far corner, so the pill reads as lit from its own
+    -- logo rather than as a flat rectangle with text on it.
+    local splashBloom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.new(0,44,.5,0),Size=UDim2.fromOffset(160,160),ZIndex=121,Parent=splash}) corner(splashBloom,80)
+    local splashBloomFar=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.92,BorderSizePixel=0,Position=UDim2.new(1,-46,1,16),Size=UDim2.fromOffset(210,210),ZIndex=121,Parent=splash}) corner(splashBloomFar,105)
     -- A specular sweep that travels across the pill on a loop. Rotated and taller than the pill so
     -- it crosses as a diagonal band; ClipsDescendants keeps it inside the rounded edge.
-    local splashSweep=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.new(0,-60,.5,0),Rotation=18,Size=UDim2.fromOffset(52,190),ZIndex=122,Parent=splash})
+    local splashSweep=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.new(0,-70,.5,0),Rotation=16,Size=UDim2.fromOffset(64,240),ZIndex=122,Parent=splash})
     gradient(splashSweep,Color3.new(1,1,1),Color3.new(1,1,1),0).Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.5,0),NumberSequenceKeypoint.new(1,1)})
+    -- A hairline along the top edge whose gradient slides. Cheap, and it tells you the interface is
+    -- alive even in the moments when nothing else is changing.
+    local splashEdge=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(1,0,0,2),ZIndex=127,Parent=splash})
+    local splashEdgeGradient=gradient(splashEdge,C.AccentLight,C.Accent,0)
+    splashEdgeGradient.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.35,.25),NumberSequenceKeypoint.new(.5,0),NumberSequenceKeypoint.new(.65,.25),NumberSequenceKeypoint.new(1,1)})
 
-    -- The mark sits inside a ring with a dot orbiting it. Rotating the orbit host carries the dot
-    -- around with it, so the whole animation is one looping Rotation tween and no per-frame work.
-    local splashRing=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundTransparency=1,Position=UDim2.new(0,14,.5,0),Size=UDim2.fromOffset(48,48),ZIndex=123,Parent=splash})
-    local splashRingEdge=create("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=splashRing}) corner(splashRingEdge,24)
-    local splashRingStroke=stroke(splashRingEdge,C.Border,.55,1)
-    local splashOrbit=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(48,48),ZIndex=124,Parent=splashRing})
-    local splashOrbitDot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(6,6),Parent=splashOrbit}) corner(splashOrbitDot,6)
-    local splashOrbitTrail=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.55,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(12,12),Parent=splashOrbit}) corner(splashOrbitTrail,12)
-    local splashMark=mountLogo(splashRing,30,window._logo,125) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.5)
+    -- The mark sits on a rounded plate with two dots orbiting it in opposite phase. Rotating the
+    -- orbit host carries the dots with it, so the whole thing is one looping Rotation tween and no
+    -- per-frame work.
+    local splashPlate=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Surface,BackgroundTransparency=.1,BorderSizePixel=0,Position=UDim2.new(0,22,.5,0),Size=UDim2.fromOffset(58,58),ZIndex=123,Parent=splash})
+    corner(splashPlate,18) local splashPlateStroke=stroke(splashPlate,C.Accent,.55,1) shadeGradient(splashPlate,135,.2)
+    local splashOrbit=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(78,78),ZIndex=122,Parent=splashPlate})
+    local splashOrbitRing=create("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=splashOrbit}) corner(splashOrbitRing,39)
+    local splashOrbitStroke=stroke(splashOrbitRing,C.Border,.72,1)
+    local orbitDots={}
+    for index=0,1 do
+        local host=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Rotation=index*180,Size=UDim2.fromScale(1,1),Parent=splashOrbit})
+        local halo=create("Frame",{Name="Halo",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.62,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(14,14),Parent=host}) corner(halo,14)
+        local dot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=index==0 and C.Accent or C.AccentLight,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(6,6),ZIndex=2,Parent=host}) corner(dot,6)
+        orbitDots[#orbitDots+1]=dot
+    end
+    local splashMark=mountLogo(splashPlate,34,window._logo,125) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.5)
 
-    local splashTitle=text(splash,window._title,14,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(74,15),Size=UDim2.new(1,-92,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
-    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(74,35),Size=UDim2.new(1,-136,0,15),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
-    -- A number to watch. A bar alone gives no sense of whether a long build is progressing.
-    local loadingPercent=text(splash,"0%",11,C.Muted,Enum.Font.GothamBold,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-18,0,33),Size=UDim2.fromOffset(46,17),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=124})
-    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,74,1,-13),Size=UDim2.new(1,-92,0,4),ZIndex=124,Parent=splash}) corner(progressRail,4)
-    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.06,1),ZIndex=125,Parent=progressRail}) corner(progressFill,4) shadeGradient(progressFill,0,.22)
-    -- A brighter head on the bar, so the leading edge reads as motion instead of as a hard stop.
-    local progressHead=create("Frame",{AnchorPoint=Vector2.new(1,.5),BackgroundColor3=C.AccentLight,BorderSizePixel=0,Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(14,4),ZIndex=126,Parent=progressFill}) corner(progressHead,4)
+    local splashTitle=text(splash,window._title,17,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(96,24),Size=UDim2.new(1,-172,0,24),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    local splashSub=text(splash,window._subtitle:upper(),8,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(96,47),Size=UDim2.new(1,-172,0,13),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    -- A pulsing dot in front of the status line: the one part of the loader that keeps moving even
+    -- when a single host callback holds the thread for a second.
+    local statusDot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(96,72),Size=UDim2.fromOffset(6,6),ZIndex=124,Parent=splash}) corner(statusDot,6)
+    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8.5,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(108,65),Size=UDim2.new(1,-184,0,14),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    -- A number to watch. A bar alone gives no sense of whether a long build is progressing, and it
+    -- counts up smoothly rather than jumping, so a stage that lands 20 flags at once still reads
+    -- as motion. The tween runs on a NumberValue so no per-frame thread is needed.
+    local loadingPercent=text(splash,"0%",15,C.Text,Enum.Font.GothamBlack,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-24,0,26),Size=UDim2.fromOffset(64,22),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=124})
+    local percentValue=create("NumberValue",{Value=0,Parent=splash})
+    connect(percentValue:GetPropertyChangedSignal("Value"),function() loadingPercent.Text=math.floor(percentValue.Value+.5).."%" end)
+    -- Flush to the bottom edge and full width. Inset, it read as a small widget inside a card; edge
+    -- to edge it reads as the loader's own progress.
+    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(0,1),Size=UDim2.new(1,0,0,4),ZIndex=124,Parent=splash})
+    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.06,1),ZIndex=125,Parent=progressRail}) shadeGradient(progressFill,0,.18)
+    -- A shimmer travelling inside the filled part, driven by the gradient's own Offset, plus a
+    -- brighter head so the leading edge reads as motion instead of as a hard stop.
+    local progressShimmer=create("Frame",{BackgroundColor3=Color3.new(1,1,1),BackgroundTransparency=.72,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=126,Parent=progressFill})
+    local shimmerGradient=gradient(progressShimmer,Color3.new(1,1,1),Color3.new(1,1,1),0)
+    shimmerGradient.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.42,1),NumberSequenceKeypoint.new(.5,.15),NumberSequenceKeypoint.new(.58,1),NumberSequenceKeypoint.new(1,1)})
+    local progressHead=create("Frame",{AnchorPoint=Vector2.new(1,.5),BackgroundColor3=C.AccentLight,BorderSizePixel=0,Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(18,4),ZIndex=127,Parent=progressFill})
 
-    -- Three looping reversing/repeating tweens, all owned by TweenService: nothing to clean up,
-    -- and they stop the moment the cover is destroyed.
-    TweenService:Create(splashOrbit,TweenInfo.new(2.4,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1),{Rotation=360}):Play()
-    TweenService:Create(splashBloom,TweenInfo.new(1.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.94,Size=UDim2.fromOffset(190,190)}):Play()
-    TweenService:Create(splashSweep,TweenInfo.new(1.9,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.35),{Position=UDim2.new(1,60,.5,0)}):Play()
+    -- Looping tweens, all owned by TweenService: nothing to clean up, and they stop the moment the
+    -- cover is destroyed.
+    TweenService:Create(splashOrbit,TweenInfo.new(3.2,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1),{Rotation=360}):Play()
+    TweenService:Create(splashBloom,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.93,Size=UDim2.fromOffset(205,205)}):Play()
+    TweenService:Create(splashSweep,TweenInfo.new(2.1,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.4),{Position=UDim2.new(1,70,.5,0)}):Play()
+    TweenService:Create(splashEdgeGradient,TweenInfo.new(1.5,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.2),{Offset=Vector2.new(1,0)}):Play()
+    TweenService:Create(shimmerGradient,TweenInfo.new(1.1,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1,false,.2),{Offset=Vector2.new(1,0)}):Play()
+    TweenService:Create(statusDot,TweenInfo.new(.66,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.72,Size=UDim2.fromOffset(4,4)}):Play()
+    TweenService:Create(splashPlateStroke,TweenInfo.new(1.7,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{Transparency=.2}):Play()
+    for index,dot in ipairs(orbitDots) do
+        TweenService:Create(dot,TweenInfo.new(.9,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true,index*.2),{Size=UDim2.fromOffset(4,4)}):Play()
+    end
+    splashEdgeGradient.Offset=Vector2.new(-1,0)
+    shimmerGradient.Offset=Vector2.new(-1,0)
+
+    -- Staggered entrance. The pill used to simply exist, fully drawn, on the first frame; the parts
+    -- now rise into place in the order you read them.
+    local function nudged(position,dy)
+        return UDim2.new(position.X.Scale,position.X.Offset,position.Y.Scale,position.Y.Offset+dy)
+    end
+    for order,part in ipairs({splashPlate,splashTitle,splashSub,loadingStatus,loadingPercent}) do
+        local restingPosition=part.Position
+        part.Position=nudged(restingPosition,7)
+        -- TweenService rejects a goal the instance does not have, so the text fade is only asked
+        -- for on the labels. One stray TextTransparency on the logo plate threw for the whole call.
+        local goal={Position=restingPosition}
+        if part:IsA("TextLabel") then part.TextTransparency=1 goal.TextTransparency=0 end
+        tween(part,.34+order*.03,goal,Enum.EasingStyle.Quint)
+    end
 
     -- Every element is faded individually now that the cover is not a composited group. Walking
     -- the tree keeps this correct as the loader gains parts.
@@ -3142,6 +3211,10 @@ function Argon:CreateWindow(options)
             elseif object.ClassName=="UIStroke" then tween(object,duration,{Transparency=1},Enum.EasingStyle.Quint)
             elseif object:IsA("GuiObject") then tween(object,duration,{BackgroundTransparency=1},Enum.EasingStyle.Quint) end
         end
+        -- The content lifts as it goes, which reads as the cover handing over rather than just
+        -- switching off.
+        tween(splashPlate,duration,{Position=nudged(splashPlate.Position,-10)},Enum.EasingStyle.Quint)
+        tween(splashTitle,duration,{Position=nudged(splashTitle.Position,-10)},Enum.EasingStyle.Quint)
         fade(splash)
         for _,descendant in ipairs(splash:GetDescendants()) do fade(descendant) end
     end
@@ -3185,7 +3258,7 @@ function Argon:CreateWindow(options)
         loadingDone=true
         window._loading=false
         loadingStatus.Text="OPENING "..window._subtitle:upper()
-        loadingPercent.Text="100%"
+        tween(percentValue,.2,{Value=100},Enum.EasingStyle.Quad)
         tween(progressFill,.2,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
         -- Expand first and reveal underneath the cover. Expanding DURING the build was the
         -- mistake: the loader is laid out for the compact 286x58 pill, so stretching it to the
@@ -3209,7 +3282,7 @@ function Argon:CreateWindow(options)
         local value=math.clamp(tonumber(fraction) or 0,0,1)
         self._loadingProgress=math.max(self._loadingProgress or .08,value)
         tween(progressFill,.18,{Size=UDim2.fromScale(math.max(.06,self._loadingProgress),1)},Enum.EasingStyle.Quad)
-        loadingPercent.Text=math.floor(self._loadingProgress*100+.5).."%"
+        tween(percentValue,.24,{Value=self._loadingProgress*100},Enum.EasingStyle.Quad)
         if status~=nil and status~="" then
             -- Snap out, swap, ease back in: a status line that changes without any transition
             -- reads as a glitch when several stages land in the same frame.

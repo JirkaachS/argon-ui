@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.18.0</span>
+  <span class="badge" id="verBadge">v1.18.1</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -1313,6 +1313,11 @@ lune run tests/run.luau</code></pre>
 <p>262 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.18.1</h3>
+<ul>
+<li><strong>Fixed: the loader looked stuck on the configuration restore.</strong> One status line went up before <code>LoadConfiguration</code> and the next only after it returned, so a host with hundreds of saved flags sat on the same frozen line for as long as the restore took. Measured in isolation the library's own cost is 0.08&nbsp;ms per flag — 19&nbsp;ms for 240 — so the time is all in host callbacks, and the fix is to report through them: the bar and the status line now step once per restored flag, with a running count. The apply loop also yields when it has held the frame for more than 12&nbsp;ms, so a callback that does real work without yielding can no longer freeze the client through the whole restore.</li>
+<li><strong>Reworked loader.</strong> Larger pill with the mark on a lit plate, two dots orbiting it in opposite phase, an animated hairline along the top edge, a shimmer travelling inside the filled part of the bar, and the bar itself flush to the bottom edge instead of inset. The percentage counts up smoothly rather than jumping, the status line carries a pulsing dot that keeps moving even while a single host callback holds the thread, the parts rise into place in a staggered entrance, and the content lifts as the cover hands over.</li>
+</ul>
 <h3>1.18.0</h3>
 <ul>
 <li><strong>Two typefaces, and you can change them.</strong> Roboto carries the body and Montserrat carries the brand, page titles and section headers, which is what stops the window looking like every other Roblox panel. Every candidate was checked in a live client first: Inter, Rubik, Poppins, Manrope, PlusJakartaSans and DarkerGrotesque all report "failed to load" and silently fall back to SourceSansPro, so none of them is offered. <code>Argon:SetFont</code>, <code>Argon:GetFonts</code>, the <code>Font</code> window option and a Typeface dropdown in the library settings switch the whole interface live; the choice is saved.</li>

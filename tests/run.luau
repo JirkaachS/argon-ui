@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.18.0", Argon.Version == "1.18.0", Argon.Version)
+check("version is 1.18.1", Argon.Version == "1.18.1", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -1311,6 +1311,49 @@ check("the shell grows into the viewport it ended up with, not the one it starte
 	local width = grown.Main.Size.X.Offset
 	sandbox.setViewport(1920, 1080)
 	return width == 772, width
+end)())
+
+section("restoring a configuration reports its own progress")
+-- Restoring is where a big host spends most of its startup and it used to report nothing: one
+-- status line before the call, the next only after it returned. Measured in isolation the library
+-- costs 0.08ms per flag, so the time is all in host callbacks -- the loader has to say so.
+check("the loader is stepped once per restored flag", (function()
+	Argon._uiPreferences = {}
+	local restoreWindow = Argon:CreateWindow({
+		Name = "Restore",
+		GuiName = "ArgonRestoreTest",
+		Loading = "manual",
+		ConfigurationSaving = { Enabled = true, FolderName = "RestoreBench", FileName = "restore.json" },
+	})
+	local restoreTab = restoreWindow:CreateTab("Main", "zap")
+	for index = 1, 12 do
+		restoreTab:CreateToggle({ Flag = "R_" .. index, Name = "Toggle " .. index, CurrentValue = index % 2 == 0 })
+	end
+	Argon:SaveConfiguration()
+	restoreWindow:SetLoadingProgress(0.74, "RESTORING CONFIGURATION")
+	local reports = {}
+	local realSet = restoreWindow.SetLoadingProgress
+	restoreWindow.SetLoadingProgress = function(self, fraction, status)
+		reports[#reports + 1] = status
+		return realSet(self, fraction, status)
+	end
+	Argon:LoadConfiguration()
+	restoreWindow.SetLoadingProgress = realSet
+	local counted = 0
+	for _, status in ipairs(reports) do
+		if tostring(status):find("RESTORING CONFIGURATION %d+/%d+") then counted += 1 end
+	end
+	return counted >= 12, counted .. " of " .. #reports
+end)())
+check("progress ends just short of complete, so FinishLoading owns the last step", (function()
+	local restoreWindow = Argon._windows[#Argon._windows]
+	return restoreWindow._loadingProgress > 0.98 and restoreWindow._loadingProgress < 1,
+		tostring(restoreWindow._loadingProgress)
+end)())
+check("a restore with no loader on screen still applies every flag", (function()
+	local stats = Argon._lastConfigStats or {}
+	return stats.applied == stats.total and stats.failed == 0,
+		("applied %s of %s, failed %s"):format(tostring(stats.applied), tostring(stats.total), tostring(stats.failed))
 end)())
 
 section("a composited group is never tinted by its own gradient")
