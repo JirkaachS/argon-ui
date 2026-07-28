@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.17.2", Argon.Version == "1.17.2", Argon.Version)
+check("version is 1.18.0", Argon.Version == "1.18.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -768,6 +768,10 @@ local jsonWindow = Argon:CreateWindow({
 	GuiName = "ArgonUIJson",
 	ConfigurationSaving = { Enabled = true, FolderName = "JsonHub", FileName = "settings.json" },
 })
+-- Open it: the topbar controls are hidden while the loader holds the window at pill width, which
+-- the harness can now actually measure.
+jsonWindow:FinishLoading()
+sandbox.advance(1.5)
 local jsonTab = jsonWindow:CreateTab("Main", "zap")
 jsonTab:CreateToggle({ Flag = "J_Toggle", Name = "Toggle", CurrentValue = true })
 Argon:SaveConfiguration()
@@ -1161,10 +1165,10 @@ check("the SECTIONS button is gone from the topbar", (function()
 end)())
 Window:_select(Window.Tabs[1])
 
-section("typography uses one modern family")
+section("typography is a body face and a display face, and both can be switched")
 check("labels get a FontFace, not just a legacy Font", (function()
 	local label = Window.Tabs[1].ButtonTitle
-	return label.FontFace ~= nil and tostring(label.FontFace.Family):find("BuilderSans", 1, true) ~= nil,
+	return label.FontFace ~= nil and tostring(label.FontFace.Family):find("Roboto", 1, true) ~= nil,
 		label.FontFace and tostring(label.FontFace.Family)
 end)())
 check("buttons built outside the text helper get it too", (function()
@@ -1175,7 +1179,38 @@ check("buttons built outside the text helper get it too", (function()
 	for _, child in ipairs(button.Root:GetDescendants()) do
 		if child.ClassName == "TextLabel" and child.FontFace then face = child.FontFace end
 	end
-	return face ~= nil and tostring(face.Family):find("BuilderSans", 1, true) ~= nil, face and tostring(face.Family)
+	return face ~= nil and tostring(face.Family):find("Roboto", 1, true) ~= nil, face and tostring(face.Family)
+end)())
+check("headings use the display face, not the body face", (function()
+	-- Section headers, the page title and the sidebar brand are the display slot. Every family
+	-- offered was checked in a live client; Inter, Rubik, Poppins, Manrope, PlusJakartaSans and
+	-- DarkerGrotesque all fail to load and silently fall back, so none of them is on the list.
+	local headingTab = Argon:CreateWindow({ Name = "Heading", GuiName = "ArgonHeadingTest" })
+	headingTab:FinishLoading()
+	local built = headingTab:CreateTab("Main", "zap")
+	built:CreateSection("Look and feel")
+	local heading
+	for _, child in ipairs(built.Page:GetDescendants()) do
+		if child.ClassName == "TextLabel" and child.Text == "LOOK AND FEEL" then heading = child end
+	end
+	return heading ~= nil and tostring(heading.FontFace.Family):find("Montserrat", 1, true) ~= nil,
+		heading and tostring(heading.FontFace.Family)
+end)())
+check("SetFont repaints the live interface", (function()
+	local label = Window.Tabs[1].ButtonTitle
+	Argon:SetFont("Ubuntu")
+	local switched = tostring(label.FontFace.Family)
+	Argon:SetFont("Roboto")
+	return switched:find("Ubuntu", 1, true) ~= nil and tostring(label.FontFace.Family):find("Roboto", 1, true) ~= nil,
+		switched .. " -> " .. tostring(label.FontFace.Family)
+end)())
+check("an unknown family is refused rather than applied", (function()
+	Argon:SetFont("Comic Sans")
+	return Argon.CurrentFont == "Roboto", Argon.CurrentFont
+end)())
+check("GetFonts lists only families that load", (function()
+	local offered = table.concat(Argon:GetFonts(), ",")
+	return offered:find("Roboto", 1, true) ~= nil and offered:find("Inter", 1, true) == nil, offered
 end)())
 
 section("the loader waits for the host instead of a timer")
@@ -1296,21 +1331,51 @@ check("no CanvasGroup carries a UIGradient of its own", (function()
 	end
 	return #offenders == 0, table.concat(offenders, ", ")
 end)())
-check("the loader cover shades a child fill instead", (function()
-	local fill
-	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
-		if child.Name == "Fill" and child.ClassName == "Frame" then fill = child end
-	end
-	return fill ~= nil and fill:FindFirstChildOfClass("UIGradient") ~= nil
+check("the window frame is a plain Frame, so resizing cannot blur its text", (function()
+	-- A CanvasGroup rasterises its children into a buffer sized when the group is created and
+	-- rescales that buffer when the group is resized instead of redrawing it. Measured live,
+	-- dragging the window from 980px to 680px left every label visibly soft.
+	return tintWindow.Main.ClassName == "Frame", tintWindow.Main.ClassName
 end)())
-check("the window frame shades a backdrop child instead", (function()
-	local backdrop
+check("the window frame carries its own shade gradient", (function()
+	return tintWindow.Main:FindFirstChildOfClass("UIGradient") ~= nil
+end)())
+check("pages are plain Frames too", (function()
+	return tintWindow.Tabs[1].PageGroup.ClassName == "Frame", tintWindow.Tabs[1].PageGroup.ClassName
+end)())
+check("the loader cover is a plain Frame, because it is resized as it opens", (function()
+	local cover
 	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
-		if child.Name == "Backdrop" and child.ClassName == "Frame" then backdrop = child end
+		if child.Name == "Loader" then cover = child end
 	end
-	return backdrop ~= nil
-		and backdrop:FindFirstChildOfClass("UIGradient") ~= nil
-		and tintWindow.Main:FindFirstChildOfClass("UIGradient") == nil
+	return cover ~= nil and cover.ClassName == "Frame", cover and cover.ClassName
+end)())
+check("the sidebar rounds its own corners and squares off its right edge", (function()
+	-- The window clips to a rectangle, not to its UICorner, so a square-cornered sidebar painted
+	-- straight over the window's rounded left edge.
+	local rounded = tintWindow.Sidebar:FindFirstChildOfClass("UICorner") ~= nil
+	local patch = tintWindow.Sidebar:FindFirstChild("SquareEdge")
+	return rounded and patch ~= nil and patch.Size == UDim2.new(0, 16, 1, 0)
+end)())
+check("resizing by hand re-runs the layout, so the compact sidebar engages", (function()
+	-- Only viewport changes used to trigger the layout pass, so dragging the window narrow left
+	-- the full 232px sidebar and the search field in place well past the point they fit.
+	local sizedWindow = Argon:CreateWindow({ Name = "Handle", GuiName = "ArgonHandleTest" })
+	sizedWindow:FinishLoading()
+	sandbox.advance(1.5)
+	local wide = sizedWindow.Sidebar.Size.X.Offset
+	sizedWindow:SetSize({ 620, 460 })
+	local narrow = sizedWindow.Sidebar.Size.X.Offset
+	sizedWindow:SetSize({ 980, 660 })
+	return wide == 232 and narrow == 72 and sizedWindow.Sidebar.Size.X.Offset == 232,
+		("%d -> %d -> %d"):format(wide, narrow, sizedWindow.Sidebar.Size.X.Offset)
+end)())
+check("only the decorative glow is still a composited group", (function()
+	local groups = {}
+	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
+		if child.ClassName == "CanvasGroup" then groups[#groups + 1] = child.Name end
+	end
+	return #groups == 1 and groups[1] == "Glow", table.concat(groups, ", ")
 end)())
 check("the loader keeps its contents legible on a dark palette", (function()
 	-- Mono's Window is rgb(16,16,18). Multiplied by the old Surface/Window gradient pair the
@@ -1326,6 +1391,71 @@ check("the loader keeps its contents legible on a dark palette", (function()
 	dark:FinishLoading()
 	Argon:SetTheme(previous)
 	return not tinted
+end)())
+
+section("the window can be renamed, and the rename sticks")
+-- Earlier suites have already saved preferences, and a saved rename deliberately outranks the
+-- host's option, so start from a clean preference table.
+Argon._uiPreferences = {}
+local namedWindow = Argon:CreateWindow({ Name = "Host Name", Subtitle = "Host Sub", GuiName = "ArgonNameTest" })
+namedWindow:FinishLoading()
+check("the host's name and subtitle are used when nothing is saved", (function()
+	return namedWindow:GetTitle() == "Host Name" and namedWindow:GetSubtitle() == "Host Sub",
+		namedWindow:GetTitle() .. " / " .. namedWindow:GetSubtitle()
+end)())
+check("SetTitle renames the sidebar", (function()
+	namedWindow:SetTitle("  Nightfall  ")
+	return namedWindow:GetTitle() == "Nightfall", namedWindow:GetTitle()
+end)())
+check("SetSubtitle renames the line under it", (function()
+	namedWindow:SetSubtitle("private build")
+	return namedWindow:GetSubtitle() == "private build", namedWindow:GetSubtitle()
+end)())
+check("the subtitle is drawn in caps without changing the stored value", (function()
+	local shown
+	for _, child in ipairs(namedWindow.Sidebar:GetDescendants()) do
+		if child.ClassName == "TextLabel" and child.Text == "PRIVATE BUILD" then shown = child.Text end
+	end
+	return shown == "PRIVATE BUILD" and namedWindow:GetSubtitle() == "private build"
+end)())
+check("clearing a field restores the host's value rather than blanking it", (function()
+	namedWindow:SetTitle("")
+	namedWindow:SetSubtitle("   ")
+	return namedWindow:GetTitle() == "Host Name" and namedWindow:GetSubtitle() == "Host Sub",
+		namedWindow:GetTitle() .. " / " .. namedWindow:GetSubtitle()
+end)())
+check("the rename and the typeface are exported for persistence", (function()
+	namedWindow:SetTitle("Nightfall")
+	Argon:SetFont("Ubuntu")
+	local exported = namedWindow:_exportUIPreferences()
+	Argon:SetFont("Roboto")
+	return exported.Title == "Nightfall" and exported.Font == "Ubuntu",
+		tostring(exported.Title) .. " / " .. tostring(exported.Font)
+end)())
+check("a saved rename is applied before anything is drawn, so the loader shows it", (function()
+	-- The loader is built before any configuration is restored, so the name has to come from the
+	-- preference table at construction time or the first second of every launch shows the old one.
+	Argon._uiPreferences = { Title = "Nightfall", Subtitle = "Private Build", Font = "Ubuntu" }
+	local restored = Argon:CreateWindow({ Name = "Host Name", GuiName = "ArgonRestoredTest", Loading = "manual" })
+	local onCover
+	for _, child in ipairs(restored.ScreenGui:GetDescendants()) do
+		if child.ClassName == "TextLabel" and child.Text == "Nightfall" then onCover = child end
+	end
+	restored:FinishLoading()
+	local font = Argon.CurrentFont
+	Argon._uiPreferences = {}
+	Argon:SetFont("Roboto")
+	return onCover ~= nil and restored:GetSubtitle() == "Private Build" and font == "Ubuntu",
+		tostring(restored:GetTitle()) .. " / " .. font
+end)())
+check("the library settings panel exposes both rename fields", (function()
+	local panelWindow = Argon:CreateWindow({ Name = "Panel", GuiName = "ArgonPanelTest" })
+	panelWindow:FinishLoading()
+	local settingsTab = panelWindow:CreateTab("Settings", "settings")
+	panelWindow:CreateLibrarySettings(settingsTab)
+	return Argon.Flags.ArgonUIWindowTitle ~= nil
+		and Argon.Flags.ArgonUIWindowSubtitle ~= nil
+		and Argon.Flags.ArgonUIFont ~= nil
 end)())
 
 section("the window draws its own cursor when the game hides the engine one")

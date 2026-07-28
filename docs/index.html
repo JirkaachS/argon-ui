@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.17.2</span>
+  <span class="badge" id="verBadge">v1.18.0</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -1313,6 +1313,16 @@ lune run tests/run.luau</code></pre>
 <p>262 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.18.0</h3>
+<ul>
+<li><strong>Two typefaces, and you can change them.</strong> Roboto carries the body and Montserrat carries the brand, page titles and section headers, which is what stops the window looking like every other Roblox panel. Every candidate was checked in a live client first: Inter, Rubik, Poppins, Manrope, PlusJakartaSans and DarkerGrotesque all report "failed to load" and silently fall back to SourceSansPro, so none of them is offered. <code>Argon:SetFont</code>, <code>Argon:GetFonts</code>, the <code>Font</code> window option and a Typeface dropdown in the library settings switch the whole interface live; the choice is saved.</li>
+<li><strong>Rename the window.</strong> <code>SetTitle</code> and the new <code>SetSubtitle</code> are persisted and read back before anything is drawn, so a rename shows on the loader too. Both are exposed as fields in the library settings panel, and clearing either restores whatever the host asked for rather than leaving a blank sidebar.</li>
+<li><strong>Fixed: text went soft when the window was resized.</strong> The window frame and every page were <code>CanvasGroup</code>s so their <code>UICorner</code> would survive their children's square corners. A <code>CanvasGroup</code> rasterises children into a buffer sized when the group is created and rescales that buffer when the group is resized instead of redrawing it — measured live, dragging from 980px to 680px left every label visibly blurred. Both are plain frames now. The corners are solved where the problem actually was: the sidebar rounds its own left corners and squares off its right edge, and the decorative glows sit in a small group of their own that holds no text.</li>
+<li><strong>Quieter shadow.</strong> The stack peaked near 64% opacity and threw a halo 54px out, which read as a dark border drawn around the window. Three layers now, topping out near 28% and gone within 20px.</li>
+<li><strong>Reworked loader.</strong> A wider pill with an orbiting mark inside a ring, a breathing accent bloom, a specular sweep, a percentage readout beside the status line, and a lit head on the progress bar. Status changes ease in instead of snapping. The cover fades element by element, because it is no longer a composited group.</li>
+<li><strong>Fixed: resizing by hand never re-ran the layout.</strong> Only viewport changes did, so dragging the window narrow kept the full 232px sidebar and the search field well past the point they fit — the compact layout only ever appeared on small screens.</li>
+<li><strong>Test harness:</strong> <code>AbsoluteSize</code> was a fixed 980×660 for every instance, so nothing that branches on measured width could be exercised offline. A size given purely in offsets is now reported as the absolute size.</li>
+</ul>
 <h3>1.17.2</h3>
 <ul>
 <li><strong>Fixed: the loader rendered fully black</strong> on a dark palette such as Mono. A <code>UIGradient</code> does not replace the colour under it, it multiplies it — and on a <code>CanvasGroup</code> it multiplies the whole composited group rather than just the background. The cover carried a <code>Surface</code> to <code>Window</code> gradient, so the logo, the title, the status line and the progress bar were all multiplied by rgb(16,16,18) and came out at about rgb(22,22,24). Depth shading is applied to a child fill and sweeps white to a light grey, so the themed colour survives it. The window frame, the overlay cards, sliders and the logo fallback carried the same multiply and are all corrected.</li>

@@ -209,6 +209,17 @@ local function newInstance(className)
 	self = setmetatable({}, {
 		__tostring = function() return properties.Name end,
 		__index = function(_, key)
+			-- AbsoluteSize used to be a fixed 980x660 for every instance, so nothing that branches
+			-- on measured width -- the whole compact layout -- could be exercised offline. When a
+			-- Size is expressed purely in offsets it is reported as the absolute size, which is
+			-- what a real client would do for a window whose parent fills the screen.
+			if key == "AbsoluteSize" then
+				local size = properties.Size
+				if size and size.X and size.X.Scale == 0 and size.Y.Scale == 0 and size.X.Offset > 0 and size.Y.Offset > 0 then
+					return newVector2(size.X.Offset, size.Y.Offset)
+				end
+				return properties.AbsoluteSize
+			end
 			if key == "GetChildren" then return function() return table.clone(children) end end
 			if key == "GetDescendants" then
 				return function()

@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.2",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -218,9 +218,10 @@ local function registerThemeRender(root,render)
     table.insert(Argon._themeRenderers,{Root=root,Render=render})
 end
 
--- Forward declaration: create() applies the FontFace, but the family table it reads from is
--- defined further down next to the text helpers.
+-- Forward declarations: create() applies the FontFace and records the object so the family can
+-- be switched later, but both live further down next to the text helpers.
 local fontFaceFor
+local registerFontBinding
 
 local function create(className,props)
     local object=Instance.new(className)
@@ -237,6 +238,7 @@ local function create(className,props)
     if props and props.Font and fontFaceFor then
         local face=fontFaceFor(props.Font)
         if face then pcall(function() object.FontFace=face end) end
+        if registerFontBinding then registerFontBinding(object,props.Font) end
     end
     if props and props.Parent then object.Parent=props.Parent end
     return object
@@ -427,31 +429,80 @@ local function tween(object,duration,props,style,direction)
     return animation
 end
 
--- Text sharpness: the legacy Gotham enum renders thin and muddy at 8-11px. Mapping to
--- GothamSSm FontFace weights and nudging small sizes up gives noticeably crisper glyphs
--- with the same layout. Falls back to the enum font when FontFace is unavailable.
--- BuilderSans is Roblox's own modern interface typeface. Measured against GothamSSm in a live
--- client it renders the same string ~13% narrower at the same size with cleaner small-size
--- hinting, so titles fit where they used to truncate. Only Regular/Medium/SemiBold/Bold/
--- ExtraBold are real weights in the family; Light and Heavy silently fall back, so the map
--- below never asks for them.
-local FONT_FAMILY="rbxasset://fonts/families/BuilderSans.json"
+-- Text sharpness: the legacy Gotham enum renders thin and muddy at 8-11px, so every label is
+-- mapped onto a real FontFace weight instead. Falls back to the enum font when FontFace is
+-- unavailable.
+--
+-- Two faces, not one. The body face carries the dense parts of the interface, and a separate
+-- display face carries the brand, page titles and section headers, which is what stops the
+-- window looking like every other Roblox panel. Every family listed here was checked against a
+-- live client: Inter, Rubik, Poppins, Manrope, PlusJakartaSans and DarkerGrotesque all report
+-- "failed to load" and silently fall back to SourceSansPro, so none of them are offered.
+-- Roboto is the default body face -- measured at 13px it sets the same string 2% narrower than
+-- BuilderSans with visibly better small-size hinting -- and Montserrat is the default display
+-- face. GothamBlack is the display slot; nothing else uses it.
+local FONT_SETS={
+    Roboto={Body="rbxasset://fonts/families/Roboto.json",Display="rbxasset://fonts/families/Montserrat.json",Label="Roboto + Montserrat"},
+    BuilderSans={Body="rbxasset://fonts/families/BuilderSans.json",Display="rbxasset://fonts/families/BuilderSans.json",Label="BuilderSans"},
+    Ubuntu={Body="rbxasset://fonts/families/Ubuntu.json",Display="rbxasset://fonts/families/Ubuntu.json",Label="Ubuntu"},
+    Condensed={Body="rbxasset://fonts/families/RobotoCondensed.json",Display="rbxasset://fonts/families/Oswald.json",Label="RobotoCondensed + Oswald"},
+    Technical={Body="rbxasset://fonts/families/Sarpanch.json",Display="rbxasset://fonts/families/Sarpanch.json",Label="Sarpanch"},
+    Gotham={Body="rbxasset://fonts/families/GothamSSm.json",Display="rbxasset://fonts/families/GothamSSm.json",Label="GothamSSm (legacy)"},
+}
+local FONT_ORDER={"Roboto","BuilderSans","Ubuntu","Condensed","Technical","Gotham"}
 local FONT_FALLBACK="rbxasset://fonts/families/GothamSSm.json"
 local FONT_WEIGHTS={
-    [Enum.Font.Gotham]=Enum.FontWeight.Regular,
-    [Enum.Font.GothamMedium]=Enum.FontWeight.Medium,
-    [Enum.Font.GothamBold]=Enum.FontWeight.SemiBold,
-    [Enum.Font.GothamBlack]=Enum.FontWeight.ExtraBold,
+    [Enum.Font.Gotham]={weight=Enum.FontWeight.Regular},
+    [Enum.Font.GothamMedium]={weight=Enum.FontWeight.Medium},
+    [Enum.Font.GothamBold]={weight=Enum.FontWeight.SemiBold},
+    [Enum.Font.GothamBlack]={weight=Enum.FontWeight.Bold,display=true},
 }
 local FONT_FACES={}
+-- Every object that got a face is remembered so switching family can repaint the live interface,
+-- the same way theme bindings do. Entries whose object has gone are dropped on the next pass.
+local FONT_BINDINGS={}
+Argon.CurrentFont="Roboto"
+
+local function fontSet() return FONT_SETS[Argon.CurrentFont] or FONT_SETS.Roboto end
+
 function fontFaceFor(font)
     if FONT_FACES[font]~=nil then return FONT_FACES[font] or nil end
-    local weight=FONT_WEIGHTS[font]
-    if not weight then FONT_FACES[font]=false return nil end
-    local ok,face=pcall(function() return Font.new(FONT_FAMILY,weight,Enum.FontStyle.Normal) end)
-    if not ok then ok,face=pcall(function() return Font.new(FONT_FALLBACK,weight,Enum.FontStyle.Normal) end) end
+    local entry=FONT_WEIGHTS[font]
+    if not entry then FONT_FACES[font]=false return nil end
+    local set=fontSet()
+    local family=entry.display and set.Display or set.Body
+    local ok,face=pcall(function() return Font.new(family,entry.weight,Enum.FontStyle.Normal) end)
+    if not ok then ok,face=pcall(function() return Font.new(FONT_FALLBACK,entry.weight,Enum.FontStyle.Normal) end) end
     FONT_FACES[font]=ok and face or false
     return ok and face or nil
+end
+
+function registerFontBinding(object,font)
+    if not FONT_WEIGHTS[font] then return end
+    FONT_BINDINGS[#FONT_BINDINGS+1]={object=object,font=font}
+end
+
+function Argon:GetFonts()
+    local list={}
+    for _,name in ipairs(FONT_ORDER) do list[#list+1]=name end
+    return list
+end
+
+function Argon:GetFontLabel(name) local set=FONT_SETS[name or self.CurrentFont] return set and set.Label or nil end
+
+function Argon:SetFont(name)
+    local key=tostring(name)
+    if not FONT_SETS[key] then return self end
+    self.CurrentFont=key
+    table.clear(FONT_FACES)
+    local surviving={}
+    for _,binding in ipairs(FONT_BINDINGS) do
+        local face=fontFaceFor(binding.font)
+        local ok=face~=nil and pcall(function() binding.object.FontFace=face end)
+        if ok then surviving[#surviving+1]=binding end
+    end
+    FONT_BINDINGS=surviving
+    return self
 end
 
 -- Small text gets a small bump; larger headings are left alone so layout stays put.
@@ -471,6 +522,7 @@ local function text(parent,value,size,color,font,props)
             label.Font=setting
             local face=fontFaceFor(setting)
             if face then pcall(function() label.FontFace=face end) end
+            registerFontBinding(label,setting)
         else label[property]=setting end
     end
     return label
@@ -1093,6 +1145,14 @@ function Argon:CreateWindow(options)
     end)
     self._configuration=options.ConfigurationSaving or {Enabled=false}
     if options.Theme then self:SetTheme(options.Theme) end
+    if options.Font then self:SetFont(options.Font) end
+    -- Name and subtitle are resolved before anything is drawn, and a saved rename wins over the
+    -- host's option: the point of letting someone rename the window is that the rename survives
+    -- the next launch, including on the loader, which is drawn before any config is restored.
+    local preferences=self._uiPreferences or {}
+    if preferences.Font then self:SetFont(preferences.Font) end
+    local resolvedTitle=tostring(preferences.Title or options.Name or "Argon UI")
+    local resolvedSubtitle=tostring(preferences.Subtitle or options.Subtitle or "Control Center")
     local guiParent=resolveParent()
     -- Standalone: the ScreenGui name is configurable and only a previous instance of
     -- this same window is replaced, so unrelated interfaces are never destroyed.
@@ -1107,48 +1167,45 @@ function Argon:CreateWindow(options)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
     gui.Parent=guiParent
 
-    -- The shadow is a stack, not a single 9-slice. A sliced shadow asset only ever has the
-    -- falloff its border strip holds -- about 10px here -- and stretching one copy 40px out from
-    -- the window just stretches the opaque middle, which is why every single-layer attempt read
-    -- as a hard grey rectangle tracing the frame instead of as depth. Six copies at growing
-    -- spreads and rising transparency add up to a real gradient: near the window most layers
-    -- overlap, and further out only the wide faint ones remain. Each is nudged down a few pixels
-    -- so the light reads as coming from above. The container keeps the main+22 size every
-    -- existing resize site already writes; the layers spread from it on their own.
+    -- Three quiet layers. The previous six-layer stack was measured to reach about 64% opacity at
+    -- the window edge and threw a visible halo 54px out, which read as a dark border painted
+    -- around the window rather than as the window sitting above the scene. This tops out near
+    -- 28% and dies within 20px, so it lifts the frame without announcing itself. The container
+    -- keeps the main+22 size every existing resize site already writes.
     local shadow=create("Frame",{Name="ArgonShadow",BackgroundTransparency=1,AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(1002,682),ZIndex=1,Parent=gui})
     for _,layer in ipairs({
-        {Name="Contact",spread=-22,drop=2,alpha=.72,z=6},
-        {Name="Near",spread=-8,drop=4,alpha=.78,z=5},
-        {Name="Mid",spread=6,drop=7,alpha=.84,z=4},
-        {Name="Soft",spread=26,drop=11,alpha=.88,z=3},
-        {Name="Wide",spread=52,drop=16,alpha=.92,z=2},
-        {Name="Ambient",spread=86,drop=22,alpha=.95,z=1},
+        {Name="Contact",spread=-22,drop=3,alpha=.86,z=3},
+        {Name="Mid",spread=-4,drop=6,alpha=.90,z=2},
+        {Name="Ambient",spread=18,drop=10,alpha=.93,z=1},
     }) do
         create("ImageLabel",{Name=layer.Name,BackgroundTransparency=1,Image="rbxassetid://1316045217",ImageColor3=Color3.new(),ImageTransparency=layer.alpha,ScaleType=Enum.ScaleType.Slice,SliceCenter=Rect.new(10,10,118,118),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.new(.5,0,.5,layer.drop),Size=UDim2.new(1,layer.spread,1,layer.spread),ZIndex=layer.z,Parent=shadow})
     end
 
-    -- A CanvasGroup, not a Frame. ClipsDescendants on a Frame clips children to the RECTANGLE,
-    -- not to the 16px UICorner, so the sidebar's own square corners painted straight over the
-    -- window's rounded ones and the edges kept reading as square however many times the
-    -- decorative layers were fixed. A CanvasGroup composites its children first and applies the
-    -- corner to the result, which is the only way to round a container that has backgrounds
-    -- inside it. It also makes the separate glow layer redundant, so that nested group is gone.
-    local main=create("CanvasGroup",{Name="ArgonWindow",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(980,660),ZIndex=2,Parent=gui})
-    corner(main,16) stroke(main,C.Border,.08,1)
-    -- The window fill lives on a child, not on `main`. A UIGradient on a Frame tints only that
-    -- frame's background, but on a CanvasGroup it multiplies the whole composited group -- so
-    -- putting it on `main` painted every child, and all the text, with a near-black colour and
-    -- the whole window rendered dark. The backdrop keeps the C.Window theme binding.
-    local backdrop=create("Frame",{Name="Backdrop",BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=0,Parent=main})
-    shadeGradient(backdrop,115,.22)
-    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),ZIndex=2,Parent=main}) corner(glowTop,155)
-    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),ZIndex=2,Parent=main}) corner(glowBottom,180)
+    -- A plain Frame, deliberately. `main` was a CanvasGroup so its UICorner would apply to the
+    -- composited children instead of being painted over by their square corners -- but a
+    -- CanvasGroup rasterises its children into a buffer sized when the group is created, and
+    -- resizing the group rescales that buffer instead of redrawing it. Measured live, dragging
+    -- the window from 980px down to 680px left every label visibly soft: that is the "text gets
+    -- pixelated when resizing" report. The corners are solved where the problem actually is
+    -- instead -- the sidebar rounds its own left corners and squares off its right edge, and the
+    -- decorative glows live in a small CanvasGroup of their own, which holds no text and so has
+    -- nothing to blur.
+    local main=create("Frame",{Name="ArgonWindow",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(980,660),ZIndex=2,Parent=gui})
+    corner(main,16) stroke(main,C.Border,.08,1) shadeGradient(main,115,.22)
+    local glowLayer=create("CanvasGroup",{Name="Glow",BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=1,Parent=main}) corner(glowLayer,16)
+    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),ZIndex=2,Parent=glowLayer}) corner(glowTop,155)
+    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),ZIndex=2,Parent=glowLayer}) corner(glowBottom,180)
 
     local sidebar=create("Frame",{BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Size=UDim2.new(0,232,1,0),ZIndex=3,Parent=main})
-    create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),Parent=sidebar})
+    -- The sidebar carries the window's left corners itself, and a square patch flush against its
+    -- right edge fills the two right-hand cutouts the UICorner leaves behind. Adjacent, never
+    -- overlapping, so the semi-transparent fill does not double up into a visible seam.
+    corner(sidebar,16)
+    local sidebarSquare=create("Frame",{Name="SquareEdge",BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Position=UDim2.new(1,-16,0,0),Size=UDim2.new(0,16,1,0),Parent=sidebar})
+    create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),ZIndex=2,Parent=sidebarSquare})
     local brand,setBrandLogo=mountLogo(sidebar,38,options.Logo,4) brand.Position=UDim2.fromOffset(18,17)
-    local brandName=text(sidebar,options.Name or "Argon UI",15,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
-    local brandSub=text(sidebar,"CONTROL CENTER",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,37),Size=UDim2.new(1,-82,0,17)})
+    local brandName=text(sidebar,resolvedTitle,15,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(67,17),Size=UDim2.new(1,-82,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
+    local brandSub=text(sidebar,resolvedSubtitle:upper(),9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(67,37),Size=UDim2.new(1,-82,0,17),TextTruncate=Enum.TextTruncate.AtEnd})
 
     local searchFrame=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(14,72),Size=UDim2.new(1,-28,0,38),Parent=sidebar})
     corner(searchFrame,10) stroke(searchFrame,C.BorderSoft,.18,1)
@@ -1169,7 +1226,7 @@ function Argon:CreateWindow(options)
     local content=create("Frame",{BackgroundTransparency=1,Name="Content",Position=UDim2.fromOffset(232,0),Size=UDim2.new(1,-232,1,0),ZIndex=3,Parent=main})
     local topbar=create("Frame",{BackgroundTransparency=1,Name="TopBar",Size=UDim2.new(1,0,0,70),Parent=content})
     local eyebrow=text(topbar,"ARGON / DASHBOARD",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,14),Size=UDim2.new(1,-285,0,17),TextTruncate=Enum.TextTruncate.AtEnd})
-    local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-292,0,29),TextTruncate=Enum.TextTruncate.AtEnd})
+    local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-292,0,29),TextTruncate=Enum.TextTruncate.AtEnd})
     -- The live indicator was a grey Surface capsule with a fixed 75px width and the word LIVE
     -- in Muted, so the only thing that read as "live" was a 7px dot. It is now tinted with
     -- Success, sizes to its own label, and the dot carries a slow breathing halo.
@@ -1238,7 +1295,7 @@ function Argon:CreateWindow(options)
     -- at the end of CreateWindow: _refreshOverlayVisibility and _applyUIPreferences both run in
     -- between, and with the flag still nil they pushed the player and keybind overlays onto the
     -- screen while the loader was still covering the window.
-    local window={ScreenGui=gui,CursorGui=cursorGui,Main=main,Shadow=shadow,_loading=true,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true}
+    local window={ScreenGui=gui,CursorGui=cursorGui,Main=main,Shadow=shadow,_loading=true,Sidebar=sidebar,Content=content,TabList=tabList,PageHost=pageHost,Notifications=notifications,Tabs={},ActiveTab=nil,_visible=true,_toggleKey=options.ToggleUIKeybind or Enum.KeyCode.Insert,_userSized=false,_minSize=Vector2.new(560,400),_keybindEntries={},_tabTransitionToken=0,_logo=savedPreferences.Logo or options.Logo,_smoothTransitions=savedPreferences.SmoothTransitions~=false,_overlayTransparency=math.clamp(tonumber(savedPreferences.OverlayTransparency) or .38,.12,.8),_overlayScale=math.clamp(tonumber(savedPreferences.OverlayScale) or 1,.75,1.4),_playerListEnabled=savedPreferences.PlayerListEnabled~=false and options.PlayerList~=false,_keybindListEnabled=savedPreferences.KeybindListEnabled~=false and options.KeybindList~=false,_overlaysAlwaysVisible=savedPreferences.OverlaysAlwaysVisible==true or options.OverlaysAlwaysVisible==true,_title=resolvedTitle,_subtitle=resolvedSubtitle,_defaultTitle=tostring(options.Name or "Argon UI"),_defaultSubtitle=tostring(options.Subtitle or "Control Center")}
     table.insert(self._windows,window)
     function window:SetVisibility(value)
         self._visible=value~=false
@@ -1252,8 +1309,27 @@ function Argon:CreateWindow(options)
     function window:Close() self:SetVisibility(false) end
     function window:Toggle() self:ToggleVisibility() end
     function window:SetToggleKey(value) self._toggleKey=typeof(value)=="EnumItem" and value or Enum.KeyCode[keyName(value)] or self._toggleKey end
-    function window:SetTitle(value) brandName.Text=tostring(value or "Argon UI") end
+    -- Renaming is persisted, so it survives the next launch and shows on the loader too. An empty
+    -- string means "go back to whatever the host asked for" rather than leaving a blank sidebar.
+    function window:SetTitle(value)
+        local wanted=tostring(value or ""):gsub("^%s+",""):gsub("%s+$","")
+        self._title=wanted~="" and wanted:sub(1,40) or self._defaultTitle
+        brandName.Text=self._title
+        scheduleSave()
+        return self
+    end
+    function window:SetSubtitle(value)
+        local wanted=tostring(value or ""):gsub("^%s+",""):gsub("%s+$","")
+        self._subtitle=wanted~="" and wanted:sub(1,40) or self._defaultSubtitle
+        brandSub.Text=self._subtitle:upper()
+        scheduleSave()
+        return self
+    end
+    function window:GetTitle() return self._title end
+    function window:GetSubtitle() return self._subtitle end
     function window:SetLogo(value) self._logo=tostring(value or "") setBrandLogo(self._logo) scheduleSave() return self end
+    function window:SetFont(value) local before=Argon.CurrentFont Argon:SetFont(value) if Argon.CurrentFont~=before then scheduleSave() end return self end
+    function window:GetFonts() return Argon:GetFonts() end
     function window:SetTheme(value) local ok,err=Argon:SetTheme(value) if ok then scheduleSave() end return ok,err end
     function window:GetThemes() return Argon:GetThemes() end
     function window:SetSize(value)
@@ -1264,6 +1340,11 @@ function Argon:CreateWindow(options)
         width=math.clamp(tonumber(width) or main.AbsoluteSize.X,minWidth,math.max(minWidth,math.min(1200,viewport.X-20))) height=math.clamp(tonumber(height) or main.AbsoluteSize.Y,minHeight,math.max(minHeight,math.min(820,viewport.Y-20)))
         self._userSized=true
         main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
+        -- Re-run the layout. Only viewport changes used to trigger it, so dragging the window
+        -- narrow by hand left the full 232px sidebar and the search field in place well past the
+        -- point they stop fitting -- the compact layout only ever appeared on small screens.
+        if self._relayout then self._relayout() end
+        return self
     end
 
     local function makeOverlay(titleText,iconName,position,size)
@@ -1347,11 +1428,14 @@ function Argon:CreateWindow(options)
         playerOverlay.Root.Position=playerOverlay.DefaultPosition keybindOverlay.Root.Position=keybindOverlay.DefaultPosition scheduleSave() return self
     end
     function window:_exportUIPreferences()
-        return {Theme=Argon.CurrentTheme,Logo=self._logo,PlayerListEnabled=self._playerListEnabled,KeybindListEnabled=self._keybindListEnabled,OverlaysAlwaysVisible=self._overlaysAlwaysVisible,OverlayTransparency=self._overlayTransparency,OverlayScale=self._overlayScale,SmoothTransitions=self._smoothTransitions,OverlayPositions={Players=encodePosition(playerOverlay.Root.Position),Keybinds=encodePosition(keybindOverlay.Root.Position)}}
+        return {Theme=Argon.CurrentTheme,Font=Argon.CurrentFont,Title=self._title,Subtitle=self._subtitle,Logo=self._logo,PlayerListEnabled=self._playerListEnabled,KeybindListEnabled=self._keybindListEnabled,OverlaysAlwaysVisible=self._overlaysAlwaysVisible,OverlayTransparency=self._overlayTransparency,OverlayScale=self._overlayScale,SmoothTransitions=self._smoothTransitions,OverlayPositions={Players=encodePosition(playerOverlay.Root.Position),Keybinds=encodePosition(keybindOverlay.Root.Position)}}
     end
     function window:_applyUIPreferences(preferences)
         preferences=preferences or {}
         if preferences.Theme and Argon.Themes[preferences.Theme] then Argon:SetTheme(preferences.Theme) end
+        if preferences.Font then Argon:SetFont(preferences.Font) end
+        if preferences.Title~=nil then self:SetTitle(preferences.Title) end
+        if preferences.Subtitle~=nil then self:SetSubtitle(preferences.Subtitle) end
         if preferences.Logo~=nil then self._logo=tostring(preferences.Logo) setBrandLogo(self._logo) end
         self._playerListEnabled=preferences.PlayerListEnabled~=false self._keybindListEnabled=preferences.KeybindListEnabled~=false
         if preferences.OverlaysAlwaysVisible~=nil then self._overlaysAlwaysVisible=preferences.OverlaysAlwaysVisible==true end
@@ -1490,15 +1574,19 @@ function Argon:CreateWindow(options)
         local direction=nextIndex>=oldIndex and 1 or -1
         if self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
+        -- The page slides; it no longer cross-fades. Fading a page meant it had to be a
+        -- CanvasGroup, and a CanvasGroup rescales a stale buffer when it is resized rather than
+        -- redrawing it, so every page went soft the moment the window was dragged to a new size.
+        -- A crisp page all the time is worth more than a 260ms fade.
         if oldTab then
-            if self._smoothTransitions then tween(oldTab.PageGroup,.2,{Position=UDim2.fromOffset(-direction*14,0),GroupTransparency=1},Enum.EasingStyle.Quint) end
+            if self._smoothTransitions then tween(oldTab.PageGroup,.2,{Position=UDim2.fromOffset(-direction*14,0)},Enum.EasingStyle.Quint) end
             oldTab:_renderState(true,false)
             tween(oldTab.IconBox,.15,{Rotation=0})
         end
-        self.ActiveTab=tab tab.PageGroup.Position=self._smoothTransitions and UDim2.fromOffset(direction*16,0) or UDim2.fromOffset(0,0) tab.PageGroup.GroupTransparency=self._smoothTransitions and 1 or 0 tab.PageGroup.Visible=true
+        self.ActiveTab=tab tab.PageGroup.Position=self._smoothTransitions and UDim2.fromOffset(direction*16,0) or UDim2.fromOffset(0,0) tab.PageGroup.Visible=true
         tab:_renderState(true,true)
         tween(tab.IconBox,.2,{Rotation=direction*2},Enum.EasingStyle.Quart)
-        if self._smoothTransitions then tween(tab.PageGroup,.26,{Position=UDim2.fromOffset(0,0),GroupTransparency=0},Enum.EasingStyle.Quint) end
+        if self._smoothTransitions then tween(tab.PageGroup,.26,{Position=UDim2.fromOffset(0,0)},Enum.EasingStyle.Quint) end
         tween(pageTitle,.08,{TextTransparency=1}) tween(eyebrow,.08,{TextTransparency=1})
         task.delay(.08,function()
             if transitionToken~=self._tabTransitionToken then return end
@@ -1508,7 +1596,7 @@ function Argon:CreateWindow(options)
         task.delay(self._smoothTransitions and .22 or 0,function()
             if transitionToken~=self._tabTransitionToken then return end
             for _,otherTab in ipairs(self.Tabs) do
-                if otherTab~=tab then otherTab.PageGroup.Visible=false otherTab.PageGroup.Position=UDim2.fromOffset(0,0) otherTab.PageGroup.GroupTransparency=0 end
+                if otherTab~=tab then otherTab.PageGroup.Visible=false otherTab.PageGroup.Position=UDim2.fromOffset(0,0) end
             end
             tween(tab.IconBox,.12,{Rotation=0})
         end)
@@ -1525,7 +1613,7 @@ function Argon:CreateWindow(options)
         tab.Icon=drawIcon(tab.IconBox,tab.IconName,C.Muted)
         tab.ButtonTitle=text(button,tab.Name,12,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(48,0),Size=UDim2.new(1,-78,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
         tab.Count=text(button,"0",9,C.Dim,Enum.Font.GothamBold,{Position=UDim2.new(1,-27,0,0),Size=UDim2.fromOffset(20,43),TextXAlignment=Enum.TextXAlignment.Center})
-        local pageGroup=create("CanvasGroup",{BackgroundTransparency=1,GroupTransparency=0,Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),Visible=false,Parent=pageHost})
+        local pageGroup=create("Frame",{BackgroundTransparency=1,Name="PageGroup",Position=UDim2.fromOffset(0,0),Size=UDim2.fromScale(1,1),Visible=false,Parent=pageHost})
         local page=create("ScrollingFrame",{Active=true,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(18,14),ScrollBarImageColor3=C.Border,ScrollBarThickness=3,Size=UDim2.new(1,-28,1,-20),Parent=pageGroup})
         padding(page,6,12,4,16)
         local pageLayout=create("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder,Parent=page}) bindCanvas(page,pageLayout,24)
@@ -1586,7 +1674,7 @@ function Argon:CreateWindow(options)
             local root=create("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,-4,0,0),AutomaticSize=Enum.AutomaticSize.Y,Parent=page}) section.Root=root
             local header=create("Frame",{BackgroundTransparency=1,Size=UDim2.new(1,0,0,31),Parent=root})
             local accent=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.fromOffset(1,11),Size=UDim2.fromOffset(3,10),Parent=header}) corner(accent,3)
-            text(header,section.Name:upper(),10,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-13,1,0)})
+            text(header,section.Name:upper(),10,C.Muted,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-13,1,0)})
             local body=create("Frame",{BackgroundColor3=C.Background,BackgroundTransparency=.56,BorderSizePixel=0,Position=UDim2.fromOffset(0,31),Size=UDim2.new(1,0,0,0),AutomaticSize=Enum.AutomaticSize.Y,Parent=root})
             corner(body,13) stroke(body,C.BorderSoft,.28,1) padding(body,8,8,8,8)
             section.Body=body section.Layout=create("UIListLayout",{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder,Parent=body})
@@ -2760,10 +2848,18 @@ function Argon:CreateWindow(options)
         if not tab or self._librarySettingsCreated then return tab end
         self._librarySettingsCreated=true
         tab:CreateSection("Argon UI Library")
-        tab:CreateLabel("Personalize the interface itself. These preferences, including overlay positions, save with your active Argon configuration.")
+        tab:CreateLabel("Personalize the interface itself. These preferences, including the name, the typeface and overlay positions, save with your active Argon configuration and come back on the next launch.")
+        -- Renaming. Both fields fall back to whatever the host asked for when cleared, so there is
+        -- no way to end up with a blank sidebar, and both are read back before the loader is drawn.
+        tab:CreateInput({Flag="ArgonUIWindowTitle",Name="Menu Name",Description="Shown in the sidebar and on the loader.",PlaceholderText=self._defaultTitle,CurrentValue=self._title,Callback=function(value) self:SetTitle(value) end})
+        tab:CreateInput({Flag="ArgonUIWindowSubtitle",Name="Menu Subtitle",Description="The small line under the name. Clear either field to restore the default.",PlaceholderText=self._defaultSubtitle,CurrentValue=self._subtitle,Callback=function(value) self:SetSubtitle(value) end})
         tab:CreateDropdown({Flag="ArgonUITheme",Name="Interface Theme",Options=self:GetThemes(),CurrentOption={Argon.CurrentTheme},Callback=function(value)
             local selected=type(value)=="table" and value[1] or value
             if selected then self:SetTheme(selected) end
+        end})
+        tab:CreateDropdown({Flag="ArgonUIFont",Name="Typeface",Description="Roboto with Montserrat headings by default. Applies to the whole interface immediately.",Options=Argon:GetFonts(),CurrentOption={Argon.CurrentFont},Callback=function(value)
+            local selected=type(value)=="table" and value[1] or value
+            if selected then self:SetFont(selected) end
         end})
         tab:CreateToggle({Flag="ArgonUIPlayerList",Name="Show Player List Overlay",CurrentValue=self._playerListEnabled,Callback=function(value) self:SetPlayerListVisible(value) end})
         tab:CreateToggle({Flag="ArgonUIKeybindList",Name="Show Keybind Overlay",CurrentValue=self._keybindListEnabled,Callback=function(value) self:SetKeybindListVisible(value) end})
@@ -2915,8 +3011,13 @@ function Argon:CreateWindow(options)
         elseif input.KeyCode==Enum.KeyCode.Slash and window._visible then search:CaptureFocus() end
     end)
 
+    local relayouting=false
     local function responsive()
         local camera=workspace.CurrentCamera if not camera then return end
+        -- SetSize calls this, and the clamp branch below calls SetSize, so without a guard the
+        -- two bounce off each other until the stack runs out.
+        if relayouting then return end
+        relayouting=true
         local viewport=camera.ViewportSize
         if not window._userSized then
             local width=math.clamp(viewport.X-28,math.min(560,viewport.X-20),980) local height=math.clamp(viewport.Y-42,math.min(400,viewport.Y-20),660)
@@ -2926,7 +3027,7 @@ function Argon:CreateWindow(options)
             -- still laid out for a 286x58 pill: a big dark rectangle with a sliver of text in one
             -- corner, which is the "loader came up as a black silhouette" report.
             window._shellSize=UDim2.fromOffset(width,height)
-            if window._loading and not window._loadingExpanded then return end
+            if window._loading and not window._loadingExpanded then relayouting=false return end
             main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
         elseif main.AbsoluteSize.X>viewport.X-20 or main.AbsoluteSize.Y>viewport.Y-20 then
             local previous=window._userSized window:SetSize(main.AbsoluteSize) window._userSized=previous
@@ -2947,7 +3048,9 @@ function Argon:CreateWindow(options)
         -- page title gets the width back instead of truncating early on a narrow window.
         local reserve=status.Visible and 176 or (themeButton.Visible and 92 or 55)
         eyebrow.Size=UDim2.new(1,-reserve,0,17) pageTitle.Size=UDim2.new(1,-reserve,0,29)
+        relayouting=false
     end
+    window._relayout=responsive
     connect(workspace:GetPropertyChangedSignal("CurrentCamera"),responsive)
     if workspace.CurrentCamera then connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"),responsive) end
     -- Deliberately NOT driven from main's own AbsoluteSize: responsive() *writes* main.Size when
@@ -2985,23 +3088,63 @@ function Argon:CreateWindow(options)
     function window:IsCursorDrawn() return cursorIcon.Visible end
 
     local expandedSize=main.Size
-    -- Rounded to match the window. Without this the loader covered the whole frame with a
-    -- square, so the window's corners were visibly square for the first second of every launch.
-    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
-    -- The cover's fill is a child, for the same reason the window's is: a UIGradient on a
-    -- CanvasGroup multiplies the whole composited group. Painted straight onto `splash` it
-    -- multiplied the logo, the title, the status line and the progress bar by Surface and Window,
-    -- so on a dark palette like Mono the entire loader rendered black.
-    local splashFill=create("Frame",{Name="Fill",BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=0,Parent=splash})
-    shadeGradient(splashFill,105)
-    sidebar.Visible=false content.Visible=false glowTop.Visible=false glowBottom.Visible=false shadow.Visible=false
+    -- The cover is a plain Frame. It used to be a CanvasGroup so the fade-out could run on
+    -- GroupTransparency in one tween, but a CanvasGroup rescales a stale buffer when it is
+    -- resized, and the cover is resized -- it grows from a pill into the window. Each element is
+    -- faded on its own instead, which is a few more tweens and no soft text.
+    local SPLASH_W,SPLASH_H=328,76
+    local splash=create("Frame",{Name="Loader",BackgroundColor3=C.Window,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
+    shadeGradient(splash,105,.24)
+    sidebar.Visible=false content.Visible=false glowLayer.Visible=false shadow.Visible=false
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
-    main.Size=UDim2.fromOffset(286,58)
-    local splashMark=mountLogo(splash,36,window._logo,125) splashMark.AnchorPoint=Vector2.new(0,.5) splashMark.Position=UDim2.new(0,11,.5,0)
-    local splashTitle=text(splash,options.LoadingTitle or options.Name or "Argon UI",13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,8),Size=UDim2.new(1,-72,0,22),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
-    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,28),Size=UDim2.new(1,-72,0,17),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
-    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,58,1,-7),Size=UDim2.new(1,-72,0,3),ZIndex=124,Parent=splash}) corner(progressRail,3)
-    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.08,1),ZIndex=125,Parent=progressRail}) corner(progressFill,3) shadeGradient(progressFill,0,.22)
+    main.Size=UDim2.fromOffset(SPLASH_W,SPLASH_H)
+
+    -- An accent bloom behind the mark, so the pill reads as lit from its own logo rather than as
+    -- a flat rectangle with text on it.
+    local splashBloom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.86,BorderSizePixel=0,Position=UDim2.new(0,34,.5,0),Size=UDim2.fromOffset(150,150),ZIndex=121,Parent=splash}) corner(splashBloom,75)
+    local splashBloomFar=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.93,BorderSizePixel=0,Position=UDim2.new(1,-40,1,10),Size=UDim2.fromOffset(190,190),ZIndex=121,Parent=splash}) corner(splashBloomFar,95)
+    -- A specular sweep that travels across the pill on a loop. Rotated and taller than the pill so
+    -- it crosses as a diagonal band; ClipsDescendants keeps it inside the rounded edge.
+    local splashSweep=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.new(0,-60,.5,0),Rotation=18,Size=UDim2.fromOffset(52,190),ZIndex=122,Parent=splash})
+    gradient(splashSweep,Color3.new(1,1,1),Color3.new(1,1,1),0).Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(.5,0),NumberSequenceKeypoint.new(1,1)})
+
+    -- The mark sits inside a ring with a dot orbiting it. Rotating the orbit host carries the dot
+    -- around with it, so the whole animation is one looping Rotation tween and no per-frame work.
+    local splashRing=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundTransparency=1,Position=UDim2.new(0,14,.5,0),Size=UDim2.fromOffset(48,48),ZIndex=123,Parent=splash})
+    local splashRingEdge=create("Frame",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),Parent=splashRing}) corner(splashRingEdge,24)
+    local splashRingStroke=stroke(splashRingEdge,C.Border,.55,1)
+    local splashOrbit=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(48,48),ZIndex=124,Parent=splashRing})
+    local splashOrbitDot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(6,6),Parent=splashOrbit}) corner(splashOrbitDot,6)
+    local splashOrbitTrail=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentLight,BackgroundTransparency=.55,BorderSizePixel=0,Position=UDim2.new(.5,0,0,0),Size=UDim2.fromOffset(12,12),Parent=splashOrbit}) corner(splashOrbitTrail,12)
+    local splashMark=mountLogo(splashRing,30,window._logo,125) splashMark.AnchorPoint=Vector2.new(.5,.5) splashMark.Position=UDim2.fromScale(.5,.5)
+
+    local splashTitle=text(splash,window._title,14,C.Text,Enum.Font.GothamBlack,{Position=UDim2.fromOffset(74,15),Size=UDim2.new(1,-92,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(74,35),Size=UDim2.new(1,-136,0,15),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
+    -- A number to watch. A bar alone gives no sense of whether a long build is progressing.
+    local loadingPercent=text(splash,"0%",11,C.Muted,Enum.Font.GothamBold,{AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-18,0,33),Size=UDim2.fromOffset(46,17),TextXAlignment=Enum.TextXAlignment.Right,ZIndex=124})
+    local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,74,1,-13),Size=UDim2.new(1,-92,0,4),ZIndex=124,Parent=splash}) corner(progressRail,4)
+    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.06,1),ZIndex=125,Parent=progressRail}) corner(progressFill,4) shadeGradient(progressFill,0,.22)
+    -- A brighter head on the bar, so the leading edge reads as motion instead of as a hard stop.
+    local progressHead=create("Frame",{AnchorPoint=Vector2.new(1,.5),BackgroundColor3=C.AccentLight,BorderSizePixel=0,Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(14,4),ZIndex=126,Parent=progressFill}) corner(progressHead,4)
+
+    -- Three looping reversing/repeating tweens, all owned by TweenService: nothing to clean up,
+    -- and they stop the moment the cover is destroyed.
+    TweenService:Create(splashOrbit,TweenInfo.new(2.4,Enum.EasingStyle.Linear,Enum.EasingDirection.InOut,-1),{Rotation=360}):Play()
+    TweenService:Create(splashBloom,TweenInfo.new(1.6,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),{BackgroundTransparency=.94,Size=UDim2.fromOffset(190,190)}):Play()
+    TweenService:Create(splashSweep,TweenInfo.new(1.9,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,false,.35),{Position=UDim2.new(1,60,.5,0)}):Play()
+
+    -- Every element is faded individually now that the cover is not a composited group. Walking
+    -- the tree keeps this correct as the loader gains parts.
+    local function fadeSplash(duration)
+        local function fade(object)
+            if object:IsA("TextLabel") then tween(object,duration,{TextTransparency=1,BackgroundTransparency=1,TextStrokeTransparency=1},Enum.EasingStyle.Quint)
+            elseif object:IsA("ImageLabel") then tween(object,duration,{ImageTransparency=1,BackgroundTransparency=1},Enum.EasingStyle.Quint)
+            elseif object.ClassName=="UIStroke" then tween(object,duration,{Transparency=1},Enum.EasingStyle.Quint)
+            elseif object:IsA("GuiObject") then tween(object,duration,{BackgroundTransparency=1},Enum.EasingStyle.Quint) end
+        end
+        fade(splash)
+        for _,descendant in ipairs(splash:GetDescendants()) do fade(descendant) end
+    end
     -- The loader used to run on two fixed timers and dismiss itself 0.93s in, whether or not the
     -- host had finished building. A menu with hundreds of controls is still constructing at that
     -- point, so you watched a half-built window assemble itself and the client froze while it
@@ -3021,11 +3164,11 @@ function Argon:CreateWindow(options)
     end
 
     local function reveal()
-        shadow.Visible=true sidebar.Visible=true content.Visible=true glowTop.Visible=true glowBottom.Visible=true
+        shadow.Visible=true sidebar.Visible=true content.Visible=true glowLayer.Visible=true
         sidebar.Position=UDim2.fromOffset(-12,0) content.Position=UDim2.fromOffset(content.Position.X.Offset+12,0)
         tween(sidebar,.3,{Position=UDim2.fromOffset(0,0)},Enum.EasingStyle.Quint)
         tween(content,.3,{Position=UDim2.fromOffset(content.Position.X.Offset-12,0)},Enum.EasingStyle.Quint)
-        tween(splash,.28,{GroupTransparency=1},Enum.EasingStyle.Quint)
+        fadeSplash(.28)
         task.delay(.32,function()
             if splash then splash:Destroy() end
             -- Re-run the layout now the shell is at its final size. The loader shrank the window
@@ -3041,7 +3184,8 @@ function Argon:CreateWindow(options)
         if loadingDone or not splash.Parent then return end
         loadingDone=true
         window._loading=false
-        loadingStatus.Text="OPENING CONTROL CENTER"
+        loadingStatus.Text="OPENING "..window._subtitle:upper()
+        loadingPercent.Text="100%"
         tween(progressFill,.2,{Size=UDim2.fromScale(1,1)},Enum.EasingStyle.Quint)
         -- Expand first and reveal underneath the cover. Expanding DURING the build was the
         -- mistake: the loader is laid out for the compact 286x58 pill, so stretching it to the
@@ -3065,7 +3209,14 @@ function Argon:CreateWindow(options)
         local value=math.clamp(tonumber(fraction) or 0,0,1)
         self._loadingProgress=math.max(self._loadingProgress or .08,value)
         tween(progressFill,.18,{Size=UDim2.fromScale(math.max(.06,self._loadingProgress),1)},Enum.EasingStyle.Quad)
-        if status~=nil and status~="" then loadingStatus.Text=tostring(status):upper() end
+        loadingPercent.Text=math.floor(self._loadingProgress*100+.5).."%"
+        if status~=nil and status~="" then
+            -- Snap out, swap, ease back in: a status line that changes without any transition
+            -- reads as a glitch when several stages land in the same frame.
+            loadingStatus.Text=tostring(status):upper()
+            loadingStatus.TextTransparency=.75
+            tween(loadingStatus,.22,{TextTransparency=0},Enum.EasingStyle.Quint)
+        end
         -- Deliberately does NOT expand the shell. The loader stays the compact pill for the
         -- whole build and only grows into the window as it hands over.
         return self
