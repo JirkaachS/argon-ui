@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.18.2", Argon.Version == "1.18.2", Argon.Version)
+check("version is 1.18.3", Argon.Version == "1.18.3", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -1536,6 +1536,63 @@ check("ThemePicker = false hides the button and refuses to open the panel", (fun
 	local hidden = button ~= nil and button.Visible == false
 	local refused = opted:ToggleThemePicker() == false
 	return hidden and refused, ("hidden=%s refused=%s"):format(tostring(hidden), tostring(refused))
+end)())
+
+section("the library does not pin the objects it has destroyed")
+-- Every registry is append-only, and the theme bindings used to be compacted only when the palette
+-- changed, the font bindings only when the family changed, and the connection list never. A pinned
+-- Instance keeps its engine-side memory alive after Destroy. Measured in a live client, 120
+-- notifications left 1,455 dead instances and 361 dead connections behind.
+check("transient UI leaves dead entries behind", (function()
+	Argon:PruneRegistries()
+	local before = #Argon._themeBindings
+	for index = 1, 12 do Argon:Notify({ Title = "Leak " .. index, Content = "x", Duration = 0.05 }) end
+	sandbox.advance(1)
+	local grew = #Argon._themeBindings > before
+	local dead = 0
+	for _, binding in ipairs(Argon._themeBindings) do
+		if binding.Object and binding.Object.Parent == nil then dead += 1 end
+	end
+	return grew and dead > 0, ("grew %d -> %d, %d dead"):format(before, #Argon._themeBindings, dead)
+end)())
+check("PruneRegistries drops them and reports what it dropped", (function()
+	local stats = Argon:PruneRegistries()
+	local dead = 0
+	for _, binding in ipairs(Argon._themeBindings) do
+		if binding.Object and binding.Object.Parent == nil then dead += 1 end
+	end
+	return dead == 0 and stats.bindings > 0, ("%d left, dropped %d"):format(dead, stats.bindings)
+end)())
+check("dead connections are dropped too", (function()
+	local live = 0
+	for _, connection in ipairs(Argon._connections) do
+		local ok, connected = pcall(function() return connection.Connected end)
+		if ok and connected == false then live += 1 end
+	end
+	return live == 0, live .. " dead connections left"
+end)())
+check("live bindings are kept, and a second pass drops nothing", (function()
+	local kept = #Argon._themeBindings
+	local stats = Argon:PruneRegistries()
+	return kept > 0 and #Argon._themeBindings == kept and stats.bindings == 0,
+		("%d kept, second pass dropped %d"):format(kept, stats.bindings)
+end)())
+check("a theme switch still repaints everything after a prune", (function()
+	Argon:SetTheme("Ocean")
+	sandbox.advance(1)
+	local repainted = Window.Tabs[1].ButtonTitle.TextColor3 == Argon.Themes.Ocean.Muted
+		or Window.Tabs[1].ButtonTitle.TextColor3 == Argon.Themes.Ocean.Text
+	Argon:SetTheme("Argon")
+	sandbox.advance(1)
+	return repainted, tostring(Window.Tabs[1].ButtonTitle.TextColor3)
+end)())
+check("the janitor runs on its own", (function()
+	for index = 1, 6 do Argon:Notify({ Title = "Janitor " .. index, Content = "x", Duration = 0.05 }) end
+	sandbox.advance(1)
+	Argon._lastPruneStats = nil
+	-- The sweep is scheduled every 30s and re-entered through task.delay, never task.defer.
+	sandbox.advance(31)
+	return Argon._lastPruneStats ~= nil, tostring(Argon._lastPruneStats)
 end)())
 
 section("no unexpected runtime warnings")

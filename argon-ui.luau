@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.2",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.18.3",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -217,6 +217,55 @@ end
 local function registerThemeRender(root,render)
     table.insert(Argon._themeRenderers,{Root=root,Render=render})
 end
+
+-- Every registry here is append-only, and until now the theme bindings were compacted ONLY when
+-- the palette changed and the font bindings ONLY when the family changed. A session that never
+-- touches either kept a strong reference to every object the library ever built, and a pinned
+-- Instance keeps its engine-side memory alive even after Destroy. Measured in a live client: 120
+-- notifications left 1,455 destroyed instances pinned and 361 dead connections behind, so a menu
+-- that reports region hops and sweeps for a few hours accumulates them without limit. That is the
+-- shape of "a fresh launch sits well under a gigabyte".
+--
+-- A destroyed instance reports no Parent, which is the same test the theme pass already used, and
+-- a connection to a destroyed instance reports Connected false.
+local FONT_BINDINGS
+function Argon:PruneRegistries()
+    local removed={bindings=0,renderers=0,fonts=0,connections=0}
+    local function compact(list,alive,counter)
+        if type(list)~="table" then return end
+        local write=1
+        for read=1,#list do
+            local entry=list[read]
+            if entry~=nil and alive(entry) then
+                list[write]=entry
+                write+=1
+            else
+                removed[counter]+=1
+            end
+        end
+        for index=write,#list do list[index]=nil end
+    end
+    compact(self._themeBindings,function(entry) local object=entry.Object return object~=nil and object.Parent~=nil end,"bindings")
+    compact(self._themeRenderers,function(entry) local root=entry.Root return root~=nil and root.Parent~=nil end,"renderers")
+    compact(FONT_BINDINGS,function(entry) local object=entry.object return object~=nil and object.Parent~=nil end,"fonts")
+    compact(self._connections,function(connection)
+        local ok,connected=pcall(function() return connection.Connected end)
+        return not ok or connected~=false
+    end,"connections")
+    self._lastPruneStats=removed
+    return removed
+end
+
+-- Re-entered through task.delay, never task.defer: a deferred callback that schedules another
+-- deferred callback walks straight into the re-entrancy ceiling.
+local function schedulePrune()
+    task.delay(30,function()
+        if Argon._destroyed then return end
+        pcall(function() Argon:PruneRegistries() end)
+        schedulePrune()
+    end)
+end
+schedulePrune()
 
 -- Forward declarations: create() applies the FontFace and records the object so the family can
 -- be switched later, but both live further down next to the text helpers.
@@ -460,7 +509,8 @@ local FONT_WEIGHTS={
 local FONT_FACES={}
 -- Every object that got a face is remembered so switching family can repaint the live interface,
 -- the same way theme bindings do. Entries whose object has gone are dropped on the next pass.
-local FONT_BINDINGS={}
+-- Forward-declared next to PruneRegistries, which compacts this on a timer.
+FONT_BINDINGS={}
 Argon.CurrentFont="Roboto"
 
 local function fontSet() return FONT_SETS[Argon.CurrentFont] or FONT_SETS.Roboto end
