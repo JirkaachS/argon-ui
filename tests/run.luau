@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.17.1", Argon.Version == "1.17.1", Argon.Version)
+check("version is 1.17.2", Argon.Version == "1.17.2", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -1250,6 +1250,82 @@ check("the shell is back at full width once loading finishes", (function()
 	sandbox.advance(1.5)
 	return pillWidth < 400 and sized.Main.Size.X.Offset > 400,
 		("pill %d -> open %d"):format(pillWidth, sized.Main.Size.X.Offset)
+end)())
+check("a viewport change while loading does not stretch the cover", (function()
+	-- A viewport change moments after injection is normal, and responsive() writes main.Size when
+	-- the user has not resized by hand. It used to blow the 286x58 cover out to the full window
+	-- while the cover was still laid out for a pill: a dark rectangle with a sliver of text in the
+	-- corner, which is what "the loader came up as a black silhouette" was.
+	local resized = Argon:CreateWindow({ Name = "Resized", GuiName = "ArgonResizedTest", Loading = "manual" })
+	resized:CreateTab("Main", "zap")
+	sandbox.setViewport(1600, 900)
+	local duringLoad = resized.Main.Size.X.Offset
+	resized:FinishLoading()
+	sandbox.advance(1.5)
+	local afterLoad = resized.Main.Size.X.Offset
+	sandbox.setViewport(1920, 1080)
+	return duringLoad < 400 and afterLoad > 400,
+		("during %d -> after %d"):format(duringLoad, afterLoad)
+end)())
+check("the shell grows into the viewport it ended up with, not the one it started in", (function()
+	local grown = Argon:CreateWindow({ Name = "Grown", GuiName = "ArgonGrownTest", Loading = "manual" })
+	grown:CreateTab("Main", "zap")
+	sandbox.setViewport(800, 600)
+	grown:FinishLoading()
+	sandbox.advance(1.5)
+	local width = grown.Main.Size.X.Offset
+	sandbox.setViewport(1920, 1080)
+	return width == 772, width
+end)())
+
+section("a composited group is never tinted by its own gradient")
+-- A UIGradient does not replace the colour under it, it multiplies it -- and on a CanvasGroup it
+-- multiplies the whole composited group rather than just the background. One on the window frame
+-- painted every child and all the text; one on the loader cover did the same to the logo, title,
+-- status line and progress bar, so on a dark palette like Mono the loader rendered fully black.
+local tintWindow = Argon:CreateWindow({ Name = "Tint", GuiName = "ArgonTintTest", Loading = "manual" })
+tintWindow:CreateTab("Main", "zap")
+check("no CanvasGroup carries a UIGradient of its own", (function()
+	local offenders = {}
+	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
+		if child.ClassName == "CanvasGroup" then
+			for _, inner in ipairs(child:GetChildren()) do
+				if inner.ClassName == "UIGradient" then table.insert(offenders, child.Name) end
+			end
+		end
+	end
+	return #offenders == 0, table.concat(offenders, ", ")
+end)())
+check("the loader cover shades a child fill instead", (function()
+	local fill
+	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
+		if child.Name == "Fill" and child.ClassName == "Frame" then fill = child end
+	end
+	return fill ~= nil and fill:FindFirstChildOfClass("UIGradient") ~= nil
+end)())
+check("the window frame shades a backdrop child instead", (function()
+	local backdrop
+	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
+		if child.Name == "Backdrop" and child.ClassName == "Frame" then backdrop = child end
+	end
+	return backdrop ~= nil
+		and backdrop:FindFirstChildOfClass("UIGradient") ~= nil
+		and tintWindow.Main:FindFirstChildOfClass("UIGradient") == nil
+end)())
+check("the loader keeps its contents legible on a dark palette", (function()
+	-- Mono's Window is rgb(16,16,18). Multiplied by the old Surface/Window gradient pair the
+	-- cover's white title came out at about rgb(22,22,24), which is what "fully black" was.
+	local previous = Argon.CurrentTheme
+	Argon:SetTheme("Mono")
+	local dark = Argon:CreateWindow({ Name = "Dark", GuiName = "ArgonDarkTest", Loading = "manual" })
+	dark:CreateTab("Main", "zap")
+	local tinted = false
+	for _, child in ipairs(dark.ScreenGui:GetDescendants()) do
+		if child.ClassName == "CanvasGroup" and child:FindFirstChildOfClass("UIGradient") then tinted = true end
+	end
+	dark:FinishLoading()
+	Argon:SetTheme(previous)
+	return not tinted
 end)())
 
 section("the window draws its own cursor when the game hides the engine one")

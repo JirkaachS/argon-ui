@@ -387,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.17.1</span>
+  <span class="badge" id="verBadge">v1.17.2</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -1313,6 +1313,12 @@ lune run tests/run.luau</code></pre>
 <p>262 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.17.2</h3>
+<ul>
+<li><strong>Fixed: the loader rendered fully black</strong> on a dark palette such as Mono. A <code>UIGradient</code> does not replace the colour under it, it multiplies it — and on a <code>CanvasGroup</code> it multiplies the whole composited group rather than just the background. The cover carried a <code>Surface</code> to <code>Window</code> gradient, so the logo, the title, the status line and the progress bar were all multiplied by rgb(16,16,18) and came out at about rgb(22,22,24). Depth shading is applied to a child fill and sweeps white to a light grey, so the themed colour survives it. The window frame, the overlay cards, sliders and the logo fallback carried the same multiply and are all corrected.</li>
+<li><strong>Fixed: the loader cover stretched to full window size.</strong> A viewport change moments after injection is normal, and the responsive layout pass writes the window size whenever the user has not resized by hand — including over the loader's 286×58 pill. The result was a large dark rectangle with a sliver of text in one corner for the whole build. The pass now records the size it wants and the cover grows into it at hand-over, which also means the shell opens into the viewport it ended up with rather than the one it started in.</li>
+<li><strong>Test harness:</strong> the sandbox had no <code>CurrentCamera</code>, so the entire responsive layout pass returned on its first line and was never exercised offline. It has one now, with a viewport that can be resized mid-test.</li>
+</ul>
 <h3>1.17.1</h3>
 <ul>
 <li><strong>Fixed: the window opened as a black silhouette</strong> with the overlays already on screen, and needed a close and reopen to lay out properly. Three separate causes. The loading flag was set at the end of <code>CreateWindow</code>, after the overlay gate had already run, so the player list and keybind panel came up in front of the cover. The cover expanded to full window size on the first progress report while it was still laid out for the compact pill, which is the black rectangle. And the fallback timer could fire mid-build, because icon fetches yield. <code>Loading = "manual"</code> now hands the cover to the host up front, expanding and revealing happen together, and the layout is re-run once the shell is at its final size.</li>

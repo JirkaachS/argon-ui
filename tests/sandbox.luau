@@ -562,6 +562,9 @@ local serviceMethodMap = {
 	},
 	[services.GuiService] = { GetGuiInset = function() return newVector2(0, 36), newVector2(0, 0) end },
 	[services.Workspace] = { Raycast = function() return nil end },
+	-- Workspace had no CurrentCamera, so anything guarded by one -- the whole responsive layout
+	-- pass -- returned on its first line and was never exercised offline. That is how a bug where
+	-- a viewport change stretched the loader's compact pill to full window size shipped twice.
 	[services.TextService] = { GetTextSize = function() return newVector2(120, 16) end },
 	[services.StarterGui] = { SetCore = function() end },
 }
@@ -735,6 +738,18 @@ sandbox.Signal = { new = newSignal }
 sandbox.UserInputService = UserInputService
 sandbox.RunService = RunService
 sandbox.Players = Players
+
+local camera = newInstance("Camera")
+camera.ViewportSize = newVector2(1920, 1080)
+camera.Parent = services.Workspace
+services.Workspace.CurrentCamera = camera
+sandbox.Camera = camera
+
+-- Resizes the viewport the way a real client does, so listeners actually run.
+function sandbox.setViewport(width, height)
+	camera.ViewportSize = newVector2(width, height)
+	return camera.ViewportSize
+end
 
 function sandbox.load(sourcePath)
 	local fs = require("@lune/fs")

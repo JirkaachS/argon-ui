@@ -18,7 +18,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.1",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.17.2",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -258,6 +258,16 @@ local function gradient(parent,first,second,rotation)
     return create("UIGradient",{Color=ColorSequence.new(first,second),Rotation=rotation or 0,Parent=parent})
 end
 
+-- Depth shading that survives any palette. A UIGradient does not replace the colour underneath
+-- it, it multiplies it, so shading a themed surface with a literal dark pair -- or with a
+-- Surface/Window pair, which is the same mistake spelled differently -- drove the result to
+-- almost pure black on dark palettes like Mono. Shading white to a light grey keeps the object's
+-- own themed colour at the start of the sweep and only darkens it towards the end.
+local function shadeGradient(parent,rotation,strength)
+    local low=1-math.clamp(strength or .2,0,.6)
+    return create("UIGradient",{Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(low,low,low)),Rotation=rotation or 0,Parent=parent})
+end
+
 local function iconLine(parent,firstPoint,secondPoint,color,thickness)
     local delta=Vector2.new(secondPoint[1]-firstPoint[1],secondPoint[2]-firstPoint[2])
     local center=Vector2.new((firstPoint[1]+secondPoint[1])/2,(firstPoint[2]+secondPoint[2])/2)
@@ -392,7 +402,7 @@ local function mountLogo(parent,size,logoValue,zIndex)
     local holder=create("Frame",{BackgroundTransparency=1,BorderSizePixel=0,ClipsDescendants=false,Size=UDim2.fromOffset(size,size),ZIndex=zIndex or 1,Parent=parent})
     local image=create("ImageLabel",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(.96,.96),ScaleType=Enum.ScaleType.Fit,Visible=false,ZIndex=(zIndex or 1)+1,Parent=holder})
     local fallback=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,ClipsDescendants=true,Size=UDim2.fromScale(1,1),Visible=false,ZIndex=(zIndex or 1)+1,Parent=holder})
-    corner(fallback,math.floor(size*.29)) gradient(fallback,C.AccentLight,C.AccentDark,135)
+    corner(fallback,math.floor(size*.29)) shadeGradient(fallback,135,.3)
     local mark=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromScale(.7,.7),ZIndex=(zIndex or 1)+2,Parent=fallback})
     iconLine(mark,{5,19},{12,3},Color3.new(1,1,1),math.max(2,size*.075))
     iconLine(mark,{12,3},{19,19},Color3.new(1,1,1),math.max(2,size*.075))
@@ -1130,7 +1140,7 @@ function Argon:CreateWindow(options)
     -- putting it on `main` painted every child, and all the text, with a near-black colour and
     -- the whole window rendered dark. The backdrop keeps the C.Window theme binding.
     local backdrop=create("Frame",{Name="Backdrop",BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=0,Parent=main})
-    gradient(backdrop,Color3.fromRGB(17,20,31),Color3.fromRGB(10,12,20),115)
+    shadeGradient(backdrop,115,.22)
     local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),ZIndex=2,Parent=main}) corner(glowTop,155)
     local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),ZIndex=2,Parent=main}) corner(glowBottom,180)
 
@@ -1258,7 +1268,7 @@ function Argon:CreateWindow(options)
 
     local function makeOverlay(titleText,iconName,position,size)
         local card=create("Frame",{Active=true,AnchorPoint=Vector2.new(1,0),BackgroundColor3=C.Window,BackgroundTransparency=window._overlayTransparency,BorderSizePixel=0,Position=position,Size=size,ZIndex=70,Parent=gui})
-        corner(card,16) local cardStroke=stroke(card,C.Border,.68,1) gradient(card,C.Surface,C.Window,120)
+        corner(card,16) local cardStroke=stroke(card,C.Border,.68,1) shadeGradient(card,120,.18)
         local cardScale=create("UIScale",{Scale=window._overlayScale,Parent=card})
         local header=create("Frame",{Active=true,BackgroundTransparency=1,Size=UDim2.new(1,0,0,48),ZIndex=71,Parent=card})
         local iconBox=create("Frame",{BackgroundColor3=C.Accent,BackgroundTransparency=.82,BorderSizePixel=0,Position=UDim2.fromOffset(11,10),Size=UDim2.fromOffset(28,28),ZIndex=72,Parent=header}) corner(iconBox,9)
@@ -2128,7 +2138,7 @@ function Argon:CreateWindow(options)
             -- bare coloured line and a dot floating near the bottom edge of the row. It is
             -- now a real groove (darker fill + soft border) with the handle kept inside it.
             local bar=create("Frame",{Active=true,BackgroundColor3=C.Background,BorderSizePixel=0,Position=UDim2.fromOffset(14,47),Size=UDim2.new(1,-28,0,8),Parent=root}) corner(bar,4) stroke(bar,C.BorderSoft,.25,1)
-            local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(0,0,1,0),Parent=bar}) corner(fill,4) gradient(fill,C.AccentLight,C.Accent,0)
+            local fill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.new(0,0,1,0),Parent=bar}) corner(fill,4) shadeGradient(fill,0,.16)
             local handle=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=Color3.new(1,1,1),BorderSizePixel=0,Position=UDim2.new(0,8,.5,0),Size=UDim2.fromOffset(16,16),ZIndex=3,Parent=bar}) corner(handle,8) stroke(handle,C.Accent,0,2)
             element.Type="Slider" element.CurrentValue=tonumber(config.CurrentValue) or minimum
             local function round(value)
@@ -2910,6 +2920,13 @@ function Argon:CreateWindow(options)
         local viewport=camera.ViewportSize
         if not window._userSized then
             local width=math.clamp(viewport.X-28,math.min(560,viewport.X-20),980) local height=math.clamp(viewport.Y-42,math.min(400,viewport.Y-20),660)
+            -- While the loader still holds the compact pill, remember the size the shell should
+            -- grow into rather than writing it now. A viewport change moments after injection is
+            -- normal, and it used to snap the cover out to the full window while the cover was
+            -- still laid out for a 286x58 pill: a big dark rectangle with a sliver of text in one
+            -- corner, which is the "loader came up as a black silhouette" report.
+            window._shellSize=UDim2.fromOffset(width,height)
+            if window._loading and not window._loadingExpanded then return end
             main.Size=UDim2.fromOffset(width,height) shadow.Size=UDim2.fromOffset(width+22,height+22)
         elseif main.AbsoluteSize.X>viewport.X-20 or main.AbsoluteSize.Y>viewport.Y-20 then
             local previous=window._userSized window:SetSize(main.AbsoluteSize) window._userSized=previous
@@ -2970,8 +2987,13 @@ function Argon:CreateWindow(options)
     local expandedSize=main.Size
     -- Rounded to match the window. Without this the loader covered the whole frame with a
     -- square, so the window's corners were visibly square for the first second of every launch.
-    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
-    gradient(splash,C.Surface,C.Window,105)
+    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BackgroundTransparency=1,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
+    -- The cover's fill is a child, for the same reason the window's is: a UIGradient on a
+    -- CanvasGroup multiplies the whole composited group. Painted straight onto `splash` it
+    -- multiplied the logo, the title, the status line and the progress bar by Surface and Window,
+    -- so on a dark palette like Mono the entire loader rendered black.
+    local splashFill=create("Frame",{Name="Fill",BackgroundColor3=C.Window,BorderSizePixel=0,Size=UDim2.fromScale(1,1),ZIndex=0,Parent=splash})
+    shadeGradient(splashFill,105)
     sidebar.Visible=false content.Visible=false glowTop.Visible=false glowBottom.Visible=false shadow.Visible=false
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
     main.Size=UDim2.fromOffset(286,58)
@@ -2979,7 +3001,7 @@ function Argon:CreateWindow(options)
     local splashTitle=text(splash,options.LoadingTitle or options.Name or "Argon UI",13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,8),Size=UDim2.new(1,-72,0,22),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local loadingStatus=text(splash,"INITIALIZING INTERFACE",8,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(58,28),Size=UDim2.new(1,-72,0,17),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=124})
     local progressRail=create("Frame",{AnchorPoint=Vector2.new(0,1),BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.new(0,58,1,-7),Size=UDim2.new(1,-72,0,3),ZIndex=124,Parent=splash}) corner(progressRail,3)
-    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.08,1),ZIndex=125,Parent=progressRail}) corner(progressFill,3) gradient(progressFill,C.AccentLight,C.AccentDark,0)
+    local progressFill=create("Frame",{BackgroundColor3=C.Accent,BorderSizePixel=0,Size=UDim2.fromScale(.08,1),ZIndex=125,Parent=progressRail}) corner(progressFill,3) shadeGradient(progressFill,0,.22)
     -- The loader used to run on two fixed timers and dismiss itself 0.93s in, whether or not the
     -- host had finished building. A menu with hundreds of controls is still constructing at that
     -- point, so you watched a half-built window assemble itself and the client froze while it
@@ -2991,8 +3013,11 @@ function Argon:CreateWindow(options)
     local function expandShell(duration)
         if window._loadingExpanded then return end
         window._loadingExpanded=true
-        tween(main,duration or .52,{Size=expandedSize},Enum.EasingStyle.Quint)
-        tween(shadow,duration or .52,{Size=UDim2.fromOffset(expandedSize.X.Offset+22,expandedSize.Y.Offset+22)},Enum.EasingStyle.Quint)
+        -- responsive() records the size it wanted while the pill was held, so the shell grows
+        -- into the current viewport rather than into whatever it was at CreateWindow time.
+        local target=window._shellSize or expandedSize
+        tween(main,duration or .52,{Size=target},Enum.EasingStyle.Quint)
+        tween(shadow,duration or .52,{Size=UDim2.fromOffset(target.X.Offset+22,target.Y.Offset+22)},Enum.EasingStyle.Quint)
     end
 
     local function reveal()
