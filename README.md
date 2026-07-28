@@ -29,12 +29,15 @@ Keep a copy of `argon-ui.luau` beside your script if you want an offline fallbac
 
 ## Features
 
-- Tabbed window with sections, per-tab search, and a `SECTIONS` navigator for long pages
+- Tabbed window with sections, per-tab search, and a scrollable section jump rail for long pages
 - 18 controls, including progress bars, steppers, segmented pickers, text areas, and data lists
 - Configuration persistence with verified writes, deferred flag hydration, and change listeners
 - Ten built-in themes plus custom palettes, applied live
 - Draggable player and keybind overlays that can stay on screen while the window is hidden
-- Modal dialogs, notifications, tooltips, descriptions, locked states, and element visibility
+- Modal dialogs, tooltips, descriptions, locked states, and element visibility
+- Notifications that stay on screen while the menu is closed and grow to fit their body
+- Text controls that size themselves to their content, so nothing clips and nothing leaves dead space
+- One modern typeface throughout (BuilderSans), applied to buttons and text boxes as well as labels
 - Drag-resizable window with a `560 x 400` minimum and responsive sidebar collapse
 - Vector icon atlas with no operating-system glyph fallback
 - Rayfield-style API shape, so existing menus usually only need their loader swapped
@@ -113,6 +116,28 @@ Tab:CreateList({ Name = "Profiles", Items = {
 ```
 
 `Style` accepts `danger` and `warning`, or pass an explicit `Color`. A single `Action = "Load"` with a row-level `Callback` still works.
+
+## Notifications
+
+`Argon:Notify` shows a card in the top-right corner. It is deliberately not tied to window visibility: a notification that only appears while the menu happens to be open is useless for reporting what a background feature just did.
+
+```luau
+Argon:Notify({ Title = "Saved", Content = "Configuration written.", Duration = 4 })
+```
+
+The accent and the glyph come from the title: titles containing *error* or *failed* read red, *warn* or *wait* amber, *success*, *complete* or *saved* green. The card grows to fit its body rather than clipping at a fixed height, and the stack is capped at five so a burst cannot run off the screen.
+
+## Text and inputs
+
+`Label`, `Paragraph` and `TelemetryCard` size themselves to their content. A long body wraps and the row grows; a short one does not leave an empty slot behind.
+
+`Input` shows an elided value while it is not focused — the scheme is dropped and the informative head and tail are kept — and restores the real text for editing on focus. `CurrentValue` is always the full string, so a saved webhook URL round-trips exactly even though the field never displays it in full.
+
+```luau
+local field = Tab:CreateInput({ Flag = "Webhook", Name = "Webhook URL", PlaceholderText = "https://…" })
+field:Set("https://discord.com/api/webhooks/1523331338155982949/RvztQ8kLmNoPqRs")
+print(field.CurrentValue)   -- the whole URL, not the elided display
+```
 
 ## Persistence
 

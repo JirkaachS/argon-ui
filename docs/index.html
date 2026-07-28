@@ -373,6 +373,12 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 .m-theme>b{display:flex;flex:none}
 .m-theme>b>i{width:11px;height:11px;margin-left:-4px;border-radius:50%;border:1px solid #0d1119}
 .m-theme>b>i:first-child{margin-left:0}
+/* live indicator + section jump rail */
+.m-live{display:flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid #4adea27a;border-radius:13px;background:#4adea221;color:var(--m-ok);font:800 9px/1 Inter,system-ui;letter-spacing:.08em}
+.m-live>i{width:7px;height:7px;border-radius:50%;background:var(--m-ok);box-shadow:0 0 0 3px #4adea233}
+.m-jump{display:flex;align-items:center;gap:6px;margin:0 0 10px;padding-bottom:9px;border-bottom:1px solid var(--m-border);overflow:hidden}
+.m-jump>b{flex:none;color:var(--m-dim);font:800 8px/1 Inter,system-ui;letter-spacing:.14em}
+.m-jchip{flex:none;padding:5px 10px;border:1px solid var(--m-border);border-radius:13px;color:var(--m-muted);font:700 9.5px/1.2 Inter,system-ui;white-space:nowrap}
 @media print{figure.mock{background:#fff}}
 </style>
 </head>
@@ -381,7 +387,7 @@ figure.mock>figcaption code{background:#0e1620;border-color:#212c3a;color:#a6bcc
 <header class="top"><div class="top-in">
   <button class="menu-btn" id="menuBtn" aria-expanded="false" aria-controls="side"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu</button>
   <a class="brand" href="#content"><img src="argon-ui-logo.svg" alt="">Argon UI</a>
-  <span class="badge" id="verBadge">v1.15.0</span>
+  <span class="badge" id="verBadge">v1.16.0</span>
   <span id="crumb" aria-live="polite"></span>
   <span class="top-links">
     <a href="#getting-started">Start</a><a href="#mockups">Mockups</a><a href="#components">Components</a><a href="#persistence">Persistence</a><a href="#api">API</a>
@@ -521,6 +527,8 @@ local Movement = Tab:Section({ Title = "Movement" })
 Movement:Slider({ Name = "Walk speed", Range = { 16, 120 }, CurrentValue = 16 })
 Movement:Toggle({ Name = "Infinite jump" })</code></pre>
 <p>Every <code>Create*</code> method also exists without the prefix (<code>Tab:Toggle</code>, <code>Tab:Slider</code>, <code>Section:Dropdown</code>, …), so both naming styles work.</p>
+<h3>Section navigation <span class="badge">new</span></h3>
+<p>A tab with more than one section gets a chip rail under the topbar, one chip per section, and clicking a chip scrolls to it. The strip scrolls horizontally when a tab has more sections than fit, and it steps aside while a search filter is active because a chip that jumps to a filtered-out section is a dead link. Nothing to call: it follows the sections you create. This replaces the old <code>SECTIONS</code> button and its popover, so the organisation of a tab is visible without clicking anything.</p>
 
 <h2 id="rows">Rows</h2>
 <p>A tab with ninety controls is a single column you scroll blind, and the related ones end up screens apart. A row splits the section body into equal columns and hands controls out round-robin, so the pair you build together sits side by side.</p>
@@ -551,9 +559,10 @@ row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })</code><
   </div>
   <div class="m-main">
     <div class="m-toprow">
-      <div><div class="m-crumb">MAIN</div><div class="m-h">Farming</div></div>
-      <div class="m-topr"><span class="m-chip">ARGON</span><span class="m-chip">INSERT</span></div>
+      <div><div class="m-crumb">ARGON / MAIN</div><div class="m-h">Farming</div></div>
+      <div class="m-topr"><span class="m-live"><i></i>LIVE</span><span class="m-swatchbtn"><i></i><i></i><i></i></span></div>
     </div>
+    <div class="m-jump"><b>JUMP TO</b><span class="m-jchip">Harvesting</span><span class="m-jchip">Selling</span><span class="m-jchip">Recovery</span></div>
     <div class="m-sec">HARVESTING</div>
     <div class="m-body">
       <div class="m-row"><span class="m-t">Auto farm</span><span class="m-q">?</span><span class="m-tr on"><i></i></span></div>
@@ -1048,7 +1057,7 @@ Argon:ResetConfiguration()    -- clears stored values and deletes the file</code
 <figure class="mock" aria-hidden="true"><div class="mock-body">
 <div class="m-toprow" style="align-items:center">
   <div><div class="m-crumb">ARGON / MAIN</div><div class="m-h" style="margin-bottom:0">Main</div></div>
-  <div class="m-topr"><span class="m-chip">SECTIONS</span><span class="m-chip">LIVE</span><span class="m-swatchbtn"><i></i><i></i><i></i></span></div>
+  <div class="m-topr"><span class="m-live"><i></i>LIVE</span><span class="m-swatchbtn"><i></i><i></i><i></i></span></div>
 </div>
 <div class="m-themes">
   <div class="m-navh">THEMES</div>
@@ -1061,7 +1070,7 @@ Argon:ResetConfiguration()    -- clears stored values and deletes the file</code
     <span class="m-theme"><b><i style="background:#ffffff"></i><i style="background:#e2e2e8"></i><i style="background:#8c8c96"></i></b>Mono</span>
   </div>
 </div>
-</div><figcaption>The palette button sits beside SECTIONS and LIVE; the panel drops beneath it with a swatch per theme</figcaption></figure>
+</div><figcaption>The palette button sits beside the live indicator; the panel drops beneath it with a swatch per theme</figcaption></figure>
 <pre><button class="copy">Copy</button><code>-- Shown by default. Hide it on a window that owns its own theming UI.
 local Window = Argon:CreateWindow({ Name = "My Hub", ThemePicker = false })
 
@@ -1139,9 +1148,11 @@ Window:CreateLibrarySettings(Settings)</code></pre>
   <div class="m-note"><b>✓</b><div><div class="n">Saved</div><div class="d">Configuration written.</div></div></div>
   <div class="m-note"><b style="background:#ff657c26;color:#ff657c">!</b><div><div class="n">Save failed</div><div class="d">Executor refused writefile.</div></div></div>
 </div>
-</div><figcaption>Notifications — the accent follows the title text, so a failure reads red without extra arguments</figcaption></figure>
+  <div class="m-note"><b style="background:#f7be4f26;color:#f7be4f">!</b><div><div class="n">Waiting for the server</div><div class="d">The body wraps and the card grows to fit it, however long it runs.</div></div></div>
+</div><figcaption>Notifications — the accent and the glyph follow the title text, so a failure reads red without extra arguments</figcaption></figure>
 <pre><button class="copy">Copy</button><code>Argon:Notify({ Title = "Saved", Content = "Configuration written.", Duration = 4 })</code></pre>
-<p>The accent color follows the title text: titles containing <em>error</em> or <em>failed</em> turn red, <em>warn</em> or <em>wait</em> amber, and <em>success</em> or <em>complete</em> green.</p>
+<p>The accent and the icon come from the title: titles containing <em>error</em> or <em>failed</em> read red, <em>warn</em> or <em>wait</em> amber, and <em>success</em>, <em>complete</em> or <em>saved</em> green. Everything else uses the accent.</p>
+<div class="note"><strong>They do not hide with the window.</strong> The toast layer lives on the ScreenGui rather than inside the window frame, because a notification that only appears while the menu happens to be open cannot report what a background feature just did. The card grows to fit its body instead of clipping at a fixed height, and the stack is capped at five so a burst cannot run off the bottom of the screen.</div>
 
 <h2 id="api">Library API</h2>
 <div class="api"><div class="api-head">Argon:CreateWindow(options) → window</div><div class="api-body"><p>Creates the interface shell. See <a href="#window">Windows</a> for options.</p></div></div>
@@ -1268,9 +1279,20 @@ local Rayfield = loadstring(game:HttpGet(
 <p>The repository ships a functional suite that runs the real library outside Roblox against a small Roblox API sandbox, so control logic and persistence are verified without launching a game.</p>
 <pre><button class="copy">Copy</button><code># requires https://github.com/lune-org/lune
 lune run tests/run.luau</code></pre>
-<p>210 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
+<p>246 checks cover every control, rows and their line-height balancing, tooltips and locks, the configuration round-trip, deferred flag hydration, dropdown restore timing, debounced autosave, themes, dialogs, and window controls. The sandbox models API surface rather than rendering, so layout and input still need a real client.</p>
 
 <h2 id="changelog">Changelog</h2>
+<h3>1.16.0</h3>
+<ul>
+<li><strong>Typography.</strong> The whole interface renders in BuilderSans, Roblox's own modern UI family. Measured in a live client it draws the same string about 13% narrower than GothamSSm at the same size, so titles fit where they used to truncate. TextButtons and TextBoxes get the font face too; before, only labels did, so half the interface used the legacy raster face.</li>
+<li><strong>Text controls scale with their text.</strong> <code>Label</code>, <code>Paragraph</code> and <code>TelemetryCard</code> were fixed-height rows with a fixed-height text slot on a root that clips, so anything past two short lines was cut off and a short value left dead space behind. All three are laid out now and are exactly as tall as their content.</li>
+<li><strong>Inputs reworked.</strong> A recessed well with a focus ring and a clear button. A long value is elided while the field is unfocused — the scheme is dropped and the informative head and tail are kept — and the real text returns for editing on focus. <code>CurrentValue</code> is always the full string.</li>
+<li><strong>Notifications</strong> no longer hide with the window, which is the case that actually matters for reporting what a background feature just did. Rebuilt as a card that grows to fit its body, with a severity glyph, a tinted icon plate, a hover-lit close button and a timer that cannot draw across the rounded corners. The stack is capped at five.</li>
+<li><strong>Section navigation</strong> moved out of the <code>SECTIONS</code> popover into an always-visible chip rail under the topbar. It scrolls horizontally when a tab has many sections and steps aside while a search filter is active.</li>
+<li><strong>The live indicator</strong> is tinted with <code>Success</code>, sizes to its own label, and has a slow breathing halo instead of being a grey capsule with a dot in it.</li>
+<li><strong>Fixed: square window corners.</strong> <code>ClipsDescendants</code> clips children to the rectangle, not to the <code>UICorner</code>, so the decorative glow painted straight into the rounded corners — worst at the top right, where the larger glow sits. The glow layer and the loader are composited groups now, so they stop at the rounded edge.</li>
+<li><strong>Fixed: the selected tab ignored a theme.</strong> Its button, icon plate and title are painted from selection state, so the repaint pass pushed all three back to the inactive palette entry. On startup with a saved theme the selected tab kept the default accent while everything around it had moved on.</li>
+</ul>
 <h3>1.15.0</h3>
 <ul>
 <li>A theme picker in the topbar: a palette button wearing the active accent, opening a grid of every registered theme with per-theme swatch previews. <code>ThemePicker</code>, <code>SetThemePickerVisible</code>, and <code>ToggleThemePicker</code> control it, and it writes through the <code>ArgonUITheme</code> flag so the choice persists.</li>

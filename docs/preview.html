@@ -86,7 +86,11 @@ button{cursor:pointer;border:0;background:transparent}
 .top-actions{display:flex;align-items:center;gap:7px;margin-left:auto}
 .live{display:flex;align-items:center;gap:7px;height:27px;padding:0 11px;border:1px solid color-mix(in srgb,var(--border) 80%,transparent);
  border-radius:999px;background:color-mix(in srgb,var(--surface) 74%,transparent);color:var(--muted);font:800 8.5px/1 var(--sans);letter-spacing:.08em}
-.live i{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 10px color-mix(in srgb,var(--success) 70%,transparent)}
+.live{border-color:color-mix(in srgb,var(--success) 55%,transparent);background:color-mix(in srgb,var(--success) 14%,transparent);color:var(--success)}
+.live i{position:relative;width:7px;height:7px;border-radius:50%;background:var(--success)}
+/* Breathing halo, matching the library's looping reversing tween. */
+.live i::after{content:"";position:absolute;inset:-3px;border-radius:50%;background:var(--success);animation:breathe 1.15s ease-in-out infinite alternate}
+@keyframes breathe{from{opacity:.45;transform:scale(.7)}to{opacity:0;transform:scale(1.9)}}
 .ibtn{display:grid;place-items:center;width:30px;height:30px;border:1px solid color-mix(in srgb,var(--border) 80%,transparent);
  border-radius:9px;background:color-mix(in srgb,var(--surface) 76%,transparent);color:var(--muted);transition:.15s}
 .ibtn:hover{color:var(--text);background:var(--hover)}
@@ -623,6 +627,8 @@ const TABS = [
     { name:'LOOKUP', items:[
       { t:'input', name:'Container ID', value:'', ph:'Paste an ID…',
         tip:'Input takes PlaceholderText and can clear itself when focus is lost.' },
+      { t:'input', name:'Discord webhook URL', value:'https://discord.com/api/webhooks/1523331338155982949/RvztQ8kLmNoPqRsTuVwXyZ0123456789abcdef',
+        ph:'https://…', tip:'A long value is elided while the field is not focused. Click it to edit the real text.' },
       { t:'row', cols:2, items:[
         { t:'button', name:'Look up' },
         { t:'button', name:'Withdraw everything', desc:'Asks for confirmation first.', act:'confirm' }
@@ -1220,6 +1226,20 @@ document.addEventListener('input', event => {
     dd.querySelector('.dd-empty').classList.toggle('hidden', shown !== 0);
   }
   if (event.target.matches('textarea.fld')) countLines(event.target);
+});
+
+/* Text inputs mirror the library: a long value is elided while the field is not focused, and the
+   real text comes back for editing on focus. The full value lives on the element, not in .value. */
+const elide = value => {
+  const shown = value.replace(/^https?:\/\//, '');
+  return shown.length <= 38 ? shown : shown.slice(0, 24) + '…' + shown.slice(-10);
+};
+document.querySelectorAll('input.fld').forEach(field => {
+  field.dataset.full = field.value;
+  const show = () => { field.value = elide(field.dataset.full); };
+  field.addEventListener('focus', () => { field.value = field.dataset.full; });
+  field.addEventListener('blur', () => { field.dataset.full = field.value; show(); });
+  show();
 });
 
 /* colour picker popup */

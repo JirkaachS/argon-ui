@@ -12,6 +12,9 @@ local sandbox = require("./sandbox")
 -- actually lets a deferred relayout or a theme repaint run.
 local task = sandbox.environment.task or require("@lune/task")
 local UDim2 = sandbox.environment.UDim2
+-- The suite runs as a normal Lune script, not inside the sandbox, so the Roblox globals the
+-- library sees are not in scope here unless they are bound explicitly.
+local Enum = sandbox.environment.Enum
 
 local passed, failed = 0, 0
 local failures = {}
@@ -38,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.15.0", Argon.Version == "1.15.0", Argon.Version)
+check("version is 1.16.0", Argon.Version == "1.16.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -946,6 +949,231 @@ local exported = overlayWindow:_exportUIPreferences()
 check("preference is exported for persistence", exported.OverlaysAlwaysVisible == false)
 overlayWindow:_applyUIPreferences({ OverlaysAlwaysVisible = true, PlayerListEnabled = true, KeybindListEnabled = true })
 check("preference is restored", overlayWindow:AreOverlaysAlwaysVisible() == true)
+
+section("the selected tab follows a theme switch")
+-- Reported bug: with a saved theme, startup selected the first tab under the default palette
+-- and then applied the theme, and the selected tab kept the OLD accent. Its button, icon plate
+-- and title are painted from selection state, so a theme binding pushed them back to the
+-- inactive palette entry -- the same trap as the toggle track.
+check("the active tab starts on the accent", (function()
+	Argon:SetTheme("Argon")
+	task.wait()
+	local active = Window.ActiveTab
+	return active ~= nil and active.IconBox.BackgroundColor3 == Argon.Themes.Argon.Accent,
+		active and tostring(active.IconBox.BackgroundColor3)
+end)())
+check("the active tab repaints to the new accent", (function()
+	Argon:SetTheme("Emerald")
+	for _ = 1, 40 do
+		if Window.ActiveTab.IconBox.BackgroundColor3 == Argon.Themes.Emerald.Accent then return true end
+		task.wait()
+	end
+	return false, tostring(Window.ActiveTab.IconBox.BackgroundColor3)
+end)())
+check("the active tab's title repaints too", Window.ActiveTab.ButtonTitle.TextColor3 == Argon.Themes.Emerald.Text,
+	tostring(Window.ActiveTab.ButtonTitle.TextColor3))
+check("an inactive tab stays on the muted colour", (function()
+	local inactive
+	for _, candidate in ipairs(Window.Tabs) do
+		if candidate ~= Window.ActiveTab then inactive = candidate break end
+	end
+	if not inactive then return true end
+	return inactive.IconBox.BackgroundColor3 == Argon.Themes.Emerald.Active,
+		tostring(inactive.IconBox.BackgroundColor3)
+end)())
+Argon:SetTheme("Argon")
+
+section("text controls grow with their text")
+local growTab = Window:CreateTab("Grow", "server")
+growTab:CreateSection("Growth")
+local longCopy = "A deliberately long body so the control has to grow to fit it. These three used to be fixed-height rows with a fixed-height text slot on a root that clips, so anything past two short lines was simply cut off and a short value left dead space behind."
+local grownLabel = growTab:CreateLabel(longCopy)
+local grownParagraph = growTab:CreateParagraph({ Title = "Wrapped", Content = longCopy })
+local grownCard = growTab:CreateTelemetryCard({ Title = "Card", Content = longCopy })
+local function wrappedBody(element)
+	for _, child in ipairs(element.Root:GetDescendants()) do
+		if child.ClassName == "TextLabel" and child.TextWrapped and child.AutomaticSize == Enum.AutomaticSize.Y then
+			return child
+		end
+	end
+	return nil
+end
+for _, entry in ipairs({
+	{ "Label", grownLabel }, { "Paragraph", grownParagraph }, { "TelemetryCard", grownCard },
+}) do
+	local name, element = entry[1], entry[2]
+	local root = type(element) == "table" and element.Root or nil
+	check(name .. " sizes itself to its content", root ~= nil and root.AutomaticSize == Enum.AutomaticSize.Y,
+		root and tostring(root.AutomaticSize) or ("no root, got " .. type(element)))
+	check(name .. " wraps its body instead of clipping it", root ~= nil and wrappedBody(element) ~= nil)
+end
+check("Label:Set replaces the copy", (function()
+	grownLabel:Set("short")
+	return grownLabel.CurrentValue == "short"
+end)())
+check("the telemetry status pill sizes to its own text", grownCard.Status.AutomaticSize == Enum.AutomaticSize.X,
+	tostring(grownCard.Status.AutomaticSize))
+check("SetStatus recolours the pill and its outline", (function()
+	local green = sandbox.environment.Color3.fromRGB(99, 223, 160)
+	grownCard:SetStatus("READY", green)
+	local outline
+	for _, child in ipairs(grownCard.Status:GetChildren()) do
+		if child.ClassName == "UIStroke" then outline = child end
+	end
+	return grownCard.Status.Text == "READY" and grownCard.Status.TextColor3 == green
+		and outline ~= nil and outline.Color == green
+end)())
+
+section("long input values are elided until focused")
+local urlTab = Window:CreateTab("Urls", "server")
+urlTab:CreateSection("Fields")
+local longUrl = "https://discord.com/api/webhooks/1523331338155982949/RvztQ8kLmNoPqRsTuVwXyZ0123456789abcdef"
+local urlInput = urlTab:CreateInput({ Flag = "U_Url", Name = "Webhook", CurrentValue = longUrl })
+local urlBox
+for _, child in ipairs(urlInput.Root:GetDescendants()) do
+	if child.ClassName == "TextBox" then urlBox = child end
+end
+check("the stored value is the full text", urlInput.CurrentValue == longUrl)
+check("the field shows an elided form, not the whole line", urlBox ~= nil and urlBox.Text ~= longUrl and #urlBox.Text < #longUrl,
+	urlBox and urlBox.Text)
+check("the elided form keeps the head and the tail", (function()
+	return urlBox.Text:find("discord.com", 1, true) ~= nil and urlBox.Text:sub(-6) == longUrl:sub(-6), urlBox.Text
+end)())
+check("the scheme is dropped for display only", urlBox.Text:sub(1, 4) ~= "http" and urlInput.CurrentValue:sub(1, 5) == "https")
+check("focusing restores the real text for editing", (function()
+	urlBox.Focused:Fire()
+	return urlBox.Text == longUrl, urlBox.Text
+end)())
+check("blurring commits and re-elides", (function()
+	urlBox.Text = "https://example.com/a/very/long/path/that/should/also/be/elided/for/display"
+	urlBox.FocusLost:Fire(true)
+	return urlInput.CurrentValue == "https://example.com/a/very/long/path/that/should/also/be/elided/for/display"
+		and urlBox.Text ~= urlInput.CurrentValue, urlBox.Text
+end)())
+check("a short value is shown in full", (function()
+	urlInput:Set("hello")
+	return urlBox.Text == "hello", urlBox.Text
+end)())
+check("Set(silent) still updates the display", (function()
+	urlInput:Set("quiet", true)
+	return urlInput.CurrentValue == "quiet" and urlBox.Text == "quiet"
+end)())
+
+section("notifications outlive the window being hidden")
+-- Notify targets the most recently created window, and this suite has built several, so assert
+-- against that one rather than against the first.
+local notifyWindow = Argon._windows[#Argon._windows]
+check("the toast layer is not parented to the window frame", (function()
+	return notifyWindow.Notifications.Parent == notifyWindow.ScreenGui
+end)())
+check("hiding the window leaves the toast layer visible", (function()
+	notifyWindow:SetVisibility(false)
+	local shown = notifyWindow.Notifications.Visible
+	notifyWindow:SetVisibility(true)
+	return shown == true
+end)())
+local function liveToasts()
+	local count = 0
+	for _, child in ipairs(notifyWindow.Notifications:GetChildren()) do
+		if child.ClassName == "CanvasGroup" then count += 1 end
+	end
+	return count
+end
+check("a toast is built while the window is hidden", (function()
+	notifyWindow:SetVisibility(false)
+	local before = liveToasts()
+	Argon:Notify({ Title = "Background", Content = "Fired with the menu closed.", Duration = 9 })
+	local after = liveToasts()
+	notifyWindow:SetVisibility(true)
+	return after > before, ("%d -> %d"):format(before, after)
+end)())
+check("a toast sizes itself to its body", (function()
+	local toast = Argon:Notify({ Title = "Long", Content = string.rep("wrapped body text ", 20), Duration = 3 })
+	return toast ~= nil and toast.AutomaticSize == Enum.AutomaticSize.Y, toast and tostring(toast.AutomaticSize)
+end)())
+check("the severity is taken from the title", (function()
+	local failed = Argon:Notify({ Title = "Save failed", Content = "x", Duration = 2 })
+	local ok = Argon:Notify({ Title = "Configuration saved", Content = "x", Duration = 2 })
+	local function tint(toast)
+		for _, child in ipairs(toast:GetDescendants()) do
+			if child.ClassName == "Frame" and child.Size == UDim2.fromOffset(32, 32) then return child.BackgroundColor3 end
+		end
+		return nil
+	end
+	return tint(failed) == Argon:GetColor("Danger") and tint(ok) == Argon:GetColor("Success"),
+		tostring(tint(failed)) .. " / " .. tostring(tint(ok))
+end)())
+check("the stack is capped", (function()
+	for index = 1, 9 do Argon:Notify({ Title = "Spam " .. index, Content = "x", Duration = 9 }) end
+	return liveToasts() <= 5, liveToasts()
+end)())
+
+section("section navigation is a chip rail, not a popover")
+local railTab = Window:CreateTab("Rail", "server")
+railTab:CreateSection("One")
+local jumpRail = Window.Content:FindFirstChild("JumpRail")
+check("the rail exists under the topbar", jumpRail ~= nil)
+check("a single section shows no rail", (function()
+	Window:_select(railTab)
+	task.wait()
+	return jumpRail.Visible == false
+end)())
+check("more sections bring the rail in", (function()
+	railTab:CreateSection("Two")
+	railTab:CreateSection("Three")
+	Window:_refreshSectionMenu()
+	return jumpRail.Visible == true
+end)())
+check("one chip per section, in order", (function()
+	local strip
+	for _, child in ipairs(jumpRail:GetChildren()) do
+		if child.ClassName == "ScrollingFrame" then strip = child end
+	end
+	local chips = {}
+	for _, child in ipairs(strip:GetChildren()) do
+		if child.ClassName == "TextButton" then table.insert(chips, child) end
+	end
+	table.sort(chips, function(a, b) return a.LayoutOrder < b.LayoutOrder end)
+	return #chips == 3 and chips[1].Text == "One" and chips[3].Text == "Three",
+		#chips .. " chips"
+end)())
+check("the strip scrolls horizontally when it overflows", (function()
+	local strip
+	for _, child in ipairs(jumpRail:GetChildren()) do
+		if child.ClassName == "ScrollingFrame" then strip = child end
+	end
+	return strip.ScrollingDirection == Enum.ScrollingDirection.X, tostring(strip.ScrollingDirection)
+end)())
+check("filtering hides the rail, clearing brings it back", (function()
+	railTab:_filter("zzz")
+	local hidden = jumpRail.Visible == false
+	railTab:_filter("")
+	return hidden and jumpRail.Visible == true
+end)())
+check("the SECTIONS button is gone from the topbar", (function()
+	for _, child in ipairs(Window.Content.TopBar:GetChildren()) do
+		if child.ClassName == "TextButton" and child.Text == "SECTIONS" then return false end
+	end
+	return true
+end)())
+Window:_select(Window.Tabs[1])
+
+section("typography uses one modern family")
+check("labels get a FontFace, not just a legacy Font", (function()
+	local label = Window.Tabs[1].ButtonTitle
+	return label.FontFace ~= nil and tostring(label.FontFace.Family):find("BuilderSans", 1, true) ~= nil,
+		label.FontFace and tostring(label.FontFace.Family)
+end)())
+check("buttons built outside the text helper get it too", (function()
+	-- TextButtons and TextBoxes set only .Font before, so half the interface rendered with the
+	-- legacy raster face while labels used the modern one.
+	local button = urlTab:CreateButton({ Name = "Faced" })
+	local face
+	for _, child in ipairs(button.Root:GetDescendants()) do
+		if child.ClassName == "TextLabel" and child.FontFace then face = child.FontFace end
+	end
+	return face ~= nil and tostring(face.Family):find("BuilderSans", 1, true) ~= nil, face and tostring(face.Family)
+end)())
 
 section("a window can opt out of the theme picker")
 -- Last, on purpose: CreateWindow resets Argon.Flags and re-gates persistence, so building a

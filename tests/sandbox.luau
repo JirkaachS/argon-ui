@@ -101,6 +101,7 @@ local Enum = {
 	AutomaticSize = buildEnum("AutomaticSize", { "None", "X", "Y", "XY" }),
 	SortOrder = buildEnum("SortOrder", { "Name", "Custom", "LayoutOrder" }),
 	FillDirection = buildEnum("FillDirection", { "Horizontal", "Vertical" }),
+	ScrollingDirection = buildEnum("ScrollingDirection", { "X", "Y", "XY" }),
 	ZIndexBehavior = buildEnum("ZIndexBehavior", { "Global", "Sibling" }),
 	EasingStyle = buildEnum("EasingStyle", { "Linear", "Sine", "Back", "Quad", "Quint", "Exponential" }),
 	EasingDirection = buildEnum("EasingDirection", { "In", "Out", "InOut" }),

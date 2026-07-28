@@ -17,7 +17,7 @@ local LocalPlayer = Players.LocalPlayer
 -- Standalone defaults. Hosts may override the configuration folder per window via
 -- ConfigurationSaving.FolderName; ASSET_FOLDER only caches bundled icon/logo images.
 local ASSET_FOLDER = "ArgonUI"
-local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.15.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
+local Argon = {Flags={},DefaultFolder=ASSET_FOLDER,AssetFolder=ASSET_FOLDER,Version="1.16.0",_connections={},_windows={},_themeBindings={},_themeToken=0,_loadingConfig=false,_persistenceReady=false,_saveToken=0,_destroyed=false,CurrentTheme="Argon",_uiPreferences={},_pendingFlags={},_flagListeners={},_themeListeners={},_themeRenderers={}}
 
 local C = {
     Background=Color3.fromRGB(8,10,16), Window=Color3.fromRGB(13,16,24), Sidebar=Color3.fromRGB(10,13,20),
@@ -64,6 +64,12 @@ local ICONS={
 ICONS.sword=ICONS.swords
 ICONS.server={{{5,4},{19,4},{21,6},{21,10},{19,12},{5,12},{3,10},{3,6},{5,4}},{{5,12},{19,12},{21,14},{21,18},{19,20},{5,20},{3,18},{3,14},{5,12}},{{7,8},{7.1,8}},{{7,16},{7.1,16}},{{16,8},{18,8}},{{16,16},{18,16}}}
 ICONS.gem={{{12,2},{19,5},{22,10},{12,22},{2,10},{5,5},{12,2}},{{2,10},{22,10}},{{5,5},{8,10},{12,2},{16,10},{19,5}},{{8,10},{12,22},{16,10}}}
+-- Offline fallbacks for the notification severity glyphs. Lucide supplies these by name when
+-- the index is available; without them a toast fell back to the generic activity squiggle.
+ICONS["circle-check"]={{{12,3},{17,5},{20,8},{21,12},{20,16},{17,19},{12,21},{7,19},{4,16},{3,12},{4,8},{7,5},{12,3}},{{8,12},{11,15},{16,9}}}
+ICONS["circle-x"]={{{12,3},{17,5},{20,8},{21,12},{20,16},{17,19},{12,21},{7,19},{4,16},{3,12},{4,8},{7,5},{12,3}},{{9,9},{15,15}},{{15,9},{9,15}}}
+ICONS["triangle-alert"]={{{12,3},{22,20},{2,20},{12,3}},{{12,9},{12,14}},{{12,17},{12.1,17}}}
+ICONS.info={{{12,3},{17,5},{20,8},{21,12},{20,16},{17,19},{12,21},{7,19},{4,16},{3,12},{4,8},{7,5},{12,3}},{{12,11},{12,17}},{{12,8},{12.1,8}}}
 
 local ICON_ATLAS_RECTS={
     ["activity"]=Vector2.new(0,0),
@@ -211,6 +217,10 @@ local function registerThemeRender(root,render)
     table.insert(Argon._themeRenderers,{Root=root,Render=render})
 end
 
+-- Forward declaration: create() applies the FontFace, but the family table it reads from is
+-- defined further down next to the text helpers.
+local fontFaceFor
+
 local function create(className,props)
     local object=Instance.new(className)
     for property,value in pairs(props or {}) do
@@ -218,6 +228,14 @@ local function create(className,props)
             object[property]=value
             registerThemeBinding(object,property,value)
         end
+    end
+    -- Every text object goes through here, including the TextButtons and TextBoxes that do
+    -- not use the text() helper. Setting only .Font left those on the legacy raster face
+    -- while labels rendered with the modern one, which is why the interface looked like it
+    -- used two different typefaces.
+    if props and props.Font and fontFaceFor then
+        local face=fontFaceFor(props.Font)
+        if face then pcall(function() object.FontFace=face end) end
     end
     if props and props.Parent then object.Parent=props.Parent end
     return object
@@ -401,19 +419,26 @@ end
 -- Text sharpness: the legacy Gotham enum renders thin and muddy at 8-11px. Mapping to
 -- GothamSSm FontFace weights and nudging small sizes up gives noticeably crisper glyphs
 -- with the same layout. Falls back to the enum font when FontFace is unavailable.
-local FONT_FAMILY="rbxasset://fonts/families/GothamSSm.json"
+-- BuilderSans is Roblox's own modern interface typeface. Measured against GothamSSm in a live
+-- client it renders the same string ~13% narrower at the same size with cleaner small-size
+-- hinting, so titles fit where they used to truncate. Only Regular/Medium/SemiBold/Bold/
+-- ExtraBold are real weights in the family; Light and Heavy silently fall back, so the map
+-- below never asks for them.
+local FONT_FAMILY="rbxasset://fonts/families/BuilderSans.json"
+local FONT_FALLBACK="rbxasset://fonts/families/GothamSSm.json"
 local FONT_WEIGHTS={
-    [Enum.Font.Gotham]=Enum.FontWeight.Medium,
-    [Enum.Font.GothamMedium]=Enum.FontWeight.SemiBold,
-    [Enum.Font.GothamBold]=Enum.FontWeight.Bold,
-    [Enum.Font.GothamBlack]=Enum.FontWeight.Heavy,
+    [Enum.Font.Gotham]=Enum.FontWeight.Regular,
+    [Enum.Font.GothamMedium]=Enum.FontWeight.Medium,
+    [Enum.Font.GothamBold]=Enum.FontWeight.SemiBold,
+    [Enum.Font.GothamBlack]=Enum.FontWeight.ExtraBold,
 }
 local FONT_FACES={}
-local function fontFaceFor(font)
+function fontFaceFor(font)
     if FONT_FACES[font]~=nil then return FONT_FACES[font] or nil end
     local weight=FONT_WEIGHTS[font]
     if not weight then FONT_FACES[font]=false return nil end
     local ok,face=pcall(function() return Font.new(FONT_FAMILY,weight,Enum.FontStyle.Normal) end)
+    if not ok then ok,face=pcall(function() return Font.new(FONT_FALLBACK,weight,Enum.FontStyle.Normal) end) end
     FONT_FACES[font]=ok and face or false
     return ok and face or nil
 end
@@ -429,10 +454,13 @@ end
 local function text(parent,value,size,color,font,props)
     local requested=font or Enum.Font.Gotham
     local label=create("TextLabel",{BackgroundTransparency=1,Text=value or "",TextColor3=color or C.Text,TextSize=readableSize(size),Font=requested,TextXAlignment=Enum.TextXAlignment.Left,TextYAlignment=Enum.TextYAlignment.Center,Parent=parent})
-    local face=fontFaceFor(requested)
-    if face then pcall(function() label.FontFace=face end) end
     for property,setting in pairs(props or {}) do
-        if property=="TextSize" then label.TextSize=readableSize(setting) else label[property]=setting end
+        if property=="TextSize" then label.TextSize=readableSize(setting)
+        elseif property=="Font" then
+            label.Font=setting
+            local face=fontFaceFor(setting)
+            if face then pcall(function() label.FontFace=face end) end
+        else label[property]=setting end
     end
     return label
 end
@@ -958,6 +986,9 @@ function Argon:Destroy()
     self._librarySettingsCreated=nil
 end
 
+local NOTIFY_WIDTH=340
+local NOTIFY_MAX=5
+
 function Argon:Notify(options)
     options=options or {}
     local window=self._windows[#self._windows]
@@ -965,45 +996,73 @@ function Argon:Notify(options)
     local titleValue=tostring(options.Title or "Notification")
     local body=tostring(options.Content or options.Description or "")
     local duration=tonumber(options.Duration) or 4
-    local accent=C.Accent
+    local accent,glyph=C.Accent,"info"
     local lower=titleValue:lower()
-    if lower:find("error") or lower:find("failed") then accent=C.Danger
-    elseif lower:find("warn") or lower:find("wait") then accent=C.Warning
-    elseif lower:find("success") or lower:find("complete") then accent=C.Success end
-    local toast=create("Frame",{BackgroundColor3=C.Window,BackgroundTransparency=.03,BorderSizePixel=0,Size=UDim2.fromOffset(338,0),ClipsDescendants=true,ZIndex=100,Parent=window.Notifications})
-    corner(toast,13) stroke(toast,C.Border,.12,1)
-    -- ClipsDescendants clips to the toast's RECTANGLE, not its 13px UICorner, so any
-    -- child flush against an edge draws straight across the rounded corners and looks
-    -- like a stray misplaced line. Keep edge decorations inset past the corner radius
-    -- and size them relative to the toast so they track its open/close animation.
-    local bar=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.new(0,3,1,-26),ZIndex=101,Parent=toast}) corner(bar,2)
-    local icon=create("Frame",{BackgroundColor3=accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.fromOffset(15,16),Size=UDim2.fromOffset(34,34),ZIndex=101,Parent=toast}) corner(icon,10)
-    local toastIcon=drawIcon(icon,"activity",accent) toastIcon.Size=UDim2.fromOffset(17,17)
-    -- Title stops short of the close button (its left edge sits at 338-27=311) instead
-    -- of truncating underneath it; body keeps a matching 16px right margin.
-    text(toast,titleValue,13,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(60,13),Size=UDim2.new(1,-96,0,21),TextTruncate=Enum.TextTruncate.AtEnd,ZIndex=101})
-    text(toast,body,12,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(60,35),Size=UDim2.new(1,-76,0,39),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top,ZIndex=101})
-    local close=create("TextButton",{AutoButtonColor=false,BackgroundTransparency=1,Position=UDim2.new(1,-27,0,9),Size=UDim2.fromOffset(18,18),Text="",ZIndex=102,Parent=toast})
-    local closeIcon=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(13,13),ZIndex=103,Parent=close})
-    -- iconLine positions each segment with absolute pixel offsets from this frame's
-    -- corner (it doesn't scale/clip to the parent), so the points must be chosen
-    -- within this frame's own 13x13 box -- not a generic 24x24 icon grid -- or the X
-    -- renders shoved into a corner instead of centered.
-    iconLine(closeIcon,{2,2},{11,11},C.Dim,1.7) iconLine(closeIcon,{11,2},{2,11},C.Dim,1.7)
-    -- Inset past the 13px corner radius on both sides and lifted 3px off the bottom
-    -- edge, so the timer bar reads as part of the card instead of a line cutting
-    -- through its rounded bottom corners.
-    local progress=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Position=UDim2.new(0,14,1,-5),Size=UDim2.new(1,-28,0,2),ZIndex=102,Parent=toast}) corner(progress,2)
+    if lower:find("error") or lower:find("failed") then accent,glyph=C.Danger,"circle-x"
+    elseif lower:find("warn") or lower:find("wait") then accent,glyph=C.Warning,"triangle-alert"
+    elseif lower:find("success") or lower:find("complete") or lower:find("saved") then accent,glyph=C.Success,"circle-check" end
+
+    -- The card used to be a fixed 86px tall with a 39px body slot, so anything longer than two
+    -- short lines was simply cut off. It is a CanvasGroup with AutomaticSize.Y now: the height
+    -- follows the wrapped text, and the open/close animation runs on GroupTransparency instead
+    -- of on Size so it cannot fight the automatic height. A CanvasGroup also rounds the
+    -- rendered result properly, which a ClipsDescendants frame does not.
+    local WIDTH=NOTIFY_WIDTH
+    local toast=create("CanvasGroup",{AutomaticSize=Enum.AutomaticSize.Y,BackgroundColor3=C.Window,BackgroundTransparency=.02,BorderSizePixel=0,GroupTransparency=1,Size=UDim2.fromOffset(WIDTH,0),ZIndex=100,Parent=window.Notifications})
+    corner(toast,14) stroke(toast,C.Border,.1,1)
+    padding(toast,14,14,13,12)
+
+    local body_=create("Frame",{AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,LayoutOrder=1,Size=UDim2.new(1,0,0,0),Parent=toast})
+    create("UIListLayout",{Padding=UDim.new(0,9),SortOrder=Enum.SortOrder.LayoutOrder,Parent=toast})
+
+    local plate=create("Frame",{BackgroundColor3=accent,BackgroundTransparency=.82,BorderSizePixel=0,Size=UDim2.fromOffset(32,32),Parent=body_}) corner(plate,10)
+    stroke(plate,accent,.62,1)
+    local plateIcon=drawIcon(plate,glyph,accent) plateIcon.Size=UDim2.fromOffset(17,17)
+
+    local column=create("Frame",{AutomaticSize=Enum.AutomaticSize.Y,BackgroundTransparency=1,Position=UDim2.fromOffset(43,0),Size=UDim2.new(1,-67,0,0),Parent=body_})
+    create("UIListLayout",{Padding=UDim.new(0,2),SortOrder=Enum.SortOrder.LayoutOrder,Parent=column})
+    text(column,titleValue,13,C.Text,Enum.Font.GothamBold,{AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=1,Size=UDim2.new(1,0,0,0),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+    if body~="" then
+        text(column,body,12,C.Muted,Enum.Font.Gotham,{AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=2,Size=UDim2.new(1,0,0,0),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+    end
+
+    local close=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=1,BorderSizePixel=0,Position=UDim2.new(1,-20,0,1),Size=UDim2.fromOffset(20,20),Text="",Parent=body_}) corner(close,7)
+    local closeIcon=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(11,11),Parent=close})
+    -- iconLine offsets are absolute within this frame, so the points have to live inside its
+    -- own 11x11 box rather than a 24x24 icon grid, or the X renders jammed into a corner.
+    iconLine(closeIcon,{1,1},{10,10},C.Dim,1.6) iconLine(closeIcon,{10,1},{1,10},C.Dim,1.6)
+    connect(close.MouseEnter,function() tween(close,.12,{BackgroundTransparency=.2}) end)
+    connect(close.MouseLeave,function() tween(close,.14,{BackgroundTransparency=1}) end)
+
+    -- The timer lives in the layout column, so it can never draw across the card's rounded
+    -- bottom corners the way an edge-anchored bar did.
+    local track=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,LayoutOrder=2,Size=UDim2.new(1,0,0,3),Parent=toast}) corner(track,2)
+    local progress=create("Frame",{BackgroundColor3=accent,BorderSizePixel=0,Size=UDim2.fromScale(1,1),Parent=track}) corner(progress,2)
+
     local closed=false
     local function dismiss()
         if closed or not toast.Parent then return end
-        closed=true tween(toast,.22,{BackgroundTransparency=1,Size=UDim2.fromOffset(338,0)})
-        task.delay(.24,function() if toast then toast:Destroy() end end)
+        closed=true
+        -- Freeze the measured height before animating, because Size cannot be tweened while
+        -- AutomaticSize owns that axis.
+        local height=toast.AbsoluteSize.Y
+        toast.AutomaticSize=Enum.AutomaticSize.None
+        toast.Size=UDim2.fromOffset(WIDTH,height)
+        tween(toast,.2,{GroupTransparency=1,Size=UDim2.fromOffset(WIDTH,0)})
+        task.delay(.22,function() if toast then toast:Destroy() end end)
     end
     connect(close.MouseButton1Click,dismiss)
-    tween(toast,.24,{Size=UDim2.fromOffset(338,86)},Enum.EasingStyle.Back)
-    tween(progress,duration,{Size=UDim2.new(0,0,0,2)},Enum.EasingStyle.Linear)
+    tween(toast,.22,{GroupTransparency=0})
+    tween(progress,duration,{Size=UDim2.new(0,0,1,0)},Enum.EasingStyle.Linear)
     task.delay(duration,dismiss)
+
+    -- Cap the stack. Without this a burst of notifications ran off the bottom of the screen.
+    local live={}
+    for _,child in ipairs(window.Notifications:GetChildren()) do
+        if child:IsA("CanvasGroup") then table.insert(live,child) end
+    end
+    for index=1,#live-NOTIFY_MAX do if live[index] then live[index]:Destroy() end end
+    return toast
 end
 
 function Argon:CreateWindow(options)
@@ -1034,8 +1093,14 @@ function Argon:CreateWindow(options)
     local shadow=create("ImageLabel",{BackgroundTransparency=1,Image="rbxassetid://1316045217",ImageColor3=Color3.new(),ImageTransparency=.28,ScaleType=Enum.ScaleType.Slice,SliceCenter=Rect.new(10,10,118,118),AnchorPoint=Vector2.new(.5,.5),Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(1002,682),ZIndex=1,Parent=gui})
     local main=create("Frame",{Name="ArgonWindow",AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Window,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(980,660),ZIndex=2,Parent=gui})
     corner(main,16) stroke(main,C.Border,.08,1) gradient(main,Color3.fromRGB(17,20,31),Color3.fromRGB(10,12,20),115)
-    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),ZIndex=2,Parent=main}) corner(glowTop,155)
-    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),ZIndex=2,Parent=main}) corner(glowBottom,180)
+    -- ClipsDescendants clips children to the window's RECTANGLE, not to its 16px UICorner, so
+    -- the decorative glows painted straight into the rounded corners and the window read as a
+    -- square with a rounded outline sitting on top of it -- worst at the top right, where the
+    -- larger glow sits. A CanvasGroup composites its children first and then applies its own
+    -- UICorner to the result, so the glow layer now genuinely stops at the rounded edge.
+    local glowLayer=create("CanvasGroup",{BackgroundTransparency=1,Size=UDim2.fromScale(1,1),ZIndex=2,Parent=main}) corner(glowLayer,16)
+    local glowTop=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.91,BorderSizePixel=0,Position=UDim2.new(1,-95,0,35),Size=UDim2.fromOffset(310,310),Parent=glowLayer}) corner(glowTop,155)
+    local glowBottom=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.AccentDark,BackgroundTransparency=.95,BorderSizePixel=0,Position=UDim2.new(.35,0,1,80),Size=UDim2.fromOffset(360,360),Parent=glowLayer}) corner(glowBottom,180)
 
     local sidebar=create("Frame",{BackgroundColor3=C.Sidebar,BackgroundTransparency=.06,BorderSizePixel=0,Size=UDim2.new(0,232,1,0),ZIndex=3,Parent=main})
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.15,BorderSizePixel=0,Position=UDim2.new(1,-1,0,0),Size=UDim2.new(0,1,1,0),Parent=sidebar})
@@ -1063,11 +1128,19 @@ function Argon:CreateWindow(options)
     local topbar=create("Frame",{BackgroundTransparency=1,Name="TopBar",Size=UDim2.new(1,0,0,70),Parent=content})
     local eyebrow=text(topbar,"ARGON / DASHBOARD",9,C.AccentLight,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,14),Size=UDim2.new(1,-285,0,17),TextTruncate=Enum.TextTruncate.AtEnd})
     local pageTitle=text(topbar,"Dashboard",21,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,29),Size=UDim2.new(1,-292,0,29),TextTruncate=Enum.TextTruncate.AtEnd})
-    local sectionsButton=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-259,0,19),Size=UDim2.fromOffset(86,28),Text="SECTIONS",TextColor3=C.Muted,TextSize=9,Font=Enum.Font.GothamBold,Parent=topbar}) corner(sectionsButton,14) stroke(sectionsButton,C.BorderSoft,.25,1) hover(sectionsButton,C.Surface,C.Hover)
-    local status=create("Frame",{BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-164,0,19),Size=UDim2.fromOffset(75,28),Parent=topbar}) corner(status,14) stroke(status,C.BorderSoft,.25,1)
-    local statusGroup=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(42,14),Parent=status})
-    local dot=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.fromOffset(7,7),Parent=statusGroup}) corner(dot,7)
-    text(statusGroup,"LIVE",9,C.Muted,Enum.Font.GothamBold,{Position=UDim2.fromOffset(13,0),Size=UDim2.new(1,-13,1,0),TextXAlignment=Enum.TextXAlignment.Left})
+    -- The live indicator was a grey Surface capsule with a fixed 75px width and the word LIVE
+    -- in Muted, so the only thing that read as "live" was a 7px dot. It is now tinted with
+    -- Success, sizes to its own label, and the dot carries a slow breathing halo.
+    local status=create("Frame",{AnchorPoint=Vector2.new(1,0),AutomaticSize=Enum.AutomaticSize.X,BackgroundColor3=C.Success,BackgroundTransparency=.88,BorderSizePixel=0,Position=UDim2.new(1,-90,0,20),Size=UDim2.fromOffset(0,26),Parent=topbar})
+    corner(status,13) local statusStroke=stroke(status,C.Success,.62,1) padding(status,11,12,0,0)
+    create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Center,Parent=status})
+    local dotHost=create("Frame",{BackgroundTransparency=1,LayoutOrder=1,Size=UDim2.fromOffset(8,8),Parent=status})
+    local halo=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Success,BackgroundTransparency=.55,BorderSizePixel=0,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(8,8),Parent=dotHost}) corner(halo,8)
+    local dot=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundColor3=C.Success,BorderSizePixel=0,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(7,7),ZIndex=2,Parent=dotHost}) corner(dot,7)
+    text(status,"LIVE",9.5,C.Success,Enum.Font.GothamBold,{AutomaticSize=Enum.AutomaticSize.X,LayoutOrder=2,Size=UDim2.fromOffset(0,26),TextXAlignment=Enum.TextXAlignment.Left})
+    -- A looping reversing tween rather than a thread: no per-frame work and nothing to clean up.
+    TweenService:Create(halo,TweenInfo.new(1.15,Enum.EasingStyle.Sine,Enum.EasingDirection.InOut,-1,true),
+        {Size=UDim2.fromOffset(18,18),BackgroundTransparency=1}):Play()
     -- The theme button wears the current palette instead of an icon: three overlapping
     -- Accent/AccentLight/AccentDark dots, so the control says what it does without a glyph
     -- and doubles as a readout of the active theme. Dots opt out of theme bindings because
@@ -1081,9 +1154,32 @@ function Argon:CreateWindow(options)
     end
     local hide=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.14,BorderSizePixel=0,Position=UDim2.new(1,-43,0,19),Size=UDim2.fromOffset(28,28),Text="–",TextColor3=C.Muted,TextSize=16,Font=Enum.Font.GothamBold,Parent=topbar}) corner(hide,9) stroke(hide,C.BorderSoft,.25,1) hover(hide,C.Surface,C.Hover)
     create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.25,BorderSizePixel=0,Position=UDim2.new(0,24,1,-1),Size=UDim2.new(1,-48,0,1),Parent=topbar})
-    local pageHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-70),ClipsDescendants=true,Parent=content})
 
-    local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,(options.PlayerList~=false or options.KeybindList~=false) and -304 or -16,0,16),Size=UDim2.fromOffset(338,500),ZIndex=100,Parent=gui})
+    -- Section navigation used to hide behind a SECTIONS button that opened a popover. It is a
+    -- always-visible chip rail under the topbar now: you can see how a tab is organised without
+    -- clicking anything, and the strip scrolls horizontally when a tab has many sections.
+    local JUMP_H=40
+    local jumpRail=create("Frame",{BackgroundTransparency=1,Name="JumpRail",Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,0,JUMP_H),Visible=false,Parent=content})
+    text(jumpRail,"JUMP TO",8.5,C.Dim,Enum.Font.GothamBold,{Position=UDim2.fromOffset(24,0),Size=UDim2.fromOffset(56,JUMP_H)})
+    local jumpStrip=create("ScrollingFrame",{Active=true,BackgroundTransparency=1,BorderSizePixel=0,CanvasSize=UDim2.fromOffset(0,0),Position=UDim2.fromOffset(84,0),ScrollBarThickness=0,ScrollingDirection=Enum.ScrollingDirection.X,Size=UDim2.new(1,-108,1,0),Parent=jumpRail})
+    local jumpLayout=create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,6),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Center,Parent=jumpStrip})
+    connect(jumpLayout:GetPropertyChangedSignal("AbsoluteContentSize"),function()
+        local measured=jumpLayout.AbsoluteContentSize
+        if measured then jumpStrip.CanvasSize=UDim2.fromOffset(measured.X+4,0) end
+    end)
+    create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.45,BorderSizePixel=0,Position=UDim2.new(0,24,1,-1),Size=UDim2.new(1,-48,0,1),Parent=jumpRail})
+
+    local pageHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(0,70),Size=UDim2.new(1,0,1,-70),ClipsDescendants=true,Parent=content})
+    local function layoutJumpRail()
+        local top=jumpRail.Visible and (70+JUMP_H) or 70
+        pageHost.Position=UDim2.fromOffset(0,top)
+        pageHost.Size=UDim2.new(1,0,1,-top)
+    end
+
+    -- Parented to the ScreenGui rather than the window, and deliberately NOT toggled with the
+    -- window: a notification that only appears while the menu happens to be open is useless
+    -- for reporting what a background feature just did.
+    local notifications=create("Frame",{AnchorPoint=Vector2.new(1,0),BackgroundTransparency=1,Position=UDim2.new(1,(options.PlayerList~=false or options.KeybindList~=false) and -304 or -16,0,16),Size=UDim2.fromOffset(NOTIFY_WIDTH,600),ZIndex=100,Parent=gui})
     create("UIListLayout",{HorizontalAlignment=Enum.HorizontalAlignment.Right,Padding=UDim.new(0,8),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=notifications})
 
     local savedPreferences=self._uiPreferences or {}
@@ -1093,7 +1189,7 @@ function Argon:CreateWindow(options)
         self._visible=value~=false
         if not self._visible and self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if not self._visible and self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
-        main.Visible=self._visible shadow.Visible=self._visible notifications.Visible=self._visible
+        main.Visible=self._visible shadow.Visible=self._visible
         if self._refreshOverlayVisibility then self:_refreshOverlayVisibility() end
     end
     function window:ToggleVisibility() self:SetVisibility(not self._visible) end
@@ -1332,17 +1428,14 @@ function Argon:CreateWindow(options)
         if self._dropdownPopup then self._dropdownPopup:Destroy() self._dropdownPopup=nil end
         if self._colorPopup then self._colorPopup:Destroy() self._colorPopup=nil end
         if oldTab then
-            oldTab.Accent.Visible=false
             if self._smoothTransitions then tween(oldTab.PageGroup,.2,{Position=UDim2.fromOffset(-direction*14,0),GroupTransparency=1},Enum.EasingStyle.Quint) end
-            tween(oldTab.TabButton,.15,{BackgroundTransparency=1,BackgroundColor3=C.Surface})
-            tween(oldTab.IconBox,.15,{BackgroundColor3=C.Active,Rotation=0}) recolorIcon(oldTab.Icon,C.Muted)
-            oldTab.ButtonTitle.TextColor3=C.Muted
+            oldTab:_renderState(true,false)
+            tween(oldTab.IconBox,.15,{Rotation=0})
         end
-        self.ActiveTab=tab tab.PageGroup.Position=self._smoothTransitions and UDim2.fromOffset(direction*16,0) or UDim2.fromOffset(0,0) tab.PageGroup.GroupTransparency=self._smoothTransitions and 1 or 0 tab.PageGroup.Visible=true tab.Accent.Visible=true
-        tween(tab.TabButton,.18,{BackgroundTransparency=.05,BackgroundColor3=C.Active})
-        tween(tab.IconBox,.2,{BackgroundColor3=C.Accent,Rotation=direction*2},Enum.EasingStyle.Quart) recolorIcon(tab.Icon,Color3.new(1,1,1))
+        self.ActiveTab=tab tab.PageGroup.Position=self._smoothTransitions and UDim2.fromOffset(direction*16,0) or UDim2.fromOffset(0,0) tab.PageGroup.GroupTransparency=self._smoothTransitions and 1 or 0 tab.PageGroup.Visible=true
+        tab:_renderState(true,true)
+        tween(tab.IconBox,.2,{Rotation=direction*2},Enum.EasingStyle.Quart)
         if self._smoothTransitions then tween(tab.PageGroup,.26,{Position=UDim2.fromOffset(0,0),GroupTransparency=0},Enum.EasingStyle.Quint) end
-        tab.ButtonTitle.TextColor3=C.Text
         tween(pageTitle,.08,{TextTransparency=1}) tween(eyebrow,.08,{TextTransparency=1})
         task.delay(.08,function()
             if transitionToken~=self._tabTransitionToken then return end
@@ -1375,6 +1468,26 @@ function Argon:CreateWindow(options)
         local pageLayout=create("UIListLayout",{Padding=UDim.new(0,12),SortOrder=Enum.SortOrder.LayoutOrder,Parent=page}) bindCanvas(page,pageLayout,24)
         tab.Page=page tab.PageGroup=pageGroup
 
+        -- The selected tab's button, icon plate and title are painted from SELECTION state,
+        -- not from the colour they were built with. Left theme-bound, the repaint pass in
+        -- SetTheme pushed all three back to their inactive palette entry, so switching theme
+        -- (or loading a saved theme on startup, which applies it after the first tab is
+        -- already selected) left the selected tab wearing the old accent while everything
+        -- around it had moved on. Same class of bug as the toggle track.
+        unbindTheme(button,"BackgroundColor3")
+        unbindTheme(tab.IconBox,"BackgroundColor3")
+        unbindTheme(tab.ButtonTitle,"TextColor3")
+        function tab:_renderState(animated,active)
+            if active==nil then active=self.Window.ActiveTab==self end
+            local duration=animated and .18 or 0
+            tween(self.TabButton,duration,{BackgroundTransparency=active and .05 or 1,BackgroundColor3=active and C.Active or C.Surface})
+            tween(self.IconBox,duration,{BackgroundColor3=active and C.Accent or C.Active})
+            recolorIcon(self.Icon,active and Color3.new(1,1,1) or C.Muted)
+            self.ButtonTitle.TextColor3=active and C.Text or C.Muted
+            self.Accent.Visible=active
+        end
+        registerThemeRender(button,function() tab:_renderState(false) end)
+
         function tab:_updateCount() self.Count.Text=tostring(self._controlCount) end
         function tab:_filter(query)
             query=tostring(query or ""):lower()
@@ -1396,6 +1509,11 @@ function Argon:CreateWindow(options)
                     if row._relayout then row._relayout() end
                 end
                 section.Root.Visible=visible>0 or query==""
+            end
+            -- Chips that scroll to a hidden section are dead links, so the rail steps aside
+            -- while a filter is active and comes back when the search box is cleared.
+            if self.Window.ActiveTab==self and self.Window._setJumpRailFiltered then
+                self.Window._setJumpRailFiltered(query~="")
             end
         end
 
@@ -1893,12 +2011,23 @@ function Argon:CreateWindow(options)
             return text(root,value,13,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,y or 0),Size=UDim2.new(1,width or -90,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
         end
 
+        -- Label, Paragraph and TelemetryCard all used to be fixed-height rows with a fixed-
+        -- height text slot inside them, on a root that clips. Anything past two short lines was
+        -- silently cut off, and the leftover slot showed as dead space when the text was short.
+        -- All three are now driven by a UIListLayout on an AutomaticSize.Y root, so the row is
+        -- exactly as tall as its content and nothing can clip.
         function tab:CreateLabel(value)
-            local root,element=base(tostring(value or ""),44) root.BackgroundTransparency=.45 root.AutomaticSize=Enum.AutomaticSize.Y
-            local badge=create("TextLabel",{BackgroundColor3=C.Accent,BackgroundTransparency=.84,BorderSizePixel=0,Position=UDim2.fromOffset(11,10),Size=UDim2.fromOffset(24,24),Text="i",TextColor3=C.AccentLight,TextSize=12,Font=Enum.Font.GothamBold,Parent=root}) corner(badge,8)
-            local label=text(root,tostring(value or ""),11,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(44,7),Size=UDim2.new(1,-56,0,30),AutomaticSize=Enum.AutomaticSize.Y,TextWrapped=true})
+            local root,element=base(tostring(value or ""),0)
+            root.Size=UDim2.new(1,0,0,0) root.AutomaticSize=Enum.AutomaticSize.Y
+            root.BackgroundTransparency=.52 element._stroke.Transparency=.44
+            padding(root,13,14,12,12)
+            create("UIListLayout",{FillDirection=Enum.FillDirection.Horizontal,Padding=UDim.new(0,11),SortOrder=Enum.SortOrder.LayoutOrder,VerticalAlignment=Enum.VerticalAlignment.Top,Parent=root})
+            local chip=create("Frame",{BackgroundColor3=C.Accent,BackgroundTransparency=.84,BorderSizePixel=0,LayoutOrder=1,Size=UDim2.fromOffset(22,22),Parent=root}) corner(chip,7)
+            drawIcon(chip,"info",C.AccentLight,13)
+            local label=text(root,tostring(value or ""),11,C.Muted,Enum.Font.Gotham,{AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=2,LineHeight=1.22,Size=UDim2.new(1,-33,0,0),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
             element.Type="Label" element.CurrentValue=tostring(value or "")
-            function element:Set(nextValue) self.CurrentValue=tostring(nextValue or "") self.Name=self.CurrentValue label.Text=self.CurrentValue end
+            function element:Set(nextValue) self.CurrentValue=tostring(nextValue or "") self.Name=self.CurrentValue label.Text=self.CurrentValue return self end
+            function element:SetContent(nextValue) return self:Set(nextValue) end
             return element
         end
 
@@ -1984,21 +2113,63 @@ function Argon:CreateWindow(options)
 
         function tab:CreateInput(config)
             config=config or {}
-            local root,element=base(config.Name,70,config)
-            element._title=text(root,config.Name or "Input",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,4),Size=UDim2.new(1,-28,0,20)})
-            local inputField=create("Frame",{BackgroundColor3=C.Input,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(13,28),Size=UDim2.new(1,-26,0,31),Parent=root})
-            corner(inputField,9) local inputStroke=stroke(inputField,C.BorderSoft,.22,1)
-            local input=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,MultiLine=false,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter value...",Position=UDim2.fromOffset(11,0),Size=UDim2.new(1,-22,1,0),Text=tostring(config.CurrentValue or ""),TextColor3=C.Text,TextSize=11,TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,Parent=inputField})
+            local root,element=base(config.Name,74,config)
+            element._title=text(root,config.Name or "Input",11,C.Muted,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,6),Size=UDim2.new(1,-28,0,18)})
+            -- A recessed well rather than a flat panel the same colour as the row, with the
+            -- focus ring on the well itself so it reads as an editable field.
+            local inputField=create("Frame",{BackgroundColor3=C.Background,BorderSizePixel=0,ClipsDescendants=true,Position=UDim2.fromOffset(13,28),Size=UDim2.new(1,-26,0,34),Parent=root})
+            corner(inputField,9) local inputStroke=stroke(inputField,C.BorderSoft,.18,1)
+            local input=create("TextBox",{BackgroundTransparency=1,BorderSizePixel=0,ClearTextOnFocus=false,Font=Enum.Font.Gotham,MultiLine=false,PlaceholderColor3=C.Dim,PlaceholderText=config.PlaceholderText or "Enter value...",Position=UDim2.fromOffset(12,0),Size=UDim2.new(1,-46,1,0),Text="",TextColor3=C.Text,TextSize=11.5,TextTruncate=Enum.TextTruncate.AtEnd,TextWrapped=false,TextXAlignment=Enum.TextXAlignment.Left,Parent=inputField})
+            local clear=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=1,BorderSizePixel=0,AnchorPoint=Vector2.new(1,.5),Position=UDim2.new(1,-7,.5,0),Size=UDim2.fromOffset(20,20),Text="",Visible=false,Parent=inputField}) corner(clear,7)
+            local clearIcon=create("Frame",{AnchorPoint=Vector2.new(.5,.5),BackgroundTransparency=1,Position=UDim2.fromScale(.5,.5),Size=UDim2.fromOffset(11,11),Parent=clear})
+            iconLine(clearIcon,{1,1},{10,10},C.Dim,1.6) iconLine(clearIcon,{10,1},{1,10},C.Dim,1.6)
+            connect(clear.MouseEnter,function() tween(clear,.12,{BackgroundTransparency=.15}) end)
+            connect(clear.MouseLeave,function() tween(clear,.14,{BackgroundTransparency=1}) end)
+
             element.Type="Input" element.CurrentValue=tostring(config.CurrentValue or "")
-            function element:Set(value,silent)
-                local nextValue=tostring(value or "") local didChange=self.CurrentValue~=nextValue self.CurrentValue=nextValue input.Text=nextValue
-                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
+            local editing=false
+            -- A long value (a webhook URL is the usual case) as one unbroken line of small text
+            -- filled the whole field and told you nothing useful. Unfocused, the field shows an
+            -- elided form that keeps the informative head and tail; focusing restores the real
+            -- text so it stays fully editable.
+            local function elide(value)
+                local shown=value:gsub("^https?://","")
+                if #shown<=38 then return shown end
+                return shown:sub(1,24).."…"..shown:sub(-10)
             end
-            connect(input.Focused,function() tween(inputStroke,.15,{Color=C.Accent,Transparency=0}) end)
-            connect(input.FocusLost,function()
-                tween(inputStroke,.18,{Color=C.BorderSoft,Transparency=.22}) element:Set(input.Text)
-                if config.RemoveTextAfterFocusLost then input.Text="" end
+            local function refresh()
+                if editing then input.Text=element.CurrentValue
+                else input.Text=elide(element.CurrentValue) end
+                clear.Visible=element.CurrentValue~="" and not editing
+            end
+            function element:Set(value,silent)
+                local nextValue=tostring(value or "") local didChange=self.CurrentValue~=nextValue
+                self.CurrentValue=nextValue refresh()
+                if didChange and not silent then changed(self) safeCall(config.Callback,nextValue) end
+                return self
+            end
+            connect(clear.MouseButton1Click,function() element:Set("") end)
+            connect(input.Focused,function()
+                editing=true refresh()
+                input.CursorPosition=#input.Text+1
+                tween(inputStroke,.15,{Color=C.Accent,Transparency=0})
+                tween(inputField,.15,{BackgroundColor3=C.Input})
             end)
+            connect(input.FocusLost,function()
+                editing=false
+                tween(inputStroke,.18,{Color=C.BorderSoft,Transparency=.18})
+                tween(inputField,.18,{BackgroundColor3=C.Background})
+                element:Set(input.Text)
+                if config.RemoveTextAfterFocusLost then element:Set("") end
+                refresh()
+            end)
+            -- The well is state-driven (focused vs idle), so it must not be theme-bound.
+            unbindTheme(inputField,"BackgroundColor3") unbindTheme(inputStroke,"Color")
+            registerThemeRender(root,function()
+                inputField.BackgroundColor3=editing and C.Input or C.Background
+                inputStroke.Color=editing and C.Accent or C.BorderSoft
+            end)
+            refresh()
             registerFlag(config.Flag,element) return element
         end
 
@@ -2141,38 +2312,54 @@ function Argon:CreateWindow(options)
 
         function tab:CreateParagraph(config)
             if type(config)~="table" then config={Title="Information",Content=tostring(config or "")} end
-            local root,element=base(config.Title or config.Name,68)
-            local badge=create("Frame",{BackgroundColor3=C.Accent,BackgroundTransparency=.9,BorderSizePixel=0,Position=UDim2.fromOffset(12,13),Size=UDim2.fromOffset(30,30),Parent=root}) corner(badge,9)
-            drawIcon(badge,config.Icon or "activity",C.AccentLight,17)
-            element._title=text(root,tostring(config.Title or config.Name or "Information"),12,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(53,8),Size=UDim2.new(1,-65,0,21),TextTruncate=Enum.TextTruncate.AtEnd})
-            local contentLabel=text(root,tostring(config.Content or config.Description or ""),10,C.Muted,Enum.Font.Gotham,{Position=UDim2.fromOffset(53,29),Size=UDim2.new(1,-65,0,30),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+            local root,element=base(config.Title or config.Name,0)
+            root.Size=UDim2.new(1,0,0,0) root.AutomaticSize=Enum.AutomaticSize.Y
+            padding(root,14,14,12,13)
+            create("UIListLayout",{Padding=UDim.new(0,7),SortOrder=Enum.SortOrder.LayoutOrder,Parent=root})
+            local header=create("Frame",{BackgroundTransparency=1,LayoutOrder=1,Size=UDim2.new(1,0,0,26),Parent=root})
+            local badge=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundColor3=C.Accent,BackgroundTransparency=.86,BorderSizePixel=0,Position=UDim2.new(0,0,.5,0),Size=UDim2.fromOffset(26,26),Parent=header}) corner(badge,8)
+            drawIcon(badge,config.Icon or "info",C.AccentLight,15)
+            element._title=text(header,tostring(config.Title or config.Name or "Information"),12.5,C.Text,Enum.Font.GothamBold,{Position=UDim2.fromOffset(36,0),Size=UDim2.new(1,-36,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
+            local contentLabel=text(root,tostring(config.Content or config.Description or ""),11,C.Muted,Enum.Font.Gotham,{AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=2,LineHeight=1.24,Size=UDim2.new(1,0,0,0),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
             element.Type="Paragraph" element.CurrentValue=contentLabel.Text
-            function element:Set(value) self.CurrentValue=tostring(value or "") contentLabel.Text=self.CurrentValue end
-            function element:SetContent(value) self:Set(value) return self end
+            function element:Set(value) self.CurrentValue=tostring(value or "") contentLabel.Text=self.CurrentValue return self end
+            function element:SetContent(value) return self:Set(value) end
             return element
         end
 
         function tab:CreateTelemetryCard(config)
             config=type(config)=="table" and config or {Title=tostring(config or "Telemetry")}
-            local root,element=base(config.Title or config.Name or "Telemetry",92)
-            root.BackgroundColor3=C.Background
-            root.BackgroundTransparency=.22
-            element._stroke.Color=C.Border
-            element._stroke.Transparency=.48
+            local root,element=base(config.Title or config.Name or "Telemetry",0)
+            root.Size=UDim2.new(1,0,0,0) root.AutomaticSize=Enum.AutomaticSize.Y
+            root.BackgroundColor3=C.Background root.BackgroundTransparency=.2
+            element._stroke.Color=C.Border element._stroke.Transparency=.46
+            padding(root,14,14,12,13)
+            create("UIListLayout",{Padding=UDim.new(0,10),SortOrder=Enum.SortOrder.LayoutOrder,Parent=root})
             local accent=config.Accent or C.Accent
-            local iconHost=create("Frame",{BackgroundTransparency=1,Position=UDim2.fromOffset(13,10),Size=UDim2.fromOffset(22,22),Parent=root})
-            local telemetryIcon=drawIcon(iconHost,config.Icon or "activity",accent,18)
-            element._title=text(root,tostring(config.Title or config.Name or "Telemetry"):upper(),11,accent,Enum.Font.GothamBold,{Position=UDim2.fromOffset(42,8),Size=UDim2.new(1,-144,0,23),TextTruncate=Enum.TextTruncate.AtEnd})
-            local status=text(root,tostring(config.Status or "LIVE"),9,accent,Enum.Font.GothamBold,{BackgroundColor3=C.Active,BackgroundTransparency=.18,AnchorPoint=Vector2.new(1,0),Position=UDim2.new(1,-12,0,9),Size=UDim2.fromOffset(72,22),TextXAlignment=Enum.TextXAlignment.Center})
-            corner(status,11) stroke(status,accent,.68,1)
-            local rail=create("Frame",{BackgroundColor3=accent,BackgroundTransparency=.08,BorderSizePixel=0,Position=UDim2.fromOffset(14,37),Size=UDim2.new(1,-28,0,2),Parent=root}) corner(rail,2)
-            local contentLabel=text(root,tostring(config.Content or config.Description or "Waiting for data..."),11,C.Text,Enum.Font.GothamMedium,{Position=UDim2.fromOffset(14,47),Size=UDim2.new(1,-28,0,34),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
+
+            local header=create("Frame",{BackgroundTransparency=1,LayoutOrder=1,Size=UDim2.new(1,0,0,24),Parent=root})
+            local iconHost=create("Frame",{AnchorPoint=Vector2.new(0,.5),BackgroundTransparency=1,Position=UDim2.new(0,0,.5,0),Size=UDim2.fromOffset(20,20),Parent=header})
+            local telemetryIcon=drawIcon(iconHost,config.Icon or "activity",accent,17)
+            element._title=text(header,tostring(config.Title or config.Name or "Telemetry"):upper(),10.5,accent,Enum.Font.GothamBold,{Position=UDim2.fromOffset(28,0),Size=UDim2.new(1,-118,1,0),TextTruncate=Enum.TextTruncate.AtEnd})
+            -- The status pill sizes to its own text now. It used to be a fixed 72x22 slab, so a
+            -- short word floated in the middle of an oversized capsule.
+            local status=text(header,tostring(config.Status or "LIVE"),9.5,accent,Enum.Font.GothamBold,{AnchorPoint=Vector2.new(1,.5),AutomaticSize=Enum.AutomaticSize.X,BackgroundColor3=accent,BackgroundTransparency=.85,Position=UDim2.new(1,0,.5,0),Size=UDim2.fromOffset(0,20),TextXAlignment=Enum.TextXAlignment.Center})
+            padding(status,10,10,0,0) corner(status,10) local statusStroke=stroke(status,accent,.6,1)
+            unbindTheme(status,"BackgroundColor3") unbindTheme(status,"TextColor3") unbindTheme(statusStroke,"Color")
+
+            -- Was a 2px full-bleed accent bar, which read as a stray coloured line drawn across
+            -- the card. A hairline in the border colour separates the header without shouting.
+            local rail=create("Frame",{BackgroundColor3=C.BorderSoft,BackgroundTransparency=.3,BorderSizePixel=0,LayoutOrder=2,Size=UDim2.new(1,0,0,1),Parent=root})
+            local contentLabel=text(root,tostring(config.Content or config.Description or "Waiting for data..."),11,C.Text,Enum.Font.Gotham,{AutomaticSize=Enum.AutomaticSize.Y,LayoutOrder=3,LineHeight=1.26,Size=UDim2.new(1,0,0,0),TextWrapped=true,TextYAlignment=Enum.TextYAlignment.Top})
             element.Type="TelemetryCard" element.CurrentValue=contentLabel.Text element.Status=status element.Icon=telemetryIcon element.Rail=rail
             function element:Set(value) self.CurrentValue=tostring(value or "") contentLabel.Text=self.CurrentValue return self end
             function element:SetContent(value) return self:Set(value) end
             function element:SetStatus(value,color)
                 status.Text=tostring(value or "LIVE")
-                if color then status.TextColor3=color status.UIStroke.Color=color recolorIcon(telemetryIcon,color) rail.BackgroundColor3=color self._title.TextColor3=color end
+                if color then
+                    status.TextColor3=color status.BackgroundColor3=color statusStroke.Color=color
+                    recolorIcon(telemetryIcon,color) self._title.TextColor3=color
+                end
                 return self
             end
             return element
@@ -2553,17 +2740,29 @@ function Argon:CreateWindow(options)
         return tab
     end
 
-    local sectionPopover=create("Frame",{BackgroundColor3=C.Window,BorderSizePixel=0,Position=UDim2.new(1,-222,0,52),Size=UDim2.fromOffset(210,0),AutomaticSize=Enum.AutomaticSize.Y,Visible=false,ZIndex=80,Parent=content}) corner(sectionPopover,12) stroke(sectionPopover,C.Border,.08,1) padding(sectionPopover,7,7,7,7)
-    local sectionLayout=create("UIListLayout",{Padding=UDim.new(0,5),SortOrder=Enum.SortOrder.LayoutOrder,Parent=sectionPopover})
+    local jumpFiltered=false
+    function window._setJumpRailFiltered(filtered)
+        jumpFiltered=filtered and true or false
+        local active=window.ActiveTab
+        jumpRail.Visible=not jumpFiltered and active~=nil and #active._sections>1
+        layoutJumpRail()
+    end
+
     function window:_refreshSectionMenu()
-        for _,child in ipairs(sectionPopover:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+        for _,child in ipairs(jumpStrip:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
         local active=self.ActiveTab
-        if not active then sectionPopover.Visible=false return end
-        for index,section in ipairs(active._sections) do
-            local jump=create("TextButton",{AutoButtonColor=false,BackgroundColor3=C.Surface,BackgroundTransparency=.12,BorderSizePixel=0,Size=UDim2.new(1,0,0,31),Text=string.format("%02d  %s",index,section.Name),TextColor3=C.Muted,TextSize=10,Font=Enum.Font.GothamMedium,TextTruncate=Enum.TextTruncate.AtEnd,TextXAlignment=Enum.TextXAlignment.Left,ZIndex=81,Parent=sectionPopover})
-            corner(jump,8) padding(jump,10,8,0,0) hover(jump,C.Surface,C.Hover)
-            connect(jump.MouseButton1Click,function()
-                sectionPopover.Visible=false
+        -- One section is just the tab itself; a rail with a single chip is noise.
+        local sections=active and active._sections or {}
+        jumpRail.Visible=#sections>1 and not jumpFiltered
+        jumpStrip.CanvasPosition=Vector2.new(0,0)
+        layoutJumpRail()
+        if not jumpRail.Visible then return end
+        for index,section in ipairs(sections) do
+            local chip=create("TextButton",{AutoButtonColor=false,AutomaticSize=Enum.AutomaticSize.X,BackgroundColor3=C.Surface,BackgroundTransparency=.16,BorderSizePixel=0,Font=Enum.Font.GothamBold,LayoutOrder=index,Size=UDim2.fromOffset(0,26),Text=section.Name,TextColor3=C.Muted,TextSize=10,Parent=jumpStrip})
+            corner(chip,13) padding(chip,12,12,0,0) local chipStroke=stroke(chip,C.BorderSoft,.35,1)
+            connect(chip.MouseEnter,function() tween(chip,.13,{BackgroundTransparency=.02,TextColor3=C.Text}) tween(chipStroke,.13,{Color=C.Accent,Transparency=.1}) end)
+            connect(chip.MouseLeave,function() tween(chip,.15,{BackgroundTransparency=.16,TextColor3=C.Muted}) tween(chipStroke,.15,{Color=C.BorderSoft,Transparency=.35}) end)
+            connect(chip.MouseButton1Click,function()
                 local offset=section.Root.AbsolutePosition.Y-active.Page.AbsolutePosition.Y+active.Page.CanvasPosition.Y
                 active.Page.CanvasPosition=Vector2.new(0,math.max(0,offset-8))
             end)
@@ -2638,19 +2837,12 @@ function Argon:CreateWindow(options)
     end
     function window:ToggleThemePicker()
         if not themeButton.Visible then return false end
-        sectionPopover.Visible=false
         if not themePopover.Visible then buildThemeMenu() end
         themePopover.Visible=not themePopover.Visible
         return themePopover.Visible
     end
     window._themePickerEnabled=options.ThemePicker~=false
     connect(themeButton.MouseButton1Click,function() window:ToggleThemePicker() end)
-    -- Only one popover at a time; both hang off the same topbar and would overlap.
-    connect(sectionsButton.MouseButton1Click,function()
-        themePopover.Visible=false
-        window:_refreshSectionMenu()
-        sectionPopover.Visible=not sectionPopover.Visible
-    end)
     renderThemePicker()
 
     local resizeGrip=create("TextButton",{Active=true,AutoButtonColor=false,AnchorPoint=Vector2.new(1,1),BackgroundTransparency=1,Position=UDim2.fromScale(1,1),Size=UDim2.fromOffset(30,30),Text="",ZIndex=95,Parent=main})
@@ -2697,13 +2889,12 @@ function Argon:CreateWindow(options)
         avatar.Position=compact and UDim2.fromOffset(8,5) or UDim2.fromOffset(5,5)
         tabList.Position=UDim2.fromOffset(compact and 11 or 12,compact and 72 or 146) tabList.Size=UDim2.new(1,compact and -18 or -24,1,compact and -132 or -205)
         for _,tab in ipairs(window.Tabs) do tab.ButtonTitle.Visible=not compact tab.Count.Visible=not compact end
-        status.Visible=width>=620 sectionsButton.Visible=width>=720
+        status.Visible=width>=620
         themeButton.Visible=window._themePickerEnabled~=false and width>=520
-        if not sectionsButton.Visible then sectionPopover.Visible=false end
         if not themeButton.Visible then themePopover.Visible=false end
         -- Reserve only as much of the topbar as the visible buttons actually occupy, so the
         -- page title gets the width back instead of truncating early on a narrow window.
-        local reserve=sectionsButton.Visible and 271 or (status.Visible and 176 or (themeButton.Visible and 92 or 55))
+        local reserve=status.Visible and 176 or (themeButton.Visible and 92 or 55)
         eyebrow.Size=UDim2.new(1,-reserve,0,17) pageTitle.Size=UDim2.new(1,-reserve,0,29)
     end
     connect(workspace:GetPropertyChangedSignal("CurrentCamera"),responsive)
@@ -2711,7 +2902,9 @@ function Argon:CreateWindow(options)
     responsive()
 
     local expandedSize=main.Size
-    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main})
+    -- Rounded to match the window. Without this the loader covered the whole frame with a
+    -- square, so the window's corners were visibly square for the first second of every launch.
+    local splash=create("CanvasGroup",{BackgroundColor3=C.Window,BorderSizePixel=0,GroupTransparency=0,Size=UDim2.fromScale(1,1),ZIndex=120,Parent=main}) corner(splash,16)
     gradient(splash,C.Surface,C.Window,105)
     sidebar.Visible=false content.Visible=false glowTop.Visible=false glowBottom.Visible=false shadow.Visible=false
     playerOverlay.Root.Visible=false keybindOverlay.Root.Visible=false
