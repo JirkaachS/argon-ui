@@ -6,7 +6,7 @@
 local process = require("@lune/process")
 local fs = require("@lune/fs")
 -- Resolve the library whether the suite is run from the repo root or from tests/.
-local ARGON_PATH = fs.isFile("argon-ui.luau") and "argon-ui.luau" or "../argon-ui.luau"
+local ARGON_PATH = process.args[1] or (fs.isFile("argon-ui.luau") and "argon-ui.luau" or "../argon-ui.luau")
 local sandbox = require("./sandbox")
 -- The sandbox's task is what the library schedules against, so yielding through it is what
 -- actually lets a deferred relayout or a theme repaint run.
@@ -41,7 +41,7 @@ if not ok then
 	print("\nFATAL: cannot continue")
 	process.exit(1)
 end
-check("version is 1.18.3", Argon.Version == "1.18.3", Argon.Version)
+check("version is 2.0.0", Argon.Version == "2.0.0", Argon.Version)
 check("Flags table exists", type(Argon.Flags) == "table")
 check("default folder is neutral", Argon.DefaultFolder == "ArgonUI", Argon.DefaultFolder)
 
@@ -90,7 +90,8 @@ local dropdown = Tab:CreateDropdown({ Flag = "T_Dropdown", Name = "Dropdown", Op
 dropdown:Set({ "B" })
 check("dropdown selects option", dropdown.CurrentOption[1] == "B", dropdown.CurrentOption[1])
 dropdown:Set({ "Z" })
-check("dropdown ignores unknown option", dropdown.CurrentOption[1] == nil or dropdown.CurrentOption[1] == "B")
+-- v2: an unknown value is ignored and the selection is kept (v1 cleared it).
+check("dropdown ignores unknown option", dropdown.CurrentOption[1] == "B", tostring(dropdown.CurrentOption[1]))
 
 local keybind = Tab:CreateKeybind({ Flag = "T_Keybind", Name = "Keybind", CurrentKeybind = "P", Callback = record("keybind") })
 keybind:Set("K")
@@ -232,37 +233,26 @@ check("clearing the filter restores the row", (function()
 	rowTab:_filter("")
 	return twoUp.Root.Visible == true and rowLeft.Root.Visible == true
 end)())
-check("controls on the same line are grown to the tallest", (function()
-	-- A toggle is 54 tall and a titled segmented strip is 76; left alone they made a ragged
-	-- line. They are padded to match, and the pad is tracked so repeated passes are stable.
+-- v2: rows lay out with engine flex (UIFlexItem + wrapping), so there is no Lua balancing pass.
+-- _balance and _relayout stay as callable no-op seams.
+check("_balance is a no-op seam that returns the row", (function()
 	local heightRow = rowTab:CreateRow({ Columns = 2 })
-	local short = heightRow:CreateToggle({ Name = "Short", CurrentValue = false })
-	local tall = heightRow:CreateSegmented({ Name = "Tall", Options = { "A", "B" }, CurrentOption = "A" })
-	task.wait(0.15)
-	if heightRow._balance then heightRow._balance() end
-	return short.Root.Size.Y.Offset == tall.Root.Size.Y.Offset,
-		("%d vs %d"):format(short.Root.Size.Y.Offset, tall.Root.Size.Y.Offset)
+	heightRow:CreateToggle({ Name = "Short", CurrentValue = false })
+	heightRow:CreateSegmented({ Name = "Tall", Options = { "A", "B" }, CurrentOption = "A" })
+	return heightRow._balance() == heightRow and heightRow._relayout() == heightRow
 end)())
-check("balancing is idempotent", (function()
-	local heightRow = rowTab:CreateRow({ Columns = 2 })
-	local a = heightRow:CreateToggle({ Name = "A", CurrentValue = false })
-	local b = heightRow:CreateSlider({ Name = "B", Range = { 0, 10 }, Increment = 1, CurrentValue = 5 })
-	task.wait(0.1)
-	for _ = 1, 4 do heightRow._balance() end
-	local first = a.Root.Size.Y.Offset
-	heightRow._balance()
-	return a.Root.Size.Y.Offset == first and a.Root.Size.Y.Offset == b.Root.Size.Y.Offset,
-		("%d vs %d"):format(a.Root.Size.Y.Offset, b.Root.Size.Y.Offset)
+check("columns flex instead of being resized from Lua", (function()
+	local row = rowTab:CreateRow({ Columns = 2 })
+	row:CreateToggle({ Name = "Flex", CurrentValue = false })
+	local holder = row.Columns[1].Holder
+	return holder:FindFirstChildOfClass("UIFlexItem") ~= nil and holder:FindFirstChildOfClass("UISizeConstraint") ~= nil
 end)())
-check("a lone control on a line is not stretched", (function()
+check("a lone control on a line keeps its own row height", (function()
 	local oddRow = rowTab:CreateRow({ Columns = 2 })
-	local one = oddRow:CreateToggle({ Name = "One", CurrentValue = false })
-	local two = oddRow:CreateToggle({ Name = "Two", CurrentValue = false })
+	oddRow:CreateToggle({ Name = "One", CurrentValue = false })
+	oddRow:CreateToggle({ Name = "Two", CurrentValue = false })
 	local three = oddRow:CreateToggle({ Name = "Three", CurrentValue = false })
-	task.wait(0.1)
-	oddRow._balance()
-	-- Line 2 holds only "Three", so its natural height must survive untouched.
-	return three.Root.Size.Y.Offset == 54, three.Root.Size.Y.Offset
+	return three.Root.Size.Y.Offset == 44, three.Root.Size.Y.Offset
 end)())
 check("relayout cannot re-enter itself", (function()
 	-- Regression: relayout writes row.Root.Size and was also connected to that frame's
@@ -298,7 +288,8 @@ end)())
 check("row controls follow a theme switch", (function()
 	Argon:SetTheme("Ocean")
 	for _ = 1, 40 do
-		if rowLeft.Root.BackgroundColor3 == Argon.Themes.Ocean.Surface then return true end
+		-- v2: rows have no fill of their own; the root carries the Hover token (the pooled hover fill)
+		if rowLeft.Root.BackgroundColor3 == Argon.Themes.Ocean.Hover then return true end
 		task.wait()
 	end
 	return false, tostring(rowLeft.Root.BackgroundColor3)
@@ -329,8 +320,9 @@ check("an on toggle keeps its accent after a theme switch", (function()
 	end
 	return false, tostring(trackOf(onToggle).BackgroundColor3)
 end)())
+-- v2: the off track uses the Track token (1.6:1 over the platter), not the Input well colour.
 check("an off toggle keeps the off colour after a theme switch",
-	trackOf(offToggle).BackgroundColor3 == Argon.Themes.Emerald.Input,
+	trackOf(offToggle).BackgroundColor3 == Argon.Themes.Emerald.Track,
 	tostring(trackOf(offToggle).BackgroundColor3))
 check("a toggle restored by config keeps its highlight", (function()
 	-- Exactly what autoload does: set silently, then the theme is applied from the config.
@@ -359,14 +351,15 @@ local descSlider = descTab:CreateSlider({ Name = "With Desc", Range = { 0, 100 }
 local descToggle = descTab:CreateToggle({ Name = "Toggle Desc", CurrentValue = false, Description = longText })
 task.wait(0.2)
 local function descriptionOf(element) return element._description end
-check("the slider grew past its natural height", descSlider.Root.Size.Y.Offset > 72, descSlider.Root.Size.Y.Offset)
-check("the description starts below the slider track", (function()
+-- v2: the row is 44 tall without a description and grows (and auto-sizes) with one.
+check("the slider grew past its natural height", descSlider.Root.Size.Y.Offset > 44, descSlider.Root.Size.Y.Offset)
+-- v2: descriptions sit in the text column, left of the control, instead of under it.
+check("the description sits in the text column, clear of the slider", (function()
 	local desc = descriptionOf(descSlider)
-	local bar
-	for _, child in ipairs(descSlider.Root:GetChildren()) do
-		if child:IsA("Frame") and child.Active and child.Size.Y.Offset == 8 then bar = child end
-	end
-	return desc and bar and desc.Position.Y.Offset >= bar.Position.Y.Offset + bar.Size.Y.Offset
+	local hit = descSlider.Root:FindFirstChild("Hit")
+	if not desc or not hit then return false, "description or Hit band missing" end
+	return desc.AbsolutePosition.X + desc.AbsoluteSize.X <= hit.AbsolutePosition.X + 1,
+		("desc right %d, hit left %d"):format(desc.AbsolutePosition.X + desc.AbsoluteSize.X, hit.AbsolutePosition.X)
 end)())
 check("the description fits inside the grown row", (function()
 	local desc = descriptionOf(descSlider)
@@ -478,8 +471,9 @@ check("hovering does not open instantly", (function()
 	tipped.Root.MouseEnter:Fire()
 	return Window._tooltip == nil
 end)())
+-- v2: the hover delay is 0.40 s (DESIGN_V2 motion token "tooltip").
 check("hovering opens a wrapped, self-sizing tooltip", (function()
-	sandbox.advance(0.35)
+	sandbox.advance(0.45)
 	local tip = Window._tooltip
 	if not tip then return false, "no tooltip shown" end
 	local label
@@ -515,7 +509,7 @@ end)())
 check("an empty tooltip shows nothing", (function()
 	plain:SetTooltip("")
 	plain.Root.MouseEnter:Fire()
-	sandbox.advance(0.35)
+	sandbox.advance(0.45)
 	local shown = Window._tooltip ~= nil
 	plain.Root.MouseLeave:Fire()
 	return not shown
@@ -523,14 +517,15 @@ end)())
 check("leaving before the delay cancels it", (function()
 	tipped.Root.MouseEnter:Fire()
 	tipped.Root.MouseLeave:Fire()
-	sandbox.advance(0.35)
+	sandbox.advance(0.45)
 	return Window._tooltip == nil
 end)())
 
 section("a tooltip is visibly marked on its control")
-check("a marked control gets a question mark", (function()
+-- v2: the marker is an info glyph (an ImageButton named TipMarker), not a "?" text glyph.
+check("a marked control gets a tooltip marker", (function()
 	local marker = tipped._tipMarker
-	return marker ~= nil and marker.Text == "?" and marker.Visible == true
+	return marker ~= nil and marker.Name == "TipMarker" and marker.Visible == true
 end)())
 check("HasTooltip reports it", tipped.HasTooltip == true)
 check("a control without a tooltip gets no marker", (function()
@@ -779,7 +774,15 @@ check("extension not double-appended", sandbox.files["JsonHub/settings.json"] ~=
 	table.concat((function() local out = {} for path in pairs(sandbox.files) do out[#out + 1] = path end return out end)(), ", "))
 
 section("themes, notifications, dialog")
-check("GetThemes lists all built-ins", #Argon:GetThemes() == 10, #Argon:GetThemes())
+-- v2 adds Daylight and HighContrast to the ten v1 themes.
+check("GetThemes lists all built-ins", (function()
+	local names = {}
+	for _, name in ipairs(Argon:GetThemes()) do names[name] = true end
+	for _, name in ipairs({ "Argon", "Amethyst", "Midnight", "Emerald", "Rose", "Slate", "Ember", "Nord", "Mono", "Ocean", "Daylight", "HighContrast" }) do
+		if not names[name] then return false, "missing " .. name end
+	end
+	return true
+end)())
 check("Amethyst is not a copy of Argon", (function()
 	local argon, amethyst = Argon.Themes.Argon, Argon.Themes.Amethyst
 	for key, value in pairs(argon) do
@@ -824,13 +827,14 @@ check("a recoloured control still follows the next theme", (function()
 	toggle.Root.BackgroundColor3 = sandbox.environment.Color3.fromRGB(123, 45, 67)
 	Argon:SetTheme("Ember")
 	for _ = 1, 40 do
-		if toggle.Root.BackgroundColor3 == Argon.Themes.Ember.Surface then return true end
+		if toggle.Root.BackgroundColor3 == Argon.Themes.Ember.Hover then return true end
 		task.wait()
 	end
 	return false, tostring(toggle.Root.BackgroundColor3)
 end)())
 section("the topbar theme picker")
-local themePicker = jsonWindow.Content:FindFirstChild("ThemePicker")
+-- v2: the picker lives in the popover layer; Window.ThemePicker is its content frame.
+local themePicker = jsonWindow.ThemePicker
 local themeOptions = themePicker and themePicker:FindFirstChild("ThemeOptions")
 check("the picker panel exists and starts closed", themePicker ~= nil and themePicker.Visible == false)
 check("ToggleThemePicker opens it", (function()
@@ -873,15 +877,16 @@ end)())
 check("ToggleThemePicker closes it again", (function()
 	return jsonWindow:ToggleThemePicker() == false and themePicker.Visible == false
 end)())
+-- v2: the button sits in the topbar's Actions group, so it is found recursively.
 check("SetThemePickerVisible(false) hides the button and panel", (function()
 	jsonWindow:ToggleThemePicker()
 	jsonWindow:SetThemePickerVisible(false)
-	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton")
+	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton", true)
 	return themePicker.Visible == false and button ~= nil and button.Visible == false
 end)())
 check("SetThemePickerVisible(true) brings it back", (function()
 	jsonWindow:SetThemePickerVisible(true)
-	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton")
+	local button = jsonWindow.Content.TopBar:FindFirstChild("ThemeButton", true)
 	return button.Visible == true and jsonWindow:ToggleThemePicker() == true
 end)())
 Argon:SetTheme("Argon")
@@ -933,7 +938,8 @@ local overlayWindow = Argon:CreateWindow({ Name = "Overlays", GuiName = "ArgonUI
 -- Overlays are deliberately held back while the loading cover is up, so this window has to
 -- finish loading before its overlay visibility means anything.
 overlayWindow:FinishLoading()
-overlayWindow:CreateTab("Main", "zap")
+-- v2: the keybind list sizes to its content and hides when there are no binds, so give it one.
+overlayWindow:CreateTab("Main", "zap"):CreateKeybind({ Name = "Dash", CurrentKeybind = "Q", OnPressed = function() end })
 overlayWindow:SetPlayerListVisible(true)
 overlayWindow:SetKeybindListVisible(true)
 check("overlays visible while window is open", overlayWindow.PlayerListOverlay.Visible == true)
@@ -958,35 +964,38 @@ overlayWindow:_applyUIPreferences({ OverlaysAlwaysVisible = true, PlayerListEnab
 check("preference is restored", overlayWindow:AreOverlaysAlwaysVisible() == true)
 
 section("the selected tab follows a theme switch")
--- Reported bug: with a saved theme, startup selected the first tab under the default palette
--- and then applied the theme, and the selected tab kept the OLD accent. Its button, icon plate
--- and title are painted from selection state, so a theme binding pushed them back to the
--- inactive palette entry -- the same trap as the toggle track.
+-- v2: one shared indicator (a glass pill plus a 3 px bar with the accent gradient) marks the
+-- selected tab; its title and icon use Text, inactive ones Text2 (Muted is not used on glass).
+local function barAccent()
+	local bar = Window.ActiveTab.Accent
+	local gradient = bar and bar:FindFirstChildOfClass("UIGradient")
+	local points = gradient and gradient.Color.Keypoints
+	return points and points[#points].Value
+end
 check("the active tab starts on the accent", (function()
 	Argon:SetTheme("Argon")
 	task.wait()
 	local active = Window.ActiveTab
-	return active ~= nil and active.IconBox.BackgroundColor3 == Argon.Themes.Argon.Accent,
-		active and tostring(active.IconBox.BackgroundColor3)
+	return active ~= nil and barAccent() == Argon.Themes.Argon.Accent, tostring(barAccent())
 end)())
 check("the active tab repaints to the new accent", (function()
 	Argon:SetTheme("Emerald")
 	for _ = 1, 40 do
-		if Window.ActiveTab.IconBox.BackgroundColor3 == Argon.Themes.Emerald.Accent then return true end
+		if barAccent() == Argon.Themes.Emerald.Accent then return true end
 		task.wait()
 	end
-	return false, tostring(Window.ActiveTab.IconBox.BackgroundColor3)
+	return false, tostring(barAccent())
 end)())
 check("the active tab's title repaints too", Window.ActiveTab.ButtonTitle.TextColor3 == Argon.Themes.Emerald.Text,
 	tostring(Window.ActiveTab.ButtonTitle.TextColor3))
-check("an inactive tab stays on the muted colour", (function()
+check("an inactive tab stays on the secondary text colour", (function()
 	local inactive
 	for _, candidate in ipairs(Window.Tabs) do
 		if candidate ~= Window.ActiveTab then inactive = candidate break end
 	end
 	if not inactive then return true end
-	return inactive.IconBox.BackgroundColor3 == Argon.Themes.Emerald.Active,
-		tostring(inactive.IconBox.BackgroundColor3)
+	return inactive.ButtonTitle.TextColor3 == Argon.Themes.Emerald.Text2,
+		tostring(inactive.ButtonTitle.TextColor3)
 end)())
 Argon:SetTheme("Argon")
 
@@ -1082,7 +1091,8 @@ end)())
 local function liveToasts()
 	local count = 0
 	for _, child in ipairs(notifyWindow.Notifications:GetChildren()) do
-		if child.ClassName == "CanvasGroup" then count += 1 end
+		-- v2: toast cards are plain Frames named Toast (no CanvasGroups)
+		if child.Name == "Toast" then count += 1 end
 	end
 	return count
 end
@@ -1101,9 +1111,10 @@ end)())
 check("the severity is taken from the title", (function()
 	local failed = Argon:Notify({ Title = "Save failed", Content = "x", Duration = 2 })
 	local ok = Argon:Notify({ Title = "Configuration saved", Content = "x", Duration = 2 })
+	-- v2: the type icon (on a 28 px Soft plate) carries the status colour
 	local function tint(toast)
 		for _, child in ipairs(toast:GetDescendants()) do
-			if child.ClassName == "Frame" and child.Size == UDim2.fromOffset(32, 32) then return child.BackgroundColor3 end
+			if child.Name == "TypeIcon" then return child.ImageColor3 end
 		end
 		return nil
 	end
@@ -1191,7 +1202,8 @@ check("headings use the display face, not the body face", (function()
 	built:CreateSection("Look and feel")
 	local heading
 	for _, child in ipairs(built.Page:GetDescendants()) do
-		if child.ClassName == "TextLabel" and child.Text == "LOOK AND FEEL" then heading = child end
+		-- v2: sentence case everywhere (no ALL CAPS chrome)
+		if child.ClassName == "TextLabel" and child.Text == "Look and feel" then heading = child end
 	end
 	return heading ~= nil and tostring(heading.FontFace.Family):find("Montserrat", 1, true) ~= nil,
 		heading and tostring(heading.FontFace.Family)
@@ -1214,19 +1226,19 @@ check("GetFonts lists only families that load", (function()
 end)())
 
 section("the loader waits for the host instead of a timer")
--- The cover used to dismiss itself 0.93s in whether or not the host had finished building, so a
--- menu with hundreds of controls was watched assembling itself. A host that reports progress
--- keeps the cover until it says otherwise.
+-- v2 has no fixed timers. A card appears only while real work is still pending after 150 ms,
+-- and the window opens when the host is done: its thread ended, it called FinishLoading, or it
+-- built a tab and then went quiet for 250 ms.
 local loadWindow = Argon:CreateWindow({ Name = "Loader", GuiName = "ArgonLoaderTest" })
 check("a new window starts covered", loadWindow:IsLoading() == true)
 check("SetLoadingProgress keeps it covered past the old timer", (function()
-	loadWindow:SetLoadingProgress(0.2, "BUILDING COMBAT")
+	loadWindow:SetLoadingProgress(0.2, "Building combat")
 	sandbox.advance(2)
 	return loadWindow:IsLoading() == true
 end)())
 check("progress never runs backwards", (function()
-	loadWindow:SetLoadingProgress(0.8, "BUILDING VISUALS")
-	loadWindow:SetLoadingProgress(0.3, "LATE STAGE")
+	loadWindow:SetLoadingProgress(0.8, "Building visuals")
+	loadWindow:SetLoadingProgress(0.3, "Late stage")
 	return loadWindow._loadingProgress >= 0.8, loadWindow._loadingProgress
 end)())
 check("FinishLoading uncovers it", (function()
@@ -1234,75 +1246,67 @@ check("FinishLoading uncovers it", (function()
 	return loadWindow:IsLoading() == false
 end)())
 check("FinishLoading twice is harmless", (pcall(function() loadWindow:FinishLoading() end)))
-check("a host that never reports still opens on the old timer", (function()
-	local silent = Argon:CreateWindow({ Name = "Silent", GuiName = "ArgonSilentTest" })
-	sandbox.advance(2)
-	return silent:IsLoading() == false
+check("a host whose script has finished opens on its own", (function()
+	local silent
+	task.spawn(function()
+		silent = Argon:CreateWindow({ Name = "Silent", GuiName = "ArgonSilentTest" })
+	end)
+	sandbox.advance(0.5)
+	return silent ~= nil and silent:IsLoading() == false
 end)())
-check("Loading = manual survives the fallback timer with no progress reported at all", (function()
-	-- The reported bug: creating tabs yields (icon fetches), so the 0.93s fallback got to run
-	-- before the host had reported anything, and it uncovered a window that was a few tabs in.
-	-- Declaring manual up front has to hold the cover even if nothing is ever reported.
+check("a host that builds a tab and goes quiet opens after the quiet period", (function()
+	local quiet = Argon:CreateWindow({ Name = "Quiet", GuiName = "ArgonQuietTest" })
+	quiet:CreateTab("Main", "zap"):CreateToggle({ Name = "Fly", CurrentValue = false })
+	sandbox.advance(1)
+	return quiet:IsLoading() == false
+end)())
+check("Loading = manual survives with no progress reported at all", (function()
 	local manual = Argon:CreateWindow({ Name = "Manual", GuiName = "ArgonManualTest", Loading = "manual" })
 	sandbox.advance(3)
 	local held = manual:IsLoading()
 	manual:FinishLoading()
 	return held == true and manual:IsLoading() == false, "held=" .. tostring(held)
 end)())
-check("the loader does not expand the shell while it is still building", (function()
-	-- Expanding during the build stretched a loader laid out for a 286x58 pill across the whole
-	-- window, which is what read as a black silhouette for the length of the build.
+check("the loader is a compact card, not the window shrunk to a pill", (function()
 	local pill = Argon:CreateWindow({ Name = "Pill", GuiName = "ArgonPillTest", Loading = "manual" })
-	pill:SetLoadingProgress(0.5, "BUILDING")
-	local widthDuringBuild = pill.Main.Size.X.Offset
+	pill:SetLoadingProgress(0.5, "Building")
+	local card = pill._loader and pill._loader.Card
+	local width = card and card.Size.X.Offset or 0
 	pill:FinishLoading()
-	return widthDuringBuild < 400, widthDuringBuild
+	return card ~= nil and width < 400, width
 end)())
 check("overlays stay behind the cover until loading finishes", (function()
 	local held = Argon:CreateWindow({ Name = "Held", GuiName = "ArgonHeldTest", Loading = "manual" })
-	-- Restoring a configuration calls this while the host is still building.
 	held:SetPlayerListVisible(true)
 	held:SetKeybindListVisible(true)
-	local hiddenWhileLoading = held._playerOverlayVisible == nil
-	local playerRoot, keybindRoot
-	for _, child in ipairs(held.ScreenGui:GetChildren()) do
-		if child.Name == "PlayerOverlay" then playerRoot = child end
-		if child.Name == "KeybindOverlay" then keybindRoot = child end
-	end
-	local hidden = (playerRoot == nil or playerRoot.Visible == false)
-		and (keybindRoot == nil or keybindRoot.Visible == false)
+	-- v2: reads the overlays themselves (the v1 test looked for names nothing had, so it could not fail)
+	local hidden = held.PlayerListOverlay.Visible == false and held.KeybindListOverlay.Visible == false
 	held:FinishLoading()
-	return hidden, "hiddenWhileLoading=" .. tostring(hidden) .. " " .. tostring(hiddenWhileLoading)
+	local shown = held.PlayerListOverlay.Visible == true
+	return hidden and shown, ("hidden=%s shown=%s"):format(tostring(hidden), tostring(shown))
 end)())
-check("the shell is back at full width once loading finishes", (function()
-	-- The loader shrinks the window to a pill and grows it back. responsive() owns main.Size when
-	-- the user has not resized by hand, so it is re-run after the expand rather than being driven
-	-- from the window's own size, which would have snapped the pill straight back to full width.
+check("the window is built at full size behind the card and revealed whole", (function()
 	local sized = Argon:CreateWindow({ Name = "Sized", GuiName = "ArgonSizedTest", Loading = "manual" })
 	sized:CreateTab("Main", "zap")
-	local pillWidth = sized.Main.Size.X.Offset
+	local widthWhileLoading = sized.Main.Size.X.Offset
+	local hiddenWhileLoading = sized.Main.Visible == false
 	sized:FinishLoading()
 	sandbox.advance(1.5)
-	return pillWidth < 400 and sized.Main.Size.X.Offset > 400,
-		("pill %d -> open %d"):format(pillWidth, sized.Main.Size.X.Offset)
+	return widthWhileLoading > 400 and hiddenWhileLoading and sized.Main.Visible == true and sized._loader == nil,
+		("width %d hidden %s visible %s"):format(widthWhileLoading, tostring(hiddenWhileLoading), tostring(sized.Main.Visible))
 end)())
-check("a viewport change while loading does not stretch the cover", (function()
-	-- A viewport change moments after injection is normal, and responsive() writes main.Size when
-	-- the user has not resized by hand. It used to blow the 286x58 cover out to the full window
-	-- while the cover was still laid out for a pill: a dark rectangle with a sliver of text in the
-	-- corner, which is what "the loader came up as a black silhouette" was.
+check("a viewport change while loading does not stretch the card", (function()
 	local resized = Argon:CreateWindow({ Name = "Resized", GuiName = "ArgonResizedTest", Loading = "manual" })
 	resized:CreateTab("Main", "zap")
 	sandbox.setViewport(1600, 900)
-	local duringLoad = resized.Main.Size.X.Offset
+	local cardWidth = resized._loader.Card.Size.X.Offset
 	resized:FinishLoading()
 	sandbox.advance(1.5)
 	local afterLoad = resized.Main.Size.X.Offset
 	sandbox.setViewport(1920, 1080)
-	return duringLoad < 400 and afterLoad > 400,
-		("during %d -> after %d"):format(duringLoad, afterLoad)
+	return cardWidth <= 380 and afterLoad > 400, ("card %d -> window %d"):format(cardWidth, afterLoad)
 end)())
-check("the shell grows into the viewport it ended up with, not the one it started in", (function()
+check("the window takes the size of the viewport it ended up with", (function()
 	local grown = Argon:CreateWindow({ Name = "Grown", GuiName = "ArgonGrownTest", Loading = "manual" })
 	grown:CreateTab("Main", "zap")
 	sandbox.setViewport(800, 600)
@@ -1310,7 +1314,8 @@ check("the shell grows into the viewport it ended up with, not the one it starte
 	sandbox.advance(1.5)
 	local width = grown.Main.Size.X.Offset
 	sandbox.setViewport(1920, 1080)
-	return width == 772, width
+	-- v2 default width (DESIGN_V2 3.2): max(min(gui - 160, 1080), min(720, gui - 16)) = 720 at 800
+	return width == 720, width
 end)())
 
 section("restoring a configuration reports its own progress")
@@ -1341,7 +1346,8 @@ check("the loader is stepped through the restore, not left on one line", (functi
 	restoreWindow.SetLoadingProgress = realSet
 	local counted = 0
 	for _, status in ipairs(reports) do
-		if tostring(status):find("RESTORING CONFIGURATION %d+/%d+") then counted += 1 end
+		-- v2: sentence case, counts as "n of m"
+		if tostring(status):find("Restoring settings · %d+ of %d+") then counted += 1 end
 	end
 	return counted >= 12, counted .. " of " .. #reports
 end)())
@@ -1410,15 +1416,17 @@ check("resizing by hand re-runs the layout, so the compact sidebar engages", (fu
 	sizedWindow:SetSize({ 620, 460 })
 	local narrow = sizedWindow.Sidebar.Size.X.Offset
 	sizedWindow:SetSize({ 980, 660 })
-	return wide == 232 and narrow == 72 and sizedWindow.Sidebar.Size.X.Offset == 232,
+	-- v2: the narrow layout is a 64 px icon rail
+	return wide == 232 and narrow == 64 and sizedWindow.Sidebar.Size.X.Offset == 232,
 		("%d -> %d -> %d"):format(wide, narrow, sizedWindow.Sidebar.Size.X.Offset)
 end)())
-check("only the decorative glow is still a composited group", (function()
+-- v2 uses no CanvasGroup at all (glows are pooled images, fades use one veil frame).
+check("no composited groups anywhere", (function()
 	local groups = {}
 	for _, child in ipairs(tintWindow.ScreenGui:GetDescendants()) do
 		if child.ClassName == "CanvasGroup" then groups[#groups + 1] = child.Name end
 	end
-	return #groups == 1 and groups[1] == "Glow", table.concat(groups, ", ")
+	return #groups == 0, table.concat(groups, ", ")
 end)())
 check("the loader keeps its contents legible on a dark palette", (function()
 	-- Mono's Window is rgb(16,16,18). Multiplied by the old Surface/Window gradient pair the
@@ -1454,12 +1462,13 @@ check("SetSubtitle renames the line under it", (function()
 	namedWindow:SetSubtitle("private build")
 	return namedWindow:GetSubtitle() == "private build", namedWindow:GetSubtitle()
 end)())
-check("the subtitle is drawn in caps without changing the stored value", (function()
+-- v2: the subtitle is shown as given (sentence case; no upper-casing)
+check("the subtitle is drawn as given", (function()
 	local shown
 	for _, child in ipairs(namedWindow.Sidebar:GetDescendants()) do
-		if child.ClassName == "TextLabel" and child.Text == "PRIVATE BUILD" then shown = child.Text end
+		if child.ClassName == "TextLabel" and child.Text == "private build" then shown = child.Text end
 	end
-	return shown == "PRIVATE BUILD" and namedWindow:GetSubtitle() == "private build"
+	return shown == "private build" and namedWindow:GetSubtitle() == "private build"
 end)())
 check("clearing a field restores the host's value rather than blanking it", (function()
 	namedWindow:SetTitle("")
@@ -1496,9 +1505,12 @@ check("the library settings panel exposes both rename fields", (function()
 	panelWindow:FinishLoading()
 	local settingsTab = panelWindow:CreateTab("Settings", "settings")
 	panelWindow:CreateLibrarySettings(settingsTab)
-	return Argon.Flags.ArgonUIWindowTitle ~= nil
-		and Argon.Flags.ArgonUIWindowSubtitle ~= nil
-		and Argon.Flags.ArgonUIFont ~= nil
+	-- v2: the settings rows are views over the window's preferences, not flags; the v1 flag
+	-- names still read and write those preferences.
+	return Argon:GetFlagValue("ArgonUIWindowTitle") == panelWindow:GetTitle()
+		and Argon:GetFlagValue("ArgonUIWindowSubtitle") == panelWindow:GetSubtitle()
+		and Argon:GetFlagValue("ArgonUIFont") == Argon.CurrentFont
+		and Argon.Flags.ArgonUIWindowTitle == nil
 end)())
 
 section("the window draws its own cursor when the game hides the engine one")
@@ -1532,67 +1544,46 @@ section("a window can opt out of the theme picker")
 -- throwaway window earlier would pull the rug out from under the configuration sections.
 check("ThemePicker = false hides the button and refuses to open the panel", (function()
 	local opted = Argon:CreateWindow({ Name = "NoPicker", GuiName = "ArgonNoPicker", ThemePicker = false })
-	local button = opted.Content.TopBar:FindFirstChild("ThemeButton")
+	local button = opted.Content.TopBar:FindFirstChild("ThemeButton", true) -- v2: inside the Actions group
 	local hidden = button ~= nil and button.Visible == false
 	local refused = opted:ToggleThemePicker() == false
 	return hidden and refused, ("hidden=%s refused=%s"):format(tostring(hidden), tostring(refused))
 end)())
 
-section("the library does not pin the objects it has destroyed")
--- Every registry is append-only, and the theme bindings used to be compacted only when the palette
--- changed, the font bindings only when the family changed, and the connection list never. A pinned
--- Instance keeps its engine-side memory alive after Destroy. Measured in a live client, 120
--- notifications left 1,455 dead instances and 361 dead connections behind.
-check("transient UI leaves dead entries behind", (function()
-	Argon:PruneRegistries()
-	local before = #Argon._themeBindings
+section("transient UI leaves nothing behind")
+-- v2 has no global registries to prune: every component owns a scope that releases its
+-- instances, connections and timers when it goes away.
+check("PruneRegistries is kept and has nothing to drop", (function()
+	local stats = Argon:PruneRegistries()
+	return stats.bindings == 0 and stats.connections == 0 and #Argon._themeBindings == 0
+end)())
+check("dismissed toasts give their instances back", (function()
+	sandbox.advance(12)
+	-- a small pool of cards is kept for reuse: fill it once, then a second burst must not grow
+	for index = 1, 12 do Argon:Notify({ Title = "Warm " .. index, Content = "x", Duration = 0.05 }) end
+	sandbox.advance(2)
+	local before = sandbox.metrics().live
 	for index = 1, 12 do Argon:Notify({ Title = "Leak " .. index, Content = "x", Duration = 0.05 }) end
-	sandbox.advance(1)
-	local grew = #Argon._themeBindings > before
-	local dead = 0
-	for _, binding in ipairs(Argon._themeBindings) do
-		if binding.Object and binding.Object.Parent == nil then dead += 1 end
+	sandbox.advance(2)
+	local after = sandbox.metrics().live
+	return after <= before + 4, ("%d -> %d live instances"):format(before, after)
+end)())
+check("no periodic timers keep running", (function()
+	sandbox.advance(40)
+	local pending = 0
+	for _, entry in ipairs(sandbox.scheduled) do
+		if not entry.cancelled then pending += 1 end
 	end
-	return grew and dead > 0, ("grew %d -> %d, %d dead"):format(before, #Argon._themeBindings, dead)
+	return pending == 0, pending .. " timers pending"
 end)())
-check("PruneRegistries drops them and reports what it dropped", (function()
-	local stats = Argon:PruneRegistries()
-	local dead = 0
-	for _, binding in ipairs(Argon._themeBindings) do
-		if binding.Object and binding.Object.Parent == nil then dead += 1 end
-	end
-	return dead == 0 and stats.bindings > 0, ("%d left, dropped %d"):format(dead, stats.bindings)
-end)())
-check("dead connections are dropped too", (function()
-	local live = 0
-	for _, connection in ipairs(Argon._connections) do
-		local ok, connected = pcall(function() return connection.Connected end)
-		if ok and connected == false then live += 1 end
-	end
-	return live == 0, live .. " dead connections left"
-end)())
-check("live bindings are kept, and a second pass drops nothing", (function()
-	local kept = #Argon._themeBindings
-	local stats = Argon:PruneRegistries()
-	return kept > 0 and #Argon._themeBindings == kept and stats.bindings == 0,
-		("%d kept, second pass dropped %d"):format(kept, stats.bindings)
-end)())
-check("a theme switch still repaints everything after a prune", (function()
+check("a theme switch still repaints the window", (function()
 	Argon:SetTheme("Ocean")
 	sandbox.advance(1)
-	local repainted = Window.Tabs[1].ButtonTitle.TextColor3 == Argon.Themes.Ocean.Muted
-		or Window.Tabs[1].ButtonTitle.TextColor3 == Argon.Themes.Ocean.Text
+	local color = Window.Tabs[1].ButtonTitle.TextColor3
+	local repainted = color == Argon.Themes.Ocean.Text2 or color == Argon.Themes.Ocean.Text
 	Argon:SetTheme("Argon")
 	sandbox.advance(1)
-	return repainted, tostring(Window.Tabs[1].ButtonTitle.TextColor3)
-end)())
-check("the janitor runs on its own", (function()
-	for index = 1, 6 do Argon:Notify({ Title = "Janitor " .. index, Content = "x", Duration = 0.05 }) end
-	sandbox.advance(1)
-	Argon._lastPruneStats = nil
-	-- The sweep is scheduled every 30s and re-entered through task.delay, never task.defer.
-	sandbox.advance(31)
-	return Argon._lastPruneStats ~= nil, tostring(Argon._lastPruneStats)
+	return repainted, tostring(color)
 end)())
 
 section("no unexpected runtime warnings")

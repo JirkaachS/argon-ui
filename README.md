@@ -4,16 +4,16 @@
 
 # Argon UI
 
-### A modern single-file UI library for Roblox Luau scripts
+### A fast, modern single-file UI library for Roblox Luau scripts
 
-No dependencies, no host script, no build step. One `.luau` file: load it, create a window, add controls. The API is shaped like Rayfield's, so existing menus usually only need their loader swapped.
+No dependencies and no host script. One `.luau` file: load it, create a window, add controls. The API is shaped like Rayfield's, so existing menus usually only need their loader swapped.
 
 [![Docs](https://img.shields.io/badge/docs-argon--ui-5865f2?style=for-the-badge)](https://jirkaachs.github.io/argon-ui/)
 [![Live preview](https://img.shields.io/badge/live-preview-23a55a?style=for-the-badge)](https://jirkaachs.github.io/argon-ui/preview.html)
 [![Language: Luau](https://img.shields.io/badge/luau-single%20file-00a2ff?style=for-the-badge)](argon-ui.luau)
 [![Stars](https://img.shields.io/github/stars/JirkaachS/argon-ui?style=for-the-badge)](https://github.com/JirkaachS/argon-ui/stargazers)
 
-**[Documentation](https://jirkaachs.github.io/argon-ui/)** · **[Try it in your browser](https://jirkaachs.github.io/argon-ui/preview.html)** · [Controls](#controls) · [Rows](#rows) · [Themes](#themes) · [FAQ](#faq)
+**[Documentation](https://jirkaachs.github.io/argon-ui/)** · **[Try it in your browser](https://jirkaachs.github.io/argon-ui/preview.html)** · [Controls](#controls) · [Command palette](#command-palette) · [Themes](#themes) · [Upgrading from 1.x](#upgrading-from-1x) · [FAQ](#faq)
 
 Every control in the docs is shown as a [mockup](https://jirkaachs.github.io/argon-ui/#mockups) next to the call that produces it.
 
@@ -44,48 +44,62 @@ Tab:CreateToggle({
 Argon:LoadConfiguration()
 ```
 
-Keep a copy of `argon-ui.luau` beside your script if you want an offline fallback for the hosted URL.
+That is the whole setup. The window opens by itself as soon as your script is done building. Keep a copy of `argon-ui.luau` beside your script if you want an offline fallback for the hosted URL.
 
 ## Why Argon UI
 
 Most Roblox UI libraries give you a window and a list of toggles and stop there. Argon UI is built for hubs that outgrew that: hundreds of controls, long tabs, sessions that need to survive a rejoin, and games that fight your menu.
 
-- **Responsive rows.** `CreateRow` splits a section into up to four columns so related controls sit side by side instead of screens apart, and collapses back to one stack when the window narrows.
-- **A loader that waits for you.** Report progress while you build and the window stays covered until it is actually finished, instead of revealing a half-assembled interface.
-- **Its own cursor.** When a game hides the engine pointer and draws its own in `PlayerGui`, that pointer sits behind `CoreGui` and you click blind. Argon draws a cursor above everything it owns.
-- **Persistence that actually round-trips.** Writes are read back to confirm they landed, flags for controls that do not exist yet are retained rather than dropped, and restored values always fire their callback once.
-- **Notifications outside the window.** A background feature reporting a result is useless if the card only appears while the menu happens to be open, so notifications are independent of window visibility.
-- **Text that fits.** Labels, paragraphs and cards size to their content, so nothing clips and nothing leaves dead space.
-- **Rayfield-compatible API shape**, ten live-switchable themes, official [Lucide](https://lucide.dev) icons, and a browser preview that is a working reimplementation rather than a screenshot.
+- **It opens fast, however big the hub is.** `Create*` calls only record what you asked for. The visible tab is built first, in small slices that never hold up a frame, and the other tabs are built quietly after the window is open. Nothing is downloaded, decoded or written to disk before the window can draw.
+- **A loader that tells the truth.** No fixed timers. A quick script opens with no loader at all; a big one shows what is actually happening ("Building Combat · 155 of 212", "Restoring settings · 72 of 96") and opens the moment the work is done.
+- **Find anything.** The command palette (Ctrl+K) finds any control in any tab, even tabs you never opened, and can change it in place.
+- **Undo, reset, profiles.** Changed rows are marked, every tab can be reset, Ctrl+Z undoes, and settings can be saved as named profiles and shared as a code.
+- **Persistence that round-trips.** Writes are read back to confirm they landed, values for controls that do not exist yet are kept, and restored values fire their callback once.
+- **Notifications outside the window**, with types, buttons, progress and an inbox, so a background feature can report while the menu is hidden.
+- **Its own cursor**, for games that hide the engine pointer behind their own.
+- **Keyboard, gamepad and touch** work everywhere: focus ring, arrow keys, shoulder buttons, long-press menus, phone layouts.
+- **Rayfield-compatible API**, 12 live-switchable themes, 1,573 [Lucide](https://lucide.dev) icons built in, and a browser preview that is a working reimplementation rather than a screenshot.
 
 ## Features
 
-- Tabbed window with sections, per-tab search, and a scrollable section jump rail for long pages
-- 18 controls, including progress bars, steppers, segmented pickers, text areas and data lists
-- Configuration persistence with verified writes, deferred flag hydration and change listeners
-- Ten built-in themes plus custom palettes, applied live, with a swatch picker in the topbar
-- Draggable player and keybind overlays that can stay on screen while the window is hidden
-- Modal dialogs, tooltips, descriptions, locked states and element visibility
-- Drag-resizable window with a `560 x 400` minimum and responsive sidebar collapse
-- One modern typeface throughout (BuilderSans), on buttons and text boxes as well as labels
-- Vector icon atlas with no operating-system glyph fallback
+- Tabbed window with sections, rows of up to four columns, tab groups, badges, and a jump rail and "On this page" list for long pages
+- 22 control builders: switches, checkboxes, sliders, steppers, segmented pickers, dropdowns, colour pickers, keybinds, inputs, text areas, buttons, button groups, lists, progress bars, telemetry and stat cards, callouts, images, labels, paragraphs, dividers and spacers
+- Command palette, row context menus, change tracking with undo, pins and a quick dock
+- Named configuration profiles with autoload, export and import
+- Typed notifications with actions, progress, update in place and an inbox
+- Dialogs, confirmations and prompts; tooltips, descriptions, locks and conditional visibility
+- 12 themes plus your own, accent override, three materials, interface scale and density
+- Player list, keybind list and watermark overlays that can stay on screen while the window is hidden
+- Key system (Rayfield's `KeySystem` settings)
+- Responsive: wide, standard, icon rail and phone layouts, with a `560 x 400` minimum window
 
 ## Controls
 
-| Group | Controls |
+| Group | Builders |
 | --- | --- |
-| Input | `Toggle`, `Input`, `TextArea`, `Keybind` |
+| Input | `Toggle`, `Checkbox`, `Input`, `TextArea`, `Keybind` |
 | Choice | `Dropdown`, `Segmented`, `ColorPicker` |
 | Numeric | `Slider`, `Stepper` |
-| Action | `Button` |
-| Display | `ProgressBar`, `List`, `TelemetryCard`, `Label`, `Paragraph` |
-| Layout | `Section`, `Divider`, `Space` |
+| Action | `Button`, `ButtonGroup` |
+| Display | `Label`, `Paragraph`, `Callout`, `Image`, `ProgressBar`, `List`, `TelemetryCard`, `Stat` |
+| Layout | `Section`, `Row`, `Divider`, `Space` |
 
-Every `Create*` method has a prefix-free alias (`Tab:Toggle`, `Section:Dropdown`, and so on).
+Every `Create*` method has a prefix-free alias (`Tab:Toggle`, `Section:Dropdown`, and so on), and every control config also accepts:
+
+| Key | What it does |
+| --- | --- |
+| `Description` | A line of text under the title. |
+| `Tooltip` | The same text without spending row height; an info mark after the title shows it on hover or focus. |
+| `Keywords` | Extra words the command palette matches. |
+| `Pinned` | On toggles and buttons: pins it to the sidebar and the quick dock. |
+| `VisibleWhen` / `EnabledWhen` | Shows or enables the control only when other flags match, e.g. `{ Flag = "Mode", Equals = "Advanced" }`. |
+| `Keybind` | On toggles and buttons: a key that flips or presses it, e.g. `Keybind = "F"`. |
+
+Buttons take `Variant = "Primary" | "Ghost" | "Danger" | "DangerSoft"`, `HoldToConfirm = true` (hold for 0.8 s, for destructive actions) and `Async = true` (a spinner while the callback runs, a check when it returns `true`). Sliders take `Ticks` and a `Format` function for the value.
 
 ## Rows
 
-A tab with ninety controls is a single column you scroll blind, and the related ones end up screens apart. `CreateRow` splits the section body into equal columns and hands controls out round-robin, so the pair you build together sits side by side.
+A tab with ninety controls is a single column you scroll blind, and the related ones end up screens apart. `CreateRow` splits the section body into columns and hands controls out round-robin, so the pair you build together sits side by side.
 
 ```luau
 local row = Tab:CreateRow({ Columns = 2 })
@@ -96,21 +110,55 @@ row:CreateSlider({ Flag = "ChamsOpacity", Name = "Opacity %", Range = { 5, 100 }
 row:Use(2):CreateToggle({ Name = "Pin me right", CurrentValue = false })
 ```
 
-`Columns` accepts 1 to 4 and may be passed bare (`Tab:CreateRow(2)`). `Spacing` sets the gap, and `MinColumnWidth` (default 200) is the width below which columns collapse back into one stack, so a resized window and a phone get a readable layout from the same calls. Rows carry the same shorthands as sections, join the owning section for search, and hide themselves when everything in them is filtered out.
-
-Controls on the same visual line grow to the tallest of that line, so a toggle beside a titled segmented strip reads as one line instead of leaving a ragged gap.
+`Columns` accepts 1 to 4 and may be passed bare (`Tab:CreateRow(2)`). `Spacing` sets the gap, and `MinColumnWidth` (default 200) is the width below which columns wrap back into one stack, so a resized window and a phone get a readable layout from the same calls. Rows carry the same shorthands as sections and join the owning section for search.
 
 Best suited to compact controls: toggles, sliders, steppers, keybinds, colour pickers, buttons, inputs, dropdowns and short segmented pickers. Lists and text areas want the full width.
 
+## Command palette
+
+Press **Ctrl+K**, press `/` with the pointer over the window, click the search field in the sidebar, or press **Y** on a gamepad. Type a few letters of any control, in any tab, including tabs that were never opened.
+
+- **Enter** goes to the control and highlights it. **Ctrl+Enter** runs it in place (flips a switch, presses a button). **Left** and **Right** adjust sliders, steppers and pickers without leaving the palette.
+- Recent picks come first. `Keywords = { ... }` on a control adds words it should match.
+- Add your own commands:
+
+```luau
+local command = Window:RegisterCommand({
+    Name = "Rejoin server",
+    Icon = "rotate-ccw",
+    Keywords = { "reconnect", "server hop" },
+    Callback = function() rejoin() end,
+})
+command.Remove()            -- take it out again
+
+Window:OpenPalette("speed") -- open it from code, pre-filled
+```
+
+## Changes, undo and pins
+
+Every control knows its default. A changed row gets a dot, the page header says "3 changed · Reset tab", and a reset or a profile load can be undone with the Undo pill or Ctrl+Z.
+
+```luau
+toggle:IsChanged()      -- true when the value differs from the default
+toggle:Reset()          -- back to the default
+Tab:GetChangedCount()
+Tab:Reset()
+Window:ResetAll()
+```
+
+Right-click a row (long-press on touch, Shift+F10 or gamepad X) for its menu: reset to default, copy and paste the value, copy the flag name, pin, and show in the palette. Add your own items with `element:AddMenuItem({ Text = "Explain", Callback = function() ... end })`.
+
+Pinned switches and buttons get a Pinned group at the top of the sidebar and a quick dock that stays on screen while the window is hidden, so the three toggles you use mid-fight are one tap away.
+
 ## Tooltips, locks and confirmations
 
-`Tooltip` carries the same explanatory text as `Description` without spending row height on it, which matters once controls share a row. A control with a tooltip is marked with a small `?` after its title, so the hint is discoverable rather than hidden. The panel wraps, sizes to its content, and anchors beside the row it explains, to the right by preference, flipped left when there is no room, above or below when neither side fits, so it never covers what you are pointing at. It opens after a short delay so sweeping down a column does not strobe. Keep `Description` for anything a user must read before acting, since a tooltip needs a mouse.
+`Tooltip` carries the same explanatory text as `Description` without spending row height on it, which matters once controls share a row. A control with a tooltip is marked with a small info glyph after its title. The panel wraps, sizes to its content, and opens beside the row it explains, flipping when there is no room. It opens after a short delay so sweeping down a column does not strobe, and immediately when you move from one tooltip to the next. Keep `Description` for anything a user must read before acting.
 
 ```luau
 Tab:CreateToggle({ Name = "Kill Aura", Tooltip = "Hits every nearby enemy. Cannot run with Aimbot.", CurrentValue = false })
 ```
 
-`Lock` states a precondition on the control itself instead of failing after the click. The row is dimmed and gets a padlock badge carrying the reason; on a narrow column the badge collapses to `LOCKED` and then to the padlock alone, so it never buries the title.
+`Lock` states a precondition on the control itself instead of failing after the click. The row is dimmed and shows a padlock chip with the reason; a click on the row shows the reason instead of changing the value, and the control's keybind is blocked too. A script's own `Set` still works.
 
 ```luau
 element:Lock("enter a container ID")   -- greyed, with the reason on the row
@@ -118,7 +166,7 @@ element:SetLocked(conquestIsOn, "Conquest Auto-Hop is on")
 element:Unlock()
 ```
 
-`Window:Confirm` is a one-shot gate for destructive actions. Cancel is the default, the confirm button is tinted as a danger, and the dialog destroys itself once a choice is made.
+`Window:Confirm` is a one-shot gate for destructive actions. Cancel has the focus, the confirm button is tinted as a danger, and the dialog destroys itself once a choice is made. Closing it any other way (the x, Backspace, gamepad B, a click outside) calls `OnCancel`.
 
 ```luau
 Window:Confirm({
@@ -126,6 +174,13 @@ Window:Confirm({
     Content = "Every item type is pulled out at full quantity. There is no undo.",
     ConfirmText = "Empty it",
     OnConfirm = function() emptyContainer() end,
+})
+
+Window:Prompt({
+    Title = "Rename profile",
+    Placeholder = "Profile name",
+    Validate = function(text) return #text >= 2, "Use at least 2 letters" end,
+    OnSubmit = function(text) print("new name:", text) end,
 })
 ```
 
@@ -143,53 +198,56 @@ Tab:CreateList({ Name = "Profiles", Items = {
 } })
 ```
 
-`Style` accepts `danger` and `warning`, or pass an explicit `Color`. A single `Action = "Load"` with a row-level `Callback` still works.
+`Style` accepts `danger` and `warning`, or pass an explicit `Color`. A single `Action = "Load"` with a row-level `Callback` still works. Long lists only build the rows that are on screen.
 
 ## Loading a big interface
 
-Building several hundred controls is thousands of instances in one uninterrupted run, and Roblox cannot render a frame while that happens. Report progress and the loader waits for you instead of uncovering a window that is still assembling itself.
+You do not have to do anything. While your script builds, the window stays hidden; it opens when your script finishes, or when it has built a tab and gone quiet for a quarter of a second. Nothing is shown for the first 150 ms, so a quick script opens with no loader card at all. A big one gets a small card that says what is being built and restored.
+
+To drive the loader yourself, report progress and finish:
 
 ```luau
-local Window = Argon:CreateWindow({ Name = "My Hub" })
+local Window = Argon:CreateWindow({ Name = "My Hub", Loading = "manual" })
 
 for index, spec in ipairs(tabsToBuild) do
     Window:SetLoadingProgress(index / #tabsToBuild, "Building " .. spec.Name)
     buildTab(spec)
-    task.wait()   -- one frame, so the client stays responsive
 end
 
 Argon:LoadConfiguration()
 Window:FinishLoading()
 ```
 
-Progress is monotonic, so a lower value than the last is ignored. A window that never reports keeps the original timed behaviour, and one that reports but forgets `FinishLoading` is opened by a watchdog after 30 seconds.
+Progress never goes backwards. `Window:SetLoadingStatus(text)` changes only the text, `Window:OnLoaded(fn)` runs once the window is open, and `Window:Build(fn)` runs your builder and shows any error on the loader with **Open anyway** and **Copy error** buttons. If a manual build stops reporting for 8 seconds, the card offers **Open now**; 30 seconds after the last progress the window opens by itself.
 
-## Cursor
-
-Some games draw their own pointer: they set `UserInputService.MouseIconEnabled` to `false` and render an image in `PlayerGui`, which sits below `CoreGui`. That pointer disappears behind the menu and you click blind. When the engine cursor is off, Argon draws its own above everything it owns.
-
-```luau
-Argon:CreateWindow({ Name = "My Hub", Cursor = "auto" })  -- default
-Window:SetCursorVisible(false)   -- never
-Window:SetCursorVisible(true)    -- always
-Window:SetCursorVisible()        -- automatic again
-```
+`LoadingScreen = "never"` skips the card entirely, `"always"` shows it even for a quick build, and `{ Title = ..., Subtitle = ..., Tips = { ... } }` brands it. `LoadingTitle` and `LoadingSubtitle` (Rayfield's names) still work.
 
 ## Notifications
 
-`Argon:Notify` shows a card in the top-right corner. It is deliberately not tied to window visibility: a notification that only appears while the menu happens to be open is useless for reporting what a background feature just did.
+`Argon:Notify` shows a card in the top-right corner. It is deliberately not tied to window visibility, and it works before `CreateWindow`.
 
 ```luau
-Argon:Notify({ Title = "Saved", Content = "Configuration written.", Duration = 4 })
+Argon:Notify({ Title = "Saved", Content = "Configuration written.", Type = "success" })
+
+local job = Argon:Notify({
+    Id = "download",
+    Title = "Downloading map",
+    Type = "loading",
+    Actions = { { Text = "Cancel", Callback = function() cancelDownload() end } },
+})
+job:SetProgress(0.4)
+job:Update({ Title = "Map ready", Type = "success" })
 ```
 
-The accent and the glyph come from the title: titles containing *error* or *failed* read red, *warn* or *wait* amber, *success*, *complete* or *saved* green. The card grows to fit its body rather than clipping at a fixed height, and the stack is capped at five so a burst cannot run off the screen.
+`Type` is `info`, `success`, `warning`, `error` or `loading`; without it the type is guessed from whole words in the title ("Save failed" reads as an error, "No errors found" does not). The duration follows the length of the text unless you pass `Duration`, and the timer pauses while the pointer is over the card. Identical cards within two seconds merge into one with a count, at most four are on screen, and everything also lands in the inbox behind the bell in the topbar. Notifying again with the same `Id` updates the card in place.
+
+An error inside one of your callbacks becomes an error card with **Copy error** and **Retry** instead of a silent warning in the console. Turn that off in the Settings tab.
 
 ## Text and inputs
 
-`Label`, `Paragraph` and `TelemetryCard` size themselves to their content. A long body wraps and the row grows; a short one does not leave an empty slot behind.
+`Label`, `Paragraph`, `Callout` and `TelemetryCard` size themselves to their content. A long body wraps and the row grows; a short one does not leave an empty slot behind.
 
-`Input` shows an elided value while it is not focused, dropping the scheme and keeping the informative head and tail, and restores the real text for editing on focus. `CurrentValue` is always the full string, so a saved webhook URL round-trips exactly even though the field never displays it in full.
+`Input` shows an elided value while it is not focused, dropping the scheme and keeping the informative head and tail, and restores the real text for editing on focus. `CurrentValue` is always the full string, so a saved webhook URL round-trips exactly even though the field never displays it in full. The callback fires when the text changed or when Enter is pressed.
 
 ```luau
 local field = Tab:CreateInput({ Flag = "Webhook", Name = "Webhook URL", PlaceholderText = "https://…" })
@@ -197,12 +255,12 @@ field:Set("https://discord.com/api/webhooks/1523331338155982949/RvztQ8kLmNoPqRs"
 print(field.CurrentValue)   -- the whole URL, not the elided display
 ```
 
-## Persistence
+## Persistence and profiles
 
-Any control given a `Flag` is saved to `FolderName/FileName` shortly after it changes, and each write is read back to confirm it landed.
+Any control given a `Flag` is saved to `FolderName/FileName` shortly after it changes, and each write is read back to confirm it landed. 1.x configuration files load unchanged.
 
 ```luau
-Argon:LoadConfiguration()             -- restores values, reapplies callbacks, enables autosave
+Argon:LoadConfiguration()             -- restores values, runs callbacks once, enables autosave
 Argon:GetFlagValue("AutoFarm")
 Argon:SetFlagValue("FlySpeed", 220)
 Argon:OnFlagChanged(function(flag, value) print(flag, value) end)
@@ -210,88 +268,145 @@ Argon:GetConfigurationStats()
 Argon:ResetConfiguration()
 ```
 
-Restored values always run their callback once, even when the stored value equals the control default, and values whose control does not exist yet are retained rather than dropped.
+Restored values always run their callback once, even when the stored value equals the control default, and values whose control does not exist yet are kept rather than dropped.
+
+Profiles are named configurations next to the main file:
+
+```luau
+Argon:SaveConfiguration("PvP")             -- save the current values as a profile
+Argon:LoadConfiguration("PvP")
+Argon:ListConfigurations()                 -- { { Name = "Default", ... }, { Name = "PvP", ... } }
+Argon:RenameConfiguration("PvP", "Arena")
+Argon:SetAutoloadConfiguration("Arena")    -- loaded by LoadConfiguration() from now on
+local code = Argon:ExportConfiguration("Arena")   -- an "ARGON2:..." string to share
+Argon:ImportConfiguration(code)
+Argon:DeleteConfiguration("Arena")
+
+Window:CreateConfigManager(Tab)            -- a ready-made manager with all of the above
+```
+
+Window preferences (theme, accent, scale, size and position, overlays, pins) are kept in a small `.meta.json` file beside the configuration, so they survive even without `ConfigurationSaving`.
 
 ## Overlays
 
-The player list and active-keybind panels are draggable and can be pinned so they remain visible after the main window is hidden.
+A player list, a keybind list and a watermark (fps, ping, time). They are draggable and can stay on screen while the main window is hidden. All three are off unless you turn them on.
 
 ```luau
+Argon:CreateWindow({ Name = "My Hub", PlayerList = true, KeybindList = true })
+Window:SetWatermarkVisible(true)
 Window:SetOverlaysAlwaysVisible(true)
-Window:ToggleOverlaysAlwaysVisible()
 Window:TogglePlayerList()
 Window:ToggleKeybindList()
 ```
 
-`Window:CreateLibrarySettings(tab)` adds theme, overlay, pin, logo and transition controls in one call.
+The keybind list shows every keybind (active ones highlighted) and hides itself when there are none.
+
+## Settings tab
+
+`Window:CreateLibrarySettings(tab)` adds a complete settings page in one call: theme, material, scale, density, reduced motion and typeface; the window name and logo; the menu key, the reopen button and mouse unlock; notifications; overlays; profiles; and a diagnostics copy. The account menu and the palette can open it even if you never create one.
 
 ## Themes
 
-Ten built-in palettes: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`, `Slate`, `Ember`, `Nord`, `Mono`, `Ocean`. Register your own with `Argon:AddTheme(name, palette)` and apply it using `Argon:SetTheme(name)` or `Window:SetTheme(name)`.
-
-Every window gets a theme picker in the topbar. The button wears the active palette rather than an icon, three overlapping `AccentLight`/`Accent`/`AccentDark` dots, so it reads as a swatch and as a readout of what is applied. Clicking it opens a grid of every registered theme, each option previewing its own palette, with the active one outlined in its accent.
+Twelve built-in themes: `Argon`, `Amethyst`, `Midnight`, `Emerald`, `Rose`, `Slate`, `Ember`, `Nord`, `Mono`, `Ocean`, plus the light `Daylight` and `HighContrast`. Each one meets fixed contrast targets for text and secondary text. Rayfield theme names (`Default`, `AmberGlow`, `Bloom`, `DarkBlue`, `Green`, `Serenity`, `Light`) map to the closest theme.
 
 ```luau
-local Window = Argon:CreateWindow({ Name = "My Hub", ThemePicker = false })  -- opt out
+Argon:SetTheme("Nord")
+Argon:SetAccent(Color3.fromRGB(255, 120, 60))   -- your accent on any theme; nil to go back
+Window:SetMaterial("Clear")                     -- "Solid", "Tinted" or "Clear"
+Window:SetScale(1.1)                            -- 0.75 to 1.5
+Window:SetDensity("Compact")                    -- "Compact", "Touch", or "Auto" to follow the device
 
-Window:SetThemePickerVisible(true)   -- bring it back
-Window:ToggleThemePicker()           -- open or close the panel; returns the new state
+Argon:CreateTheme({ Name = "Coral", Accent = Color3.fromRGB(255, 111, 97), Mode = "Dark" })
+Argon:AddTheme("Mine", { Accent = Color3.fromRGB(0, 200, 160) })   -- missing keys are derived
 ```
 
-When `CreateLibrarySettings` is present the picker writes through that tab's `ArgonUITheme` flag, so the dropdown stays in step and the choice survives the next `LoadConfiguration`.
+Every window gets a theme picker in the topbar. Hovering a theme previews it on the window, and the picker also sets the accent, material, scale and density. `ThemePicker = false` in `CreateWindow` hides the button; `Window:ToggleThemePicker()` opens it from code.
 
-Every control the library builds re-themes itself, including ones that were hovered or mid-animation when the theme changed. If your script builds its own frames outside the library, read the live palette instead of baking in colours:
+Every control the library builds re-themes itself. If your script builds its own frames outside the library, read the live palette instead of baking in colours:
 
 ```luau
 local rowColour = Argon:GetColor("Surface")
-local hoverColour = Argon:GetColor("Hover")
 
 local unbind = Argon:OnThemeChanged(function(palette, themeName)
-    row.BackgroundColor3 = palette.Surface
+    myFrame.BackgroundColor3 = palette.Surface
 end)
 ```
 
-`Argon:GetColor(key, fallback)` resolves a single palette key, `Argon:GetPalette()` returns a detached snapshot, and `Argon.Palette` is the live table. Keys: `Background`, `Window`, `Sidebar`, `Surface`, `Hover`, `Active`, `Input`, `Border`, `BorderSoft`, `Text`, `Muted`, `Dim`, `Accent`, `AccentLight`, `AccentDark`, `Success`, `Warning`, `Danger`.
+`Argon:GetColor(key, fallback)` resolves a single key, `Argon:GetPalette()` returns a detached snapshot, and `Argon.Palette` is the live table. Main keys: `Frame`, `Sheet`, `Surface`, `Hover`, `Well`, `Border`, `Text`, `Text2`, `Muted`, `Accent`, `AccentHi`, `AccentDeep`, `Success`, `Warning`, `Danger`. The 1.x names (`Background`, `Window`, `Sidebar`, `Input`, `AccentLight`, `AccentDark`, `Dim`, and so on) still work.
 
 ## Icons
 
-Icons come from the official [Lucide](https://lucide.dev) set, fetched once and cached on disk, with a bundled atlas as an offline fallback.
+All 1,573 [Lucide](https://lucide.dev) icons are built in. Nothing is fetched, so icons draw on the first frame, offline too.
 
 ```luau
 Window:CreateTab("Mining", "pickaxe")
 local icon = Argon:GetIcon("shield-check")   -- { Image, ImageRectOffset, ImageRectSize }
+Argon:HasIcon("shield-check")                 -- true
 ```
+
+A Roblox asset id (`"rbxassetid://..."` or a number) works anywhere an icon name does.
+
+## Keyboard and gamepad
+
+| Keys | What they do |
+| --- | --- |
+| Insert (or your `ToggleUIKeybind`) | Hide or show the window |
+| Ctrl+K, `/` | Command palette |
+| Ctrl+1 to 9, Ctrl+[ and ] | Switch tabs |
+| Arrow keys, Tab | Move the focus ring; Left and Right adjust the focused control |
+| Enter, Space | Activate the focused control |
+| Shift+F10 | Row menu |
+| Ctrl+Z | Undo the last reset or profile load |
+| Backspace | Close the top popup, menu or dialog |
+| Gamepad | L1/R1 tabs, Y palette, X row menu, B back |
+
+Escape is left alone on purpose: in Roblox it opens the game menu.
+
+## Upgrading from 1.x
+
+Replace the file; your script and your users' saved configurations keep working. A few things look or behave differently on purpose, for example the loader has no fixed timers, the overlays are off by default, Escape no longer closes things, and a keybind's `Callback` fires on press as in Rayfield. [`CHANGELOG.md`](CHANGELOG.md) lists every one.
 
 ## FAQ
 
 ### Can I port a Rayfield script to Argon UI?
 
-Usually by swapping the loader. The API shape follows Rayfield's, including `CreateWindow`, `CreateTab`, `CreateSection` and the `Create*` control methods with `Flag`, `CurrentValue` and `Callback`. Anything Argon adds, rows, tooltips, locks, steppers, progress bars, is optional and additive.
+Usually by swapping the loader. The API shape follows Rayfield's, including `CreateWindow`, `CreateTab`, `CreateSection`, the `Create*` control methods with `Flag`, `CurrentValue` and `Callback`, Rayfield's theme names and its `KeySystem` settings. Anything Argon adds is optional.
 
 ### What does it need to run?
 
-An environment that provides `loadstring` and `game:HttpGet`, plus `CoreGui` access for the window. Configuration saving needs file functions (`writefile`, `readfile`, `isfile`); without them the library runs fine and simply does not persist.
+An environment that provides `loadstring` and `game:HttpGet` (or the file pasted into a LocalScript in Studio). The window goes into `gethui()`, `CoreGui` or `PlayerGui`, whichever is available. Configuration saving needs file functions (`writefile`, `readfile`, `isfile`); without them the library runs fine and simply does not persist.
+
+### Is it fast with hundreds of controls?
+
+Yes. That is what 2.0 was rebuilt for. A window with 400 controls is created without building any of them up front, the visible tab is built first, and the library does no work at all while it sits idle. Measured numbers against 1.x are in [`bench/RESULTS.md`](bench/RESULTS.md).
 
 ### Does it work on a phone or a small window?
 
-Yes. Rows collapse to a single stack below `MinColumnWidth`, the sidebar collapses on narrow windows, and the window has a `560 x 400` minimum. Note that tooltips need a pointer, so put anything essential in `Description`.
+Yes. Rows wrap to a single stack below `MinColumnWidth`, the sidebar becomes an icon rail on narrow windows, phones get their own landscape and portrait layouts, and every control has a touch size. Tooltips also open on a long-press, but put anything essential in `Description`.
 
 ### Is it one file on purpose?
 
-Yes. No requires, no module tree, no build step, so it drops into a single-file script and can be vendored beside it for an offline fallback.
+The file you load is one file, so it drops into a single-file script and can be vendored beside it. The source is split into small modules in `src/` and bundled into `argon-ui.luau` by `build.luau`.
 
 ### How do I try it without opening Roblox?
 
-Open the [live preview](https://jirkaachs.github.io/argon-ui/preview.html). It is a working reimplementation rather than a screenshot: sliders drag, the colour picker has a real HSV square, dropdowns filter, rows collapse as the window narrows, tooltips and locks behave as in game, and all ten palettes apply live. Press `/` to focus search, `Insert` to hide or restore the window, `Esc` to close whatever is open.
+Open the [live preview](https://jirkaachs.github.io/argon-ui/preview.html). It is a working reimplementation rather than a screenshot: sliders drag, the colour picker has a real HSV square, the palette searches, rows wrap as the window narrows, and all twelve themes apply live.
 
 ### How do I know a change did not break anything?
 
-`tests/` runs the real library outside Roblox against a small Roblox API sandbox. Install [Lune](https://github.com/lune-org/lune), then `lune run tests/run.luau`. The suite covers control behaviour, the configuration round-trip, deferred flag hydration, autosave timing, pinned overlays, themes, dialogs and window controls. See [`tests/README.md`](tests/README.md).
+`tests/` runs the real library outside Roblox against a Roblox API sandbox. Install [Lune](https://github.com/lune-org/lune), then `lune run tests/run_all.luau`. See [`tests/README.md`](tests/README.md).
 
 ## Contributing
 
-Issues and pull requests are welcome. Run the test suite before opening one, and keep the library a single file.
+Issues and pull requests are welcome. Edit the modules in `src/`, then:
+
+```sh
+lune run build.luau            # writes argon-ui.luau
+lune run tests/run_all.luau    # every suite
+```
+
+Commit the rebuilt `argon-ui.luau` together with your change. The design behind 2.0 is in [`design/v2/`](design/v2/).
 
 ---
 
-<sub>Also useful if you searched for: Roblox UI library, Luau GUI library, Rayfield alternative, Roblox script hub UI, Roblox menu library single file, Luau interface library with config saving, Roblox UI library with themes, Lucide icons for Roblox, responsive Roblox GUI.</sub>
+<sub>Also useful if you searched for: Roblox UI library, Luau GUI library, Rayfield alternative, Roblox script hub UI, Roblox menu library single file, Luau interface library with config saving, Roblox UI library with themes, Lucide icons for Roblox, responsive Roblox GUI, Roblox command palette, fast Roblox UI library.</sub>
